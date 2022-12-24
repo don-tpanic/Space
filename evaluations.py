@@ -4,8 +4,10 @@ import matplotlib.pyplot as plt
 
 def plot_components(
         n_components,
-        results_path, 
-        movement_mode
+        movement_mode,
+        model_name,
+        output_layer,
+        reduction_method,
     ):
     ###########
     # Unity env dimension (Unity z axis in python is now y axis)
@@ -14,6 +16,8 @@ def plot_components(
     y_min = -4
     y_max = 4
     ###########
+
+    results_path = f'results/{movement_mode}/{model_name}/{output_layer}/{reduction_method}'
 
     # collect the top n components in a list
     # this is for subplotting
@@ -76,11 +80,18 @@ def plot_components(
     ax[2, 1].set_xlabel('Unity x axis')
 
     # plt.tight_layout()
+    plt.suptitle(f'{movement_mode}, {model_name}, {output_layer}, {reduction_method}')
     plt.savefig(f'{results_path}/components.png')
 
 
-def plot_variance_explained(results_path, reduction_method):
+def plot_variance_explained(
+        movement_mode,
+        model_name,
+        output_layer,
+        reduction_method,
+    ):
     assert reduction_method == 'pca', "only pca supported for now"
+    results_path = f'results/{movement_mode}/{model_name}/{output_layer}/{reduction_method}'
 
     explained_variance_ratio = np.load(
         f'{results_path}/explained_variance_ratio.npy'
@@ -101,25 +112,29 @@ def plot_variance_explained(results_path, reduction_method):
     ax.set_ylabel('accumulative variance explained')
     ax.set_xticks(range(0, len(accumulative_variance), 10))
     ax.set_xticklabels(range(1, len(accumulative_variance)+1, 10))
+    plt.suptitle(f'{movement_mode}, {model_name}, {output_layer}, {reduction_method}')
     plt.savefig(f'{results_path}/explained_variance_ratio.png')
 
 
 if __name__ == "__main__":
     movement_mode = '1d'
-    model_name = 'vgg16'
-    output_layer = 'fc2'
-    reduction_method = 'pca'
-    results_path = f'results/{movement_mode}/{model_name}/{output_layer}/{reduction_method}'
+    model_name = 'none'
+    output_layer = 'raw'
+    reduction_method = 'nmf'
     n_components = 9
 
     plot_components(
         n_components, 
-        results_path, 
         movement_mode,
+        model_name,
+        output_layer,
+        reduction_method,
     )
 
     plot_variance_explained(
-        results_path, 
+        movement_mode,
+        model_name,
+        output_layer,
         reduction_method,
     )
         

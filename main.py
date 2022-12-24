@@ -15,9 +15,9 @@ def execute(
         n_components, 
         movement_mode, 
         data_path, 
-        results_path,
         reduction_method,
     ):
+    results_path = f'results/{movement_mode}/{model_name}/{output_layer}/{reduction_method}'
     if not os.path.exists(results_path):
         os.makedirs(results_path)
 
@@ -75,21 +75,22 @@ def execute(
     # eval
     evaluations.plot_components(
         n_components,
-        results_path,
         movement_mode,
+        model_name,
+        output_layer,
+        reduction_method,
     )
 
 
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
-    movement_mode = '2d'
-    model_name = 'none'
-    output_layer = 'raw'
+    movement_mode = '1d'
+    model_name = 'vgg16'
+    output_layer = 'fc2'
     n_components = 9
     data_path = f'data/unity'
-    reduction_method = 'pca'
-    results_path = f'results/{movement_mode}/{model_name}/{output_layer}/{reduction_method}'
+    reduction_method = 'nmf'
 
     execute(
         model_name, 
@@ -97,6 +98,5 @@ if __name__ == "__main__":
         n_components, 
         movement_mode, 
         data_path,
-        results_path,
         reduction_method,
     )
