@@ -7,17 +7,26 @@ from models import load_model
 from data import load_data
 import dimension_reduction
 import evaluations
+import utils
 
 
-def execute(
-        model_name, 
-        output_layer, 
-        n_components, 
-        movement_mode, 
-        data_path, 
-        reduction_method,
-    ):
-    results_path = f'results/{movement_mode}/{model_name}/{output_layer}/{reduction_method}'
+def execute(config_version):
+    # load config
+    config = utils.load_config(config_version)
+    unity_env = config['unity_env']
+    model_name = config['model_name']
+    output_layer = config['output_layer']
+    n_components = config['n_components']
+    movement_mode = config['movement_mode']
+    reduction_method = config['reduction_method']
+    n_rotations = config['n_rotations']
+    x_min = config['x_min']
+    x_max = config['x_max']
+    y_min = config['y_min']
+    y_max = config['y_max']
+    multiplier = config['multiplier']
+    data_path = f"data/unity/{unity_env}/{movement_mode}"
+    results_path = f'results/{unity_env}/{movement_mode}/{model_name}/{output_layer}/{reduction_method}'
     if not os.path.exists(results_path):
         os.makedirs(results_path)
 
@@ -27,7 +36,16 @@ def execute(
         model, preprocess_func = load_model(model_name, output_layer)
 
     preprocessed_data = load_data(
-        data_path, movement_mode, preprocess_func)
+        data_path=data_path, 
+        movement_mode=movement_mode,
+        x_min=x_min,
+        x_max=x_max,
+        y_min=y_min,
+        y_max=y_max,
+        multiplier=multiplier,
+        n_rotations=n_rotations,
+        preprocess_func=preprocess_func,
+    )
     
     # use raw image input 
     if model_name == 'none':
@@ -43,9 +61,9 @@ def execute(
         # due to each position in 2d takes 6 views, we 
         # concat them so each position has 1 vector.
         # also we use the fact the file names are sorted so
-        # every 6 files are the same position  # TODO: is there a more elegant way?
-        n_rows = int(model_reps.shape[0] / 6)
-        n_cols = int(model_reps.shape[1] * 6)
+        # every `n_rotations` files are the same position
+        n_rows = int(model_reps.shape[0] / n_rotations)
+        n_cols = int(model_reps.shape[1] * n_rotations)
         model_reps = model_reps.reshape((n_rows, n_cols))
         print(f'model_reps.shape: {model_reps.shape}')
 
@@ -70,33 +88,32 @@ def execute(
             f'{results_path}/explained_variance_ratio.npy', 
             explained_variance_ratio
         )
-        evaluations.plot_variance_explained(results_path, reduction_method)
+        evaluations.plot_variance_explained(
+            movement_mode=movement_mode,
+            model_name=model_name,
+            output_layer=output_layer,
+            reduction_method=reduction_method,
+            results_path=results_path,
+        )
 
     # eval
     evaluations.plot_components(
-        n_components,
-        movement_mode,
-        model_name,
-        output_layer,
-        reduction_method,
+        unity_env=unity_env,
+        n_components=n_components,
+        movement_mode=movement_mode,
+        model_name=model_name,
+        output_layer=output_layer,
+        reduction_method=reduction_method,
+        results_path=results_path,
+        x_min=x_min,
+        x_max=x_max,
+        y_min=y_min,
+        y_max=y_max,
+        multiplier=multiplier,
     )
 
 
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-
-    movement_mode = '1d'
-    model_name = 'vgg16'
-    output_layer = 'fc2'
-    n_components = 9
-    data_path = f'data/unity'
-    reduction_method = 'nmf'
-
-    execute(
-        model_name, 
-        output_layer, 
-        n_components, 
-        movement_mode, 
-        data_path,
-        reduction_method,
-    )
+    config_version = 'config7_env1_2d_none_raw_9_pca'
+    execute(config_version)

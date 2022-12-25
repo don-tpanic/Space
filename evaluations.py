@@ -3,22 +3,19 @@ import matplotlib.pyplot as plt
 
 
 def plot_components(
+        unity_env,
         n_components,
         movement_mode,
         model_name,
         output_layer,
         reduction_method,
+        results_path,
+        x_min,
+        x_max,
+        y_min,
+        y_max,
+        multiplier,
     ):
-    ###########
-    # Unity env dimension (Unity z axis in python is now y axis)
-    x_min = -4
-    x_max = 4
-    y_min = -4
-    y_max = 4
-    ###########
-
-    results_path = f'results/{movement_mode}/{model_name}/{output_layer}/{reduction_method}'
-
     # collect the top n components in a list
     # this is for subplotting
     components = []
@@ -33,19 +30,14 @@ def plot_components(
     fig, ax = plt.subplots(subplot_dim, subplot_dim)
 
     if movement_mode == '1d':
-        # x_axis_coords = np.linspace(x_min, x_max, len(components[0]))
-        # y_axis_coords = np.zeros(len(components[0]))
-        multiplier = 10
         x_axis_coords = []
         y_axis_coords = np.zeros(len(components[0]))
         for i in range(x_min*multiplier, x_max*multiplier+1):
             x_axis_coords.append(i/multiplier)
 
     elif movement_mode == '2d':
-        multiplier = 2  # for decimal coords
         x_axis_coords = []
         y_axis_coords = []
-
         # same idea as generating the frames in Unity
         # so we get decimal coords in between the grid points
         for i in range(x_min*multiplier, x_max*multiplier+1):
@@ -89,9 +81,9 @@ def plot_variance_explained(
         model_name,
         output_layer,
         reduction_method,
+        results_path,
     ):
     assert reduction_method == 'pca', "only pca supported for now"
-    results_path = f'results/{movement_mode}/{model_name}/{output_layer}/{reduction_method}'
 
     explained_variance_ratio = np.load(
         f'{results_path}/explained_variance_ratio.npy'
@@ -117,18 +109,36 @@ def plot_variance_explained(
 
 
 if __name__ == "__main__":
-    movement_mode = '1d'
-    model_name = 'none'
-    output_layer = 'raw'
-    reduction_method = 'nmf'
-    n_components = 9
+    import utils 
+    config_version = "config8_env1_2d_none_raw_9_nmf"
+    config = utils.load_config(config_version)
+    unity_env = config['unity_env']
+    model_name = config['model_name']
+    output_layer = config['output_layer']
+    n_components = config['n_components']
+    movement_mode = config['movement_mode']
+    reduction_method = config['reduction_method']
+    n_rotations = config['n_rotations']
+    x_min = config['x_min']
+    x_max = config['x_max']
+    y_min = config['y_min']
+    y_max = config['y_max']
+    multiplier = config['multiplier']
+    results_path = f'results/{unity_env}/{movement_mode}/{model_name}/{output_layer}/{reduction_method}'
 
     plot_components(
+        unity_env,
         n_components, 
         movement_mode,
         model_name,
         output_layer,
         reduction_method,
+        results_path,
+        x_min,
+        x_max,
+        y_min,
+        y_max,
+        multiplier,
     )
 
     plot_variance_explained(
@@ -136,5 +146,6 @@ if __name__ == "__main__":
         model_name,
         output_layer,
         reduction_method,
+        results_path,
     )
         

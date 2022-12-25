@@ -11,8 +11,14 @@ from tensorflow.keras.preprocessing.image import load_img, img_to_array
 
 
 def load_data(
-        data_path,
+        data_path, 
         movement_mode,
+        x_min,
+        x_max,
+        y_min,
+        y_max,
+        multiplier,
+        n_rotations,
         preprocess_func=None,
         color_mode='rgb', 
         target_size=(224, 224), 
@@ -21,22 +27,11 @@ def load_data(
         data_format='channels_last',
         dtype=K.floatx(),
     ):
-    ###########
-    # Unity env dimension (Unity z axis in python is now y axis)
-    x_min = -4
-    x_max = 4
-    y_min = -4
-    y_max = 4
-    ###########
-
     if movement_mode == '1d':
-        multiplier = 10
         n_stops_x = len( range(x_min*multiplier, x_max*multiplier+1) )
         n_samples = n_stops_x
 
     elif movement_mode == '2d':
-        multiplier = 2
-        n_rotations = 6
         n_stops_x = len( range(x_min*multiplier, x_max*multiplier+1) )
         n_stops_y = len( range(y_min*multiplier, y_max*multiplier+1) )
         n_samples = (n_stops_x * n_stops_y) * n_rotations
@@ -46,7 +41,7 @@ def load_data(
     # build batch of image data
     batch_x = np.zeros((n_samples,) + image_shape, dtype=dtype)
     for i in range(n_samples):
-        fpath = f'{data_path}/{movement_mode}/{i}.png'
+        fpath = f'{data_path}/{i}.png'
         # PIL.Image
         img = load_img(
             fpath,
@@ -69,6 +64,28 @@ def load_data(
 
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-    movement_mode = '1d'
-    data_path = f'data/unity'
-    load_data(data_path, movement_mode)
+
+    import utils
+    config_version = "config1_env1_1d_vgg16_fc2_9_pca"
+    config = utils.load_config(config_version)
+    unity_env = config['unity_env']
+    model_name = config['model_name']
+    movement_mode = config['movement_mode']
+    n_rotations = config['n_rotations']
+    x_min = config['x_min']
+    x_max = config['x_max']
+    y_min = config['y_min']
+    y_max = config['y_max']
+    multiplier = config['multiplier']
+    data_path = f"data/unity/{unity_env}/{movement_mode}"
+    load_data(
+        data_path, 
+        movement_mode,
+        x_min,
+        x_max,
+        y_min,
+        y_max,
+        multiplier,
+        n_rotations,
+        preprocess_func=None
+    )
