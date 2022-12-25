@@ -1,0 +1,16 @@
+config_version: config5_env1_1d_none_raw_9_pca
+
+unity_env: env1
+model_name: none
+output_layer: raw
+n_components: 9
+movement_mode: 1d
+reduction_method: pca
+n_rotations: 1
+
+# unity settings
+x_min: -4
+x_max: 4
+y_min: -4
+y_max: 4
+multiplier: 10
