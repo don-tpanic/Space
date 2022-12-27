@@ -1,8 +1,8 @@
-config_version: config8_env1_2d_none_raw_9_nmf
+config_version: env1_2d_vgg16_fc2_9_nmf
 
 unity_env: env1
-model_name: none
-output_layer: raw
+model_name: vgg16
+output_layer: fc2
 n_components: 9
 movement_mode: 2d
 reduction_method: nmf

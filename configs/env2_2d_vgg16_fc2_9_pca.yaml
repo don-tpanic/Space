@@ -1,6 +1,6 @@
-config_version: config3_env1_2d_vgg16_fc2_9_pca
+config_version: env2_2d_vgg16_fc2_9_pca
 
-unity_env: env1
+unity_env: env2
 model_name: vgg16
 output_layer: fc2
 n_components: 9

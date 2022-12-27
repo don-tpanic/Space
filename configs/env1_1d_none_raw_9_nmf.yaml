@@ -1,11 +1,11 @@
-config_version: config5_env1_1d_none_raw_9_pca
+config_version: env1_1d_none_raw_9_nmf
 
 unity_env: env1
 model_name: none
 output_layer: raw
 n_components: 9
 movement_mode: 1d
-reduction_method: pca
+reduction_method: nmf
 n_rotations: 1
 
 # unity settings

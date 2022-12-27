@@ -1,12 +1,13 @@
-config_version: config6_env1_1d_none_raw_9_nmf
+config_version: env6_1d_none_uniform999_9_nmf
 
-unity_env: env1
+unity_env: env6
 model_name: none
-output_layer: raw
+output_layer: uniform999
 n_components: 9
 movement_mode: 1d
 reduction_method: nmf
 n_rotations: 1
+random_seed: 999
 
 # unity settings
 x_min: -4

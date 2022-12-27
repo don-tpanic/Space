@@ -1,11 +1,11 @@
-config_version: config9_env2_1d_vgg16_fc2_9_pca
+config_version: env1_1d_vgg16_fc2_9_nmf
 
-unity_env: env2
+unity_env: env1
 model_name: vgg16
 output_layer: fc2
 n_components: 9
 movement_mode: 1d
-reduction_method: pca
+reduction_method: nmf
 n_rotations: 1
 
 # unity settings
