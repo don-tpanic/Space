@@ -10,6 +10,43 @@ from tensorflow.keras import backend as K
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 
 
+def generate_random_data(
+        data_path,
+        movement_mode,
+        x_min,
+        x_max,
+        y_min,
+        y_max,
+        multiplier,
+        n_rotations,
+        random_seed,
+        image_shape=(224, 224, 3),
+    ):
+    """Generate random data for testing purposes"""
+
+    if not os.path.exists(data_path):
+        os.makedirs(data_path)
+
+    # generate random data
+    np.random.seed(random_seed)
+
+    if movement_mode == '1d':
+        n_stops_x = len( range(x_min*multiplier, x_max*multiplier+1) )
+        n_samples = n_stops_x
+    elif movement_mode == '2d':
+        n_stops_x = len( range(x_min*multiplier, x_max*multiplier+1) )
+        n_stops_y = len( range(y_min*multiplier, y_max*multiplier+1) )
+        n_samples = (n_stops_x * n_stops_y) * n_rotations
+    print(f'n_samples: {n_samples}')
+
+    batch_x = np.random.rand(n_samples, *image_shape)
+    
+    # save random data as png
+    for i in range(n_samples):
+        img = Image.fromarray( (batch_x[i]*255).astype('uint8') )
+        img.save(f'{data_path}/{i}.png')
+
+
 def load_data(
         data_path, 
         movement_mode,
@@ -66,7 +103,7 @@ if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
     import utils
-    config_version = "config1_env1_1d_vgg16_fc2_9_pca"
+    config_version = "env6_2d_none_uniform999_9_pca"
     config = utils.load_config(config_version)
     unity_env = config['unity_env']
     model_name = config['model_name']
@@ -77,15 +114,29 @@ if __name__ == "__main__":
     y_min = config['y_min']
     y_max = config['y_max']
     multiplier = config['multiplier']
+    random_seed = config['random_seed']
     data_path = f"data/unity/{unity_env}/{movement_mode}"
-    load_data(
-        data_path, 
-        movement_mode,
-        x_min,
-        x_max,
-        y_min,
-        y_max,
-        multiplier,
-        n_rotations,
-        preprocess_func=None
+
+    generate_random_data(
+        data_path=data_path,
+        movement_mode=movement_mode,
+        x_min=x_min,
+        x_max=x_max,
+        y_min=y_min,
+        y_max=y_max,
+        multiplier=multiplier,
+        n_rotations=n_rotations,
+        random_seed=random_seed,
     )
+
+    # load_data(
+    #     data_path, 
+    #     movement_mode,
+    #     x_min,
+    #     x_max,
+    #     y_min,
+    #     y_max,
+    #     multiplier,
+    #     n_rotations,
+    #     preprocess_func=None
+    # )
