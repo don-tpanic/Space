@@ -1,5 +1,8 @@
+import os
 import numpy as np
+import scipy.stats as stats
 import matplotlib.pyplot as plt
+import utils
 
 
 def plot_components(
@@ -108,9 +111,120 @@ def plot_variance_explained(
     plt.savefig(f'{results_path}/explained_variance_ratio.png')
 
 
+def plot_env_diff(
+        env_i, env_j, 
+        movement_mode, 
+        model_name, 
+        output_layer, 
+        reduction_method,
+        n_components=9,
+    ):
+    """
+    Given two envs that differ some way, e.g. one 
+    has a decorated wall or one has a different lighting,
+    we compare the 2D component heatmaps, hoping to better 
+    understand what the diff will change the 2D components.
+    """
+    # i and j are the same configs except for the env (only one diff)
+    # so we use i to extract env dimensions are are again same.
+    template_config = utils.load_config(
+        f'{env_i}_{movement_mode}_{model_name}_' \
+        f'{output_layer}_{n_components}_{reduction_method}'
+    )
+    x_min = template_config['x_min']
+    x_max = template_config['x_max']
+    y_min = template_config['y_min']
+    y_max = template_config['y_max']
+    multiplier = template_config['multiplier']
+
+    results_path_env_i = \
+        f'results/{env_i}/{movement_mode}/{model_name}' \
+        f'/{output_layer}/{reduction_method}'
+    
+    results_path_env_j = \
+        f'results/{env_j}/{movement_mode}/{model_name}' \
+        f'/{output_layer}/{reduction_method}'
+
+    # collect the top n components in a list
+    # this is for subplotting
+    components = []
+    for i in range(n_components):
+        env_i_components = np.load(
+            f'{results_path_env_i}/components_{i+1}.npy'
+        )
+        env_j_components = np.load(
+            f'{results_path_env_j}/components_{i+1}.npy'
+        )
+        components.append(env_i_components - env_j_components)
+        # print(stats.spearmanr(env_i_components, env_j_components))
+        # a = np.isclose(
+        #     env_i_components, 
+        #     env_j_components, 
+        #     rtol=0.1, 
+        # )
+        # print(a)
+        # exit()
+
+    # create the subplots (assume square)
+    subplot_dim = int(np.sqrt(n_components))
+    fig, ax = plt.subplots(subplot_dim, subplot_dim)
+
+    if movement_mode == '1d':
+        x_axis_coords = []
+        y_axis_coords = np.zeros(len(components[0]))
+        for i in range(x_min*multiplier, x_max*multiplier+1):
+            x_axis_coords.append(i/multiplier)
+
+    elif movement_mode == '2d':
+        x_axis_coords = []
+        y_axis_coords = []
+        # same idea as generating the frames in Unity
+        # so we get decimal coords in between the grid points
+        for i in range(x_min*multiplier, x_max*multiplier+1):
+            for j in range(y_min*multiplier, y_max*multiplier+1):
+                x_axis_coords.append(i/multiplier)
+                y_axis_coords.append(j/multiplier)
+
+    # each subplot is a component across
+    # the above x and y coords
+    for subplot_i in range(n_components):
+        components_i = components[subplot_i]
+        row_idx = int(subplot_i / subplot_dim)
+        col_idx = subplot_i % subplot_dim
+        # print(f'row_idx: {row_idx}, col_idx: {col_idx}')
+
+        ax[row_idx, col_idx].set_title(f'component {subplot_i+1}')
+        ax[row_idx, col_idx].set_xlim(x_min, x_max)
+        ax[row_idx, col_idx].set_ylim(y_min, y_max)
+        ax[row_idx, col_idx].scatter(
+            x_axis_coords, y_axis_coords, 
+            c=components_i, cmap='viridis', s=24
+        )
+
+        # turn off unnec axes
+        if row_idx < subplot_dim-1:
+            ax[row_idx, col_idx].set_xticks([])
+        if col_idx > 0:
+            ax[row_idx, col_idx].set_yticks([])
+
+    # add axes labels
+    ax[1, 0].set_ylabel('Unity z axis')
+    ax[2, 1].set_xlabel('Unity x axis')
+
+    # plt.tight_layout()
+    plt.suptitle(
+        f'{env_i}-{env_j} \n{movement_mode}, ' \
+        f'{model_name}, {output_layer}, {reduction_method}')
+    results_path = f'results/{env_i}-{env_j}/{movement_mode}/{model_name}' \
+                   f'/{output_layer}/{reduction_method}'
+    if not os.path.exists(results_path):
+        os.makedirs(results_path)
+    plt.savefig(f'{results_path}/components_diff.png')
+
+
 if __name__ == "__main__":
     import utils 
-    config_version = "config8_env1_2d_none_raw_9_nmf"
+    config_version = "env1_2d_none_raw_9_nmf"
     config = utils.load_config(config_version)
     unity_env = config['unity_env']
     model_name = config['model_name']
@@ -124,28 +238,45 @@ if __name__ == "__main__":
     y_min = config['y_min']
     y_max = config['y_max']
     multiplier = config['multiplier']
-    results_path = f'results/{unity_env}/{movement_mode}/{model_name}/{output_layer}/{reduction_method}'
+    results_path = \
+        f'results/{unity_env}/{movement_mode}/' \
+        f'{model_name}/{output_layer}/{reduction_method}'
 
-    plot_components(
-        unity_env,
-        n_components, 
-        movement_mode,
-        model_name,
-        output_layer,
+    # plot_components(
+    #     unity_env,
+    #     n_components, 
+    #     movement_mode,
+    #     model_name,
+    #     output_layer,
+    #     reduction_method,
+    #     results_path,
+    #     x_min,
+    #     x_max,
+    #     y_min,
+    #     y_max,
+    #     multiplier,
+    # )
+
+    # plot_variance_explained(
+    #     movement_mode,
+    #     model_name,
+    #     output_layer,
+    #     reduction_method,
+    #     results_path,
+    # )
+
+    env_i = 'env1'
+    env_j = 'env2'
+    movement_mode = '2d'
+    model_name = 'vgg16'
+    output_layer = 'fc2'
+    reduction_method = 'pca'
+    plot_env_diff(
+        env_i, env_j, 
+        movement_mode, 
+        model_name, 
+        output_layer, 
         reduction_method,
-        results_path,
-        x_min,
-        x_max,
-        y_min,
-        y_max,
-        multiplier,
     )
 
-    plot_variance_explained(
-        movement_mode,
-        model_name,
-        output_layer,
-        reduction_method,
-        results_path,
-    )
         
