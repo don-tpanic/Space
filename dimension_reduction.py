@@ -13,19 +13,30 @@ def compute_components(X, reduction_method, random_state=999):
     print(f'n_components: {np.min(X.shape)}')
 
     if reduction_method == 'pca':
+        print(f'running PCA...')
         pca = PCA(n_components=np.min(X.shape), random_state=random_state)
         X_latent = pca.fit_transform(X)
         explained_variance_ratio = pca.explained_variance_ratio_
         return X_latent, explained_variance_ratio
     
     elif reduction_method == 'nmf':
+        print(f'running NMF...')
         nmf = NMF(n_components=np.min(X.shape), random_state=random_state)
         X_latent = nmf.fit_transform(X)
+        return X_latent, None
+
+    elif reduction_method == 'avgmax':
+        print(f'running avgmax...')
+        # sort the matrix columns based on averaged max
+        # values of each column
+        col_ranks_desc = np.argsort(np.mean(X, axis=0))[::-1]
+        print(f'col_ranks_desc.shape: {col_ranks_desc.shape}')
+        X_latent = X[:, col_ranks_desc]
         return X_latent, None
 
 
 if __name__ == "__main__":
     X = np.random.rand(100, 4)
-    X_latent, explained_variance_ratio = compute_components(X, 'pca')
+    X_latent, explained_variance_ratio = compute_components(X, 'avgmax')
     print(X_latent.shape)
-    print(explained_variance_ratio)
+    # print(explained_variance_ratio)
