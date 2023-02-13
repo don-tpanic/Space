@@ -1,11 +1,8 @@
 import numpy as np 
 import matplotlib.pyplot as plt
-from sklearn.decomposition import PCA, FastICA
+import utils
 np.random.seed(999)
 
-"""
-First just try to figure out how PCA is performed (on which dim and map to 2D)
-"""
 
 def cell_actv(sigma, n_locations, n_cells, agent_locations, cell_locations):
     """
@@ -17,7 +14,9 @@ def cell_actv(sigma, n_locations, n_cells, agent_locations, cell_locations):
     actv = np.empty((n_locations, n_cells))
     for l in range(n_locations):
         for c in range(n_cells):
-            actv[l, c] = np.exp(-np.sum((agent_locations[l] - cell_locations[c])**2) / (2 * sigma**2))
+            actv[l, c] = np.exp(
+                -np.sum((agent_locations[l] - cell_locations[c])**2) / (2 * sigma**2)
+            )
     return actv
 
 
@@ -43,27 +42,30 @@ def cell_actv(sigma, n_locations, n_cells, agent_locations, cell_locations):
 #     cov_actv_transformed = pca.fit_transform(cov_actv)
 #     print(f'cov_actv_transformed.shape: {cov_actv_transformed.shape}')  # (n_loc, n_loc)
 #     return cov_actv_transformed
+#     
 
-
-def SVD_for_grid_cells(actv):
-    """Compute SVD of actv
-
-    actv: (n_locations, n_cells) -> (n_locations, n_latent_cells)
+def transform_and_plot_cells(actv, agent_locations, transform, input_type):
     """
-    pca = PCA(n_components=actv.shape[1])
-    actv_transformed = pca.fit_transform(actv)
-    print(f'actv_transformed.shape: {actv_transformed.shape}')
-    return actv_transformed
-
-
-def compute_and_plot_grid_cells(actv, agent_locations):
-    """
-    Plot grid cells in 2D space.
+    Transform place cell actv and plot the cells in 2D space.
 
     Each cell has actv over locations, each needs to be plotted separate.
     """
-    # SVD
-    actv_transformed = SVD_for_grid_cells(actv)
+    print(f'transform = {transform}')
+    if transform == 'svd':
+        actv_transformed = utils.SVD_on_cell_actv(actv)
+        subplot_title = 'Prin. comp.'
+
+    elif transform == 'ica':
+        actv_transformed = utils.ICA_on_cell_actv(actv)
+        subplot_title = 'Ind. comp.'
+    
+    elif transform == 'nmf':
+        actv_transformed = utils.NMF_on_cell_actv(actv)
+        subplot_title = 'NMF'
+
+    elif transform == 'none':
+        actv_transformed = actv
+        subplot_title = f'input {input_type} cell'
 
     # plotting
     fig, ax = plt.subplots(3, 3, figsize=(10, 10))
@@ -78,28 +80,10 @@ def compute_and_plot_grid_cells(actv, agent_locations):
                 c=actv_transformed[:, i * 3 + j], 
                 cmap='viridis',
             )
-            ax[i, j].set_title(f'Prin. comp. {i * 3 + j + 1}')
+            ax[i, j].set_title(f'{subplot_title} {i * 3 + j + 1}')
 
-    plt.savefig('grid_cells.png')
-
-
-def plot_place_cells(actv, agent_locations):
-    # plotting
-    fig, ax = plt.subplots(3, 3, figsize=(10, 10))
-    
-    # plot the first 9 place cells in 2D space
-    # given agent locations
-    for i in range(3):
-        for j in range(3):
-            ax[i, j].scatter(
-                agent_locations[:, 0], 
-                agent_locations[:, 1], 
-                c=actv[:, i * 3 + j], 
-                cmap='viridis',
-            )
-            ax[i, j].set_title(f'Place cell {i * 3 + j + 1}')
-
-    plt.savefig('place_cells.png')
+    plt.savefig(f'input_{input_type}_cells_{transform}.png')
+    return actv_transformed
 
 
 def execute():
@@ -108,10 +92,10 @@ def execute():
     n_locations = 1000
     env_length = 10
     sigma = 1
-    pca_dim = 'loc'
-    n_sampled_cells = 5  # number of cells to plot
+    transform = 'nmf'
+    reverse_transform = 'ica'
 
-    # 1. sample gaussian ceters in 2d space
+    # 1. sample gaussian centers in 2d space
     cell_locations = np.empty((n_cells, dim))
     for c in range(n_cells):
         cell_locations[c] = np.random.uniform(0, env_length, dim)
@@ -123,13 +107,29 @@ def execute():
 
     # 3. compute cell activity
     # actv -> (n_locations, n_cells)
-    actv = cell_actv(sigma, n_locations, n_cells, agent_locations, cell_locations)
+    actv = cell_actv(
+        sigma=sigma, 
+        n_locations=n_locations, 
+        n_cells=n_cells, 
+        agent_locations=agent_locations, 
+        cell_locations=cell_locations
+    )
 
-    # 4. perform PCA and plot grid cells
-    compute_and_plot_grid_cells(actv, agent_locations)
+    # 4. perform transformation on place-cell actv and 
+    # and plot transformed cell actv
+    actv_transformed = transform_and_plot_cells(
+        actv, agent_locations, transform, input_type='place'
+    )
 
-    # 5. plot place cells
-    plot_place_cells(actv, agent_locations)
+    # 5. converse direction performing transform on the latent cell actv
+    # i.e. apply `reverse_transform` on transformed actv
+    if transform != 'none':
+        actv_transformed = transform_and_plot_cells(
+            actv=actv_transformed, 
+            agent_locations=agent_locations, 
+            transform=reverse_transform, 
+            input_type=transform
+        )
 
 
 if __name__ == "__main__":
