@@ -3,6 +3,7 @@ os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = "3"
 
 import numpy as np
+import matplotlib.pyplot as plt
 from models import load_model
 from data import load_data
 import dimension_reduction
@@ -70,47 +71,57 @@ def execute(config_version):
     # (n_samples, n_components)
     # keep all components due to we want to see the explained variance ratio
     # in case of PCA; if NMF, second output is None.
-    components, explained_variance_ratio = \
-        dimension_reduction.compute_components(
+    loadings = dimension_reduction.compute_loadings(
             model_reps, reduction_method=reduction_method
         )
-
-    # save the top n components for evaluations
+    
+    # reshape each principle axis back to image shape
+    fig, ax = plt.subplots(n_components, n_rotations, figsize=(20, 20))
     for i in range(n_components):
-        np.save(
-            f'{results_path}/components_{i+1}.npy', 
-            components[:, i]
-        )
+        for r in range(n_rotations):
+            step_size = int(loadings.shape[1] / n_rotations)
+            loading_as_img_per_rot = \
+                loadings[i, r*step_size:(r+1)*step_size].reshape((224, 224, 3))
+            
+            # # zero out the values that are less than 0
+            # loading_as_img_per_rot[loading_as_img_per_rot < 0] = 0
+            # normalize [0, 1]
+            loading_as_img_per_rot = \
+                (loading_as_img_per_rot - np.min(loading_as_img_per_rot)) / \
+                (np.max(loading_as_img_per_rot) - np.min(loading_as_img_per_rot))
+    
+            ax[i, r].imshow(loading_as_img_per_rot)
+            ax[i, r].set_title(f'comp. {i+1}, rot. {r+1}')
+            ax[i, r].axis('off')
 
-    if reduction_method == 'pca':
-        # save the explained variance ratio
-        np.save(
-            f'{results_path}/explained_variance_ratio.npy', 
-            explained_variance_ratio
-        )
-        evaluations.plot_variance_explained(
-            movement_mode=movement_mode,
-            model_name=model_name,
-            output_layer=output_layer,
-            reduction_method=reduction_method,
-            results_path=results_path,
-        )
+    plt.tight_layout()
+    plt.savefig(f'{results_path}/loadings_as_img.png')
 
-    # eval
-    evaluations.plot_components(
-        unity_env=unity_env,
-        n_components=n_components,
-        movement_mode=movement_mode,
-        model_name=model_name,
-        output_layer=output_layer,
-        reduction_method=reduction_method,
-        results_path=results_path,
-        x_min=x_min,
-        x_max=x_max,
-        y_min=y_min,
-        y_max=y_max,
-        multiplier=multiplier,
-    )
+    # fig, ax = plt.subplots(int(n_components/3), int(n_components/3), figsize=(10, 10))
+    # step_size = int(loadings.shape[1] / n_rotations)
+    # # for each component, take the average of every step size
+    # # to get the average over all rotations
+    # for i in range(n_components):
+
+    #     col_index = i % int(n_components/3)
+    #     row_index = int(i / int(n_components/3))
+
+    #     loading_as_img = \
+    #         loadings[i, :].reshape((n_rotations, step_size)).mean(axis=0).reshape((224, 224, 3))
+        
+    #     # zero out the values that are less than 0
+    #     # loading_as_img[loading_as_img < 0] = 0
+    #     # normalize [0, 1]
+    #     loading_as_img = \
+    #         (loading_as_img - np.min(loading_as_img)) / \
+    #         (np.max(loading_as_img) - np.min(loading_as_img))
+
+    #     ax[row_index, col_index].imshow(loading_as_img)
+    #     ax[row_index, col_index].set_title(f'comp. {i+1}')
+    #     ax[row_index, col_index].axis('off')
+    
+    # plt.tight_layout()
+    # plt.savefig(f'{results_path}/loadings_as_img_avg_rot.png')
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.decomposition import PCA, NMF
+from sklearn.decomposition import PCA, NMF, FastICA
 
 
 def compute_components(X, reduction_method, random_state=999):
@@ -25,6 +25,11 @@ def compute_components(X, reduction_method, random_state=999):
         X_latent = nmf.fit_transform(X)
         return X_latent, None
 
+    elif reduction_method == 'ica':
+        ica = FastICA(n_components=np.min(X.shape), random_state=random_state)
+        X_latent = ica.fit_transform(X)
+        return X_latent, None
+
     elif reduction_method == 'avgmax':
         print(f'running avgmax...')
         # sort the matrix columns based on averaged max
@@ -35,8 +40,29 @@ def compute_components(X, reduction_method, random_state=999):
         return X_latent, None
 
 
+def compute_loadings(X, reduction_method, random_state=999):
+    """
+    X is a matrix of shape (num_samples, num_features), where
+    each sample is a frame captured in Unity and each feature is a 
+    unit representation in a CNN layer.
+    """
+    print(f'X.shape: {X.shape}')
+    print(f'n_components: {np.min(X.shape)}')
+
+    if reduction_method == 'pca':
+        print(f'running PCA...')
+        pca = PCA(n_components=np.min(X.shape), random_state=random_state)
+        pca.fit(X)
+        Sigma = pca.singular_values_
+        Vt = pca.components_
+        loadings = np.dot(np.diag(Sigma), Vt)
+        return loadings
+
+
 if __name__ == "__main__":
     X = np.random.rand(100, 4)
-    X_latent, explained_variance_ratio = compute_components(X, 'avgmax')
-    print(X_latent.shape)
+    # X_latent, explained_variance_ratio = compute_components(X, 'avgmax')
+    # print(X_latent.shape)
     # print(explained_variance_ratio)
+
+    loadings = compute_loadings(X, 'pca')
