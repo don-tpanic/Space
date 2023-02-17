@@ -57,6 +57,15 @@ def compute_loadings(X, reduction_method, random_state=999):
         Vt = pca.components_
         loadings = np.dot(np.diag(Sigma), Vt)
         return loadings
+    
+    elif reduction_method == 'nmf':
+        print(f'running NMF...')
+        print('Warning: NMF loadings are not defined and somewhat questionable.')
+        print('Warning: NMF loadings are not defined and somewhat questionable.')
+        print('Warning: NMF loadings are not defined and somewhat questionable.')
+        nmf = NMF(n_components=np.min(X.shape), random_state=random_state)
+        nmf.fit(X)
+        return nmf.components_
 
 
 if __name__ == "__main__":
