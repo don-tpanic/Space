@@ -11,7 +11,7 @@ import evaluations
 import utils
 
 
-def execute(config_version):
+def execute(config_version, component_matrix_type):
     # load config
     config = utils.load_config(config_version)
     unity_env = config['unity_env']
@@ -71,60 +71,36 @@ def execute(config_version):
     # (n_samples, n_components)
     # keep all components due to we want to see the explained variance ratio
     # in case of PCA; if NMF, second output is None.
-    loadings = dimension_reduction.compute_loadings(
-            model_reps, reduction_method=reduction_method
-        )
+    component_matrix = dimension_reduction.compute_component_matrix(
+        model_reps, 
+        reduction_method=reduction_method, 
+        component_matrix_type=component_matrix_type
+    )
     
     # reshape each principle axis back to image shape
     fig, ax = plt.subplots(n_components, n_rotations, figsize=(20, 20))
     for i in range(n_components):
         for r in range(n_rotations):
-            step_size = int(loadings.shape[1] / n_rotations)
-            loading_as_img_per_rot = \
-                loadings[i, r*step_size:(r+1)*step_size].reshape((224, 224, 3))
+            step_size = int(component_matrix.shape[1] / n_rotations)
+            component_matrix_as_img_per_rot = \
+                component_matrix[i, r*step_size:(r+1)*step_size].reshape((224, 224, 3))
             
             # # zero out the values that are less than 0
-            # loading_as_img_per_rot[loading_as_img_per_rot < 0] = 0
+            # component_matrix_as_img_per_rot[component_matrix_as_img_per_rot < 0] = 0
             # normalize [0, 1]
-            loading_as_img_per_rot = \
-                (loading_as_img_per_rot - np.min(loading_as_img_per_rot)) / \
-                (np.max(loading_as_img_per_rot) - np.min(loading_as_img_per_rot))     # TODO: maybe should norm globally?
+            component_matrix_as_img_per_rot = \
+                (component_matrix_as_img_per_rot - np.min(component_matrix_as_img_per_rot)) / \
+                (np.max(component_matrix_as_img_per_rot) - np.min(component_matrix_as_img_per_rot))     # TODO: maybe should norm globally?
     
-            ax[i, r].imshow(loading_as_img_per_rot)
+            ax[i, r].imshow(component_matrix_as_img_per_rot)
             ax[i, r].set_title(f'comp. {i+1}, rot. {r+1}')
             ax[i, r].axis('off')
 
     plt.tight_layout()
-    plt.savefig(f'{results_path}/loadings_as_img.png')
-
-    # fig, ax = plt.subplots(int(n_components/3), int(n_components/3), figsize=(10, 10))
-    # step_size = int(loadings.shape[1] / n_rotations)
-    # # for each component, take the average of every step size
-    # # to get the average over all rotations
-    # for i in range(n_components):
-
-    #     col_index = i % int(n_components/3)
-    #     row_index = int(i / int(n_components/3))
-
-    #     loading_as_img = \
-    #         loadings[i, :].reshape((n_rotations, step_size)).mean(axis=0).reshape((224, 224, 3))
-        
-    #     # zero out the values that are less than 0
-    #     # loading_as_img[loading_as_img < 0] = 0
-    #     # normalize [0, 1]
-    #     loading_as_img = \
-    #         (loading_as_img - np.min(loading_as_img)) / \
-    #         (np.max(loading_as_img) - np.min(loading_as_img))
-
-    #     ax[row_index, col_index].imshow(loading_as_img)
-    #     ax[row_index, col_index].set_title(f'comp. {i+1}')
-    #     ax[row_index, col_index].axis('off')
-    
-    # plt.tight_layout()
-    # plt.savefig(f'{results_path}/loadings_as_img_avg_rot.png')
+    plt.savefig(f'{results_path}/{component_matrix_type}_as_img.png')
 
 
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-    config_version = 'env3_2d_none_raw_9_nmf'
-    execute(config_version)
+    config_version = 'env3_2d_none_raw_9_pca'
+    execute(config_version, component_matrix_type='loadings')

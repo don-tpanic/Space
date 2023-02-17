@@ -40,7 +40,11 @@ def compute_components(X, reduction_method, random_state=999):
         return X_latent, None
 
 
-def compute_loadings(X, reduction_method, random_state=999):
+def compute_component_matrix(
+        X, reduction_method, 
+        component_matrix_type='loadings', 
+        random_state=999
+    ):
     """
     X is a matrix of shape (num_samples, num_features), where
     each sample is a frame captured in Unity and each feature is a 
@@ -55,8 +59,11 @@ def compute_loadings(X, reduction_method, random_state=999):
         pca.fit(X)
         Sigma = pca.singular_values_
         Vt = pca.components_
-        loadings = np.dot(np.diag(Sigma), Vt)
-        return loadings
+        if component_matrix_type == 'Vt':
+            return Vt
+        elif component_matrix_type == 'loadings':
+            loadings = np.dot(np.diag(Sigma), Vt)
+            return loadings
     
     elif reduction_method == 'nmf':
         print(f'running NMF...')
@@ -73,5 +80,3 @@ if __name__ == "__main__":
     # X_latent, explained_variance_ratio = compute_components(X, 'avgmax')
     # print(X_latent.shape)
     # print(explained_variance_ratio)
-
-    loadings = compute_loadings(X, 'pca')
