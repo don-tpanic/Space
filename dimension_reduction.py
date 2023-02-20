@@ -38,7 +38,16 @@ def compute_components(X, reduction_method, random_state=999):
         print(f'col_ranks_desc.shape: {col_ranks_desc.shape}')
         X_latent = X[:, col_ranks_desc]
         return X_latent, None
-
+    
+    elif reduction_method == 'maxvar':
+        print(f'running maxvar...')
+        # sort the matrix columns based on max variance
+        # of each column
+        col_ranks_desc = np.argsort(np.var(X, axis=0))[::-1]
+        print(f'col_ranks_desc.shape: {col_ranks_desc.shape}')
+        X_latent = X[:, col_ranks_desc]
+        return X_latent, None
+        
 
 def compute_component_matrix(
         X, reduction_method, 
