@@ -55,6 +55,10 @@ def execute(config_version):
     else:
         # (n, 4096)
         model_reps = model.predict(preprocessed_data)
+        if len(model_reps.shape) > 2:
+            # when not a fc layer, we need to flatten the output dim
+            # except the batch dim.
+            model_reps = model_reps.reshape(model_reps.shape[0], -1)
         print(f'model_reps.shape: {model_reps.shape}')
 
     if movement_mode == '2d':
@@ -115,5 +119,5 @@ def execute(config_version):
 
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-    config_version = 'env9_2d_vgg16_fc2_9_maxvar'
+    config_version = 'env11_2d_none_raw_9_pca'
     execute(config_version)
