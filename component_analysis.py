@@ -140,5 +140,5 @@ def execute(config_version, component_matrix_type):
 
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-    config_version = 'env9_2d_none_raw_9_pca'
+    config_version = 'env11_2d_none_raw_9_pca'
     execute(config_version, component_matrix_type='loadings')
