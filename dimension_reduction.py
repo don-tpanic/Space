@@ -73,6 +73,15 @@ def compute_component_matrix(
         nmf = NMF(n_components=np.min(X.shape), random_state=random_state)
         nmf.fit(X)
         return nmf.components_
+    
+    elif reduction_method == 'ica':
+        print(f'running ICA...')
+        print('Warning: ICA loadings are not defined and somewhat questionable.')
+        print('Warning: ICA loadings are not defined and somewhat questionable.')
+        print('Warning: ICA loadings are not defined and somewhat questionable.')
+        ica = FastICA(n_components=np.min(X.shape), random_state=random_state)
+        ica.fit(X)
+        return ica.components_
 
 
 if __name__ == "__main__":

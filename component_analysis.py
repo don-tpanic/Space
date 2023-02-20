@@ -105,6 +105,7 @@ def execute(config_version, component_matrix_type):
     # normalize and plot
     for i in range(n_components):
         for r in range(n_rotations):
+            print(f'component {i}, rotation {r}')
             step_size = int(component_matrix.shape[1] / n_rotations)
             component_matrix_as_img_per_rot = \
                 component_matrix[i, r*step_size:(r+1)*step_size].reshape((224, 224, 3))
@@ -112,6 +113,7 @@ def execute(config_version, component_matrix_type):
             # normalize [0, 1]
             max_val = np.max(component_matrix_as_img_per_rot)
             min_val = np.min(component_matrix_as_img_per_rot)
+            print(f'max_val: {max_val}, min_val: {min_val}')
             component_matrix_as_img_per_rot = \
                 (component_matrix_as_img_per_rot - min_val) / (max_val - min_val)
 
@@ -137,6 +139,6 @@ def execute(config_version, component_matrix_type):
 
 
 if __name__ == "__main__":
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-    config_version = 'env9_2d_none_raw_9_nmf'
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+    config_version = 'env9_2d_none_raw_9_pca'
     execute(config_version, component_matrix_type='loadings')
