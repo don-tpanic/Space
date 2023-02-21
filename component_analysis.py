@@ -195,17 +195,17 @@ def TEMP__execute(config_version, component_matrix_type):
         model_reps = model_reps.reshape((n_rows, n_cols))
         print(f'model_reps.shape: {model_reps.shape}')
 
-    # (n_samples, n_components)
+    # (n_components, n_features)
     # keep all components due to we want to see the explained variance ratio
     # in case of PCA; if NMF, second output is None.
     component_matrix = dimension_reduction.compute_component_matrix(
-        model_reps, 
+        model_reps,
         reduction_method=reduction_method, 
         component_matrix_type=component_matrix_type
     )
     
     # reshape each principle axis back to image shape
-    fig, ax = plt.subplots(n_components, n_rotations*3, figsize=(20, 20*3))
+    fig, ax = plt.subplots(n_components, n_rotations*3, figsize=(20, 20))
 
     # normalize and plot
     for i in range(n_components):
@@ -226,19 +226,21 @@ def TEMP__execute(config_version, component_matrix_type):
                 if r == 0:
                     per_component_matrix_as_img_per_rot_per_channel = \
                         component_matrix_as_img_per_rot[:, :, c]
-                    print(per_component_matrix_as_img_per_rot_per_channel.shape)
                     ax[i, c].imshow(per_component_matrix_as_img_per_rot_per_channel)
+                    # print per channel as distribution
+                    # ax[i, c].hist(per_component_matrix_as_img_per_rot_per_channel.flatten(), bins=100)
                     ax[i, c].set_title(f'comp. {i+1}, channel {c}')
                     ax[i, c].axis('off')
                 else:
                     NotImplementedError()
 
     plt.tight_layout()
+    # plt.savefig(f'{results_path}/{component_matrix_type}_as_img_rgb_stats.png')
     plt.savefig(f'{results_path}/{component_matrix_type}_as_img_rgb.png')
 
 
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-    config_version = 'env9_2d_none_raw_9_pca'
-    # execute(config_version, component_matrix_type='loadings')
-    TEMP__execute(config_version, component_matrix_type='loadings')
+    config_version = 'env10_2d_none_raw_9_nmf'
+    execute(config_version, component_matrix_type='loadings')
+    # TEMP__execute(config_version, component_matrix_type='loadings')
