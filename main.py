@@ -119,5 +119,5 @@ def execute(config_version):
 
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-    config_version = 'env9_2d_none_raw_9_ica'
+    config_version = 'env9_2d_vgg16_fc2_9_ica'
     execute(config_version)
