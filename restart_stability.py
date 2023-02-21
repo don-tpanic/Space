@@ -10,9 +10,9 @@ import evaluations
 import utils
 
 
-def nmf_restarts(n_restarts, config_version):
+def restarts(n_restarts, config_version):
     """
-    Run NMF with different random seeds and compare heatmap
+    Run NMF/ICA with different random seeds and compare heatmap
     stabilities.
     """
     np.random.seed(999)
@@ -127,7 +127,7 @@ def execute(config_version, random_seed):
 
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-    nmf_restarts(
+    restarts(
         n_restarts=3, 
-        config_version='env3_2d_none_raw_9_nmf'
+        config_version='env9_2d_none_raw_9_ica'
     )
