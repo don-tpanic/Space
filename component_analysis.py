@@ -241,6 +241,6 @@ def TEMP__execute(config_version, component_matrix_type):
 
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-    config_version = 'env10_2d_none_raw_9_nmf'
+    config_version = 'env12_2d_none_raw_9_nmf'
     execute(config_version, component_matrix_type='loadings')
     # TEMP__execute(config_version, component_matrix_type='loadings')
