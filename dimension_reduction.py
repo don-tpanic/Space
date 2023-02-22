@@ -17,7 +17,7 @@ def compute_components(X, reduction_method, reduction_hparams, random_state=999)
         pca = PCA(n_components=np.min(X.shape), random_state=random_state)
         X_latent = pca.fit_transform(X)
         explained_variance_ratio = pca.explained_variance_ratio_
-        return X_latent, explained_variance_ratio
+        return X_latent, explained_variance_ratio, pca
     
     elif reduction_method == 'kpca':
         print(f'running KPCA...')

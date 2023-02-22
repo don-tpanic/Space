@@ -86,7 +86,7 @@ def execute(config_version):
     # (n_samples, n_components)
     # keep all components due to we want to see the explained variance ratio
     # in case of PCA; if NMF, second output is None.
-    components, explained_variance_ratio = \
+    components, explained_variance_ratio, _ = \
         dimension_reduction.compute_components(
             model_reps, 
             reduction_method=reduction_method,
