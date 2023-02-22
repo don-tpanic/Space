@@ -26,7 +26,19 @@ def execute(config_version):
     y_max = config['y_max']
     multiplier = config['multiplier']
     data_path = f"data/unity/{unity_env}/{movement_mode}"
-    results_path = f'results/{unity_env}/{movement_mode}/{model_name}/{output_layer}/{reduction_method}'
+
+    # for backward compatibility 
+    # when there is no reduction_hparams
+    try:
+        reduction_hparams = config['reduction_hparams']
+    except KeyError:
+        reduction_hparams = None
+
+    results_path = f'results/{unity_env}/{movement_mode}/{model_name}/{output_layer}/{reduction_method}/'
+    if reduction_hparams:
+        for k, v in reduction_hparams.items():
+            results_path += f'_{k}{v}'
+
     if not os.path.exists(results_path):
         os.makedirs(results_path)
 
@@ -76,7 +88,9 @@ def execute(config_version):
     # in case of PCA; if NMF, second output is None.
     components, explained_variance_ratio = \
         dimension_reduction.compute_components(
-            model_reps, reduction_method=reduction_method
+            model_reps, 
+            reduction_method=reduction_method,
+            reduction_hparams=reduction_hparams,
         )
 
     # save the top n components for evaluations
@@ -119,5 +133,5 @@ def execute(config_version):
 
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-    config_version = 'env9_2d_vgg16_fc2_9_ica'
+    config_version = 'env9_2d_none_raw_9_kpca_poly_degree5'
     execute(config_version)

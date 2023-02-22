@@ -1,9 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.decomposition import PCA, NMF, FastICA
+from sklearn.decomposition import PCA, NMF, FastICA, KernelPCA
 
 
-def compute_components(X, reduction_method, random_state=999):
+def compute_components(X, reduction_method, reduction_hparams, random_state=999):
     """
     X is a matrix of shape (num_samples, num_features), where
     each sample is a frame captured in Unity and each feature is a 
@@ -17,6 +17,20 @@ def compute_components(X, reduction_method, random_state=999):
         pca = PCA(n_components=np.min(X.shape), random_state=random_state)
         X_latent = pca.fit_transform(X)
         explained_variance_ratio = pca.explained_variance_ratio_
+        return X_latent, explained_variance_ratio
+    
+    elif reduction_method == 'kpca':
+        print(f'running KPCA...')
+        print(f'kernel: {reduction_hparams["kernel"]}')
+        print(f'degree: {reduction_hparams["degree"]}')
+        kpca = KernelPCA(
+            n_components=np.min(X.shape),
+            kernel=reduction_hparams['kernel'],
+            degree=reduction_hparams['degree'],
+            random_state=random_state
+        )
+        X_latent = kpca.fit_transform(X)
+        explained_variance_ratio = kpca.lambdas_ / np.sum(kpca.lambdas_)
         return X_latent, explained_variance_ratio
     
     elif reduction_method == 'nmf':
