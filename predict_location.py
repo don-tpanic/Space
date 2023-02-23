@@ -478,18 +478,18 @@ def plot_true_vs_pred(
 
 if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = "2"
-    config_version = 'env8_2d_vgg16_fc2_9_pca'
-    moving_trajectory = 'right'
+    config_version = 'env8_2d_none_raw_9_pca'
+    moving_trajectory = 'uniform'
     sampling_rate = 0.9
 
     # for n_components in [1, 10, 1000, 10000]:
-    for n_components in [10]:
-        eval_baseline_vs_components(
-            config_version=config_version, 
-            n_components=n_components,
-            moving_trajectory=moving_trajectory,
-            sampling_rate=sampling_rate,
-        )
+    # for n_components in [10]:
+    #     eval_baseline_vs_components(
+    #         config_version=config_version, 
+    #         n_components=n_components,
+    #         moving_trajectory=moving_trajectory,
+    #         sampling_rate=sampling_rate,
+    #     )
 
     # n_components_list = [1, 9, 90, 900, 9000, 90000, 900000]
     # eval_n_components(
@@ -506,3 +506,11 @@ if __name__ == '__main__':
     #     moving_trajectory=moving_trajectory,
     #     sampling_rate=sampling_rate,
     # )
+
+    n_components_list = [1, 10, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 2000, 3000, 4000, 5000]
+    eval_n_components(
+        config_version=config_version, 
+        n_components_list=n_components_list,
+        moving_trajectory=moving_trajectory,
+        sampling_rate=sampling_rate,
+    )
