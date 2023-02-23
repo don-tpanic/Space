@@ -31,19 +31,50 @@ QUESTIONs:
     1. should it be that PCs are trained on all data or subset? I guess subset makes
         most sense but more difficult.
     2. should baseline adjust for n_components, (like randomly sample same pixels or maxvar)
+        (note, a better sample should consider RGB channels)
     3. Frames are so similar, so LR should be able to learn to predict OK, esp if training 
-        data is spread.
+        data is spread (i.e., interpolation)
 
 TODOs: 
     1. how to best visualise results? plot the true and predict see how much off?
         (tho hard to see which is which's prediction..)
-    2. mse by n_components?
     3. is prediction more accurate if near landmark or nearby training point?
 """
 
-def fit(config_version, n_components, baseline=False, baseline_sampling_method=None):
+def fit(
+        config_version, 
+        n_components,
+        moving_trajectory,
+        sampling_rate,
+        baseline=False, 
+        baseline_feature_selection=None
+    ):
     """
-    Single fit for a given config and n_components.
+    Given a config and n_components, fit a mappping from 
+    training data to predict location.
+
+    moving_trajectory:
+        While the real data is captured by the agent moving uniformly
+        on a grid in Unity, we could manipulate the split of train/test
+        to imitate different moving trajectories. This could be used to 
+        investigate how well the model can generalise to unseen data (
+        i.e. interpolation vs extrapolation). For now we have two options
+        to acquire training data:
+            1. uniform: the agent moves uniformly on a grid
+            2. left: the agent moves only in the left side of the grid
+    
+    sampling_rate:
+        Determines the train/test split ratio.
+
+    baseline: 
+        Training data is either raw images or CNN outputs
+        without applying dimension reduction.
+
+    baseline_feature_selection:
+        If used, this is to select a subset of features 
+        to match n_components. For now, we have two options:
+            1. random: randomly select n_components features
+            2. maxvar: select n_components features with max variance
     """
     config = utils.load_config(config_version)
     unity_env = config['unity_env']
@@ -67,7 +98,9 @@ def fit(config_version, n_components, baseline=False, baseline_sampling_method=N
     except KeyError:
         reduction_hparams = None
 
-    results_path = f'results/{unity_env}/{movement_mode}/{model_name}/{output_layer}/{reduction_method}/'
+    results_path = \
+        f'results/{unity_env}/{movement_mode}/{model_name}/{output_layer}/{reduction_method}/'
+
     if reduction_hparams:
         for k, v in reduction_hparams.items():
             results_path += f'_{k}{v}'
@@ -110,6 +143,7 @@ def fit(config_version, n_components, baseline=False, baseline_sampling_method=N
     else:
         # (n, 4096)
         model_reps = model.predict(preprocessed_data)
+        del model
         if len(model_reps.shape) > 2:
             # when not a fc layer, we need to flatten the output dim
             # except the batch dim.
@@ -127,9 +161,12 @@ def fit(config_version, n_components, baseline=False, baseline_sampling_method=N
         print(f'model_reps.shape: {model_reps.shape}')
 
     X_train, X_test, y_train, y_test = \
-        train_test_split(
-            model_reps, coords_true, test_size=0.1, random_state=999
-        )
+            determine_moving_trajectory(
+                model_reps=model_reps,
+                coords_true=coords_true,
+                moving_trajectory=moving_trajectory,
+                sampling_rate=sampling_rate,
+            )
     print(f'X_train.shape: {X_train.shape}', f'y_train.shape: {len(y_train)}')
     print(f'X_test.shape: {X_test.shape}', f'y_test.shape: {len(y_test)}')
     
@@ -140,29 +177,39 @@ def fit(config_version, n_components, baseline=False, baseline_sampling_method=N
                 reduction_method=reduction_method,
                 reduction_hparams=reduction_hparams,
             )
-        X_train_mean = np.mean(X_train, axis=0)
-        X_train = components[:, :n_components]
-        Vt = self_.components_[:n_components, :]
-        X_test -= X_train_mean
-        X_test = X_test @ Vt.T
-        print(f'X_test.shape: {X_test.shape}', f'y_test.shape: {len(y_test)}')
-    
+
+        if reduction_method == 'pca':
+            # if pca, we need to mean-center test data
+            # based on mean of training data before
+            # projecting test data onto PCs.
+            X_train_mean = np.mean(X_train, axis=0)
+            X_train = components[:, :n_components]
+            Vt = self_.components_[:n_components, :]
+            X_test -= X_train_mean
+            X_test = X_test @ Vt.T
+        else:
+            NotImplementedError()
+
     else:
+        # TODO: when baseline, for now imitate the same 
+        # preprocessing as done in PCA. Though
+        # I do wonder if nec; and if should adjust
+        # based on NMF/ICA etc.
         X_train_mean = np.mean(X_train, axis=0)
         X_train -= X_train_mean
         X_test -= X_train_mean
 
-        # TODO: double check this tmr.
-        if baseline_sampling_method == 'maxvar':
+        if baseline_feature_selection == 'maxvar':
             # sample n_components columns of X based on max variance
             # and return the column indices
             maxvar_cols = np.var(X_train, axis=0).argsort()[-n_components:]
             X_train = X_train[:, maxvar_cols]
             X_test = X_test[:, maxvar_cols]
         
-        elif baseline_sampling_method == 'random':
+        elif baseline_feature_selection == 'random':
             # sample n_components columns of X randomly
             # and return the column indices
+            np.random.seed(999)
             random_cols = np.random.choice(
                 X_train.shape[1], 
                 size=n_components, 
@@ -171,6 +218,7 @@ def fit(config_version, n_components, baseline=False, baseline_sampling_method=N
             X_train = X_train[:, random_cols]
             X_test = X_test[:, random_cols]
 
+    print(f'X_test.shape: {X_test.shape}', f'y_test.shape: {len(y_test)}')
     LinearRegression_model = LinearRegression()
     LinearRegression_model.fit(X_train, y_train)
     y_pred = LinearRegression_model.predict(X_test)
@@ -178,22 +226,84 @@ def fit(config_version, n_components, baseline=False, baseline_sampling_method=N
     return mse, y_test, y_pred, x_min, x_max, y_min, y_max, results_path
 
 
-def eval_baseline_vs_components(config_version, n_components=9):
+def determine_moving_trajectory(
+        moving_trajectory, 
+        sampling_rate, 
+        model_reps, 
+        coords_true
+    ):
+    """
+    While the real data is captured by the agent moving uniformly
+    on a grid in Unity, we could manipulate the split of train/test
+    to imitate different moving trajectories. This could be used to 
+    investigate how well the model can generalise to unseen data (
+    i.e. interpolation vs extrapolation). For now we have two options
+    to acquire training data:
+        1. uniform: the agent moves uniformly on a grid
+        2. left: the agent moves only in the left side of the grid
+    """
+    if moving_trajectory == 'uniform':
+        X_train, X_test, y_train, y_test = \
+            train_test_split(
+                model_reps, coords_true, test_size=1-sampling_rate, random_state=999
+        )
+    
+    elif moving_trajectory == 'left':
+        # use the first `sampling_rate` of the data
+        # as training data
+        n_train = int(sampling_rate * model_reps.shape[0])
+        X_train = model_reps[:n_train, :]
+        y_train = coords_true[:n_train, :]
+        X_test = model_reps[n_train:, :]
+        y_test = coords_true[n_train:, :]
+    
+    elif moving_trajectory == 'right':
+        # use the last `sampling_rate` of the data
+        # as training data
+        n_train = int(sampling_rate * model_reps.shape[0])
+        X_train = model_reps[-n_train:, :]
+        y_train = coords_true[-n_train:, :]
+        X_test = model_reps[:-n_train, :]
+        y_test = coords_true[:-n_train, :]
+
+    else:
+        # TODO: might have more sophisticated trajectories
+        # in which we take consideration of how often 
+        # landmarks are visited.
+        NotImplementedError()
+
+    return X_train, X_test, y_train, y_test
+
+
+def eval_baseline_vs_components(
+        config_version, 
+        n_components, 
+        moving_trajectory,
+        sampling_rate,
+    ):
     """
     Compare prediction accuracy using mapping
     trained using baseline (no dimension reduction)
     and mapping trained using projected components.
+
+    For now we plot 4 figures:
+        1. baseline (no selection on columns)
+        2. baseline (random selection on columns)
+        3. baseline (maxvar selection on columns)
+        4. PCA (top n_components)
     """
     fig, ax = plt.subplots(1, 4, figsize=(20, 5))
 
-    # plot baseline (no sampling columns)
+    # 0. plot baseline (no selection on columns)
     mse, y_test, y_pred, \
         env_x_min, env_x_max, env_y_min, env_y_max, \
             results_path = fit(
                 config_version, 
-                n_components=n_components, 
+                n_components=n_components,
+                moving_trajectory=moving_trajectory,
+                sampling_rate=sampling_rate,
                 baseline=True,
-                baseline_sampling_method='none')
+                baseline_feature_selection='none')
     
     plot_true_vs_pred(
         y_test, 
@@ -206,14 +316,16 @@ def eval_baseline_vs_components(config_version, n_components=9):
         title=f'baseline, mse={mse:.2f}, sampling=none',
     )
 
-    # plot baseline (random sampling columns)
+    # 1. plot baseline (random selection on columns)
     mse, y_test, y_pred, \
         env_x_min, env_x_max, env_y_min, env_y_max, \
             results_path = fit(
                 config_version, 
-                n_components=n_components, 
+                n_components=n_components,
+                moving_trajectory=moving_trajectory,
+                sampling_rate=sampling_rate,
                 baseline=True,
-                baseline_sampling_method='random')
+                baseline_feature_selection='random')
     
     plot_true_vs_pred(
         y_test, 
@@ -226,14 +338,16 @@ def eval_baseline_vs_components(config_version, n_components=9):
         title=f'baseline, mse={mse:.2f}, sampling=random, n_comp.={n_components}',
     )
 
-    # plot baseline (maxvar sampling columns)
+    # 2. plot baseline (maxvar selection on columns)
     mse, y_test, y_pred, \
-        x_min, x_max, y_min, y_max, \
+        env_x_min, env_x_max, env_y_min, env_y_max, \
             results_path = fit(
                 config_version, 
-                n_components=n_components, 
+                n_components=n_components,
+                moving_trajectory=moving_trajectory,
+                sampling_rate=sampling_rate,
                 baseline=True,
-                baseline_sampling_method='maxvar'
+                baseline_feature_selection='maxvar'
             )
     
     plot_true_vs_pred(
@@ -247,12 +361,14 @@ def eval_baseline_vs_components(config_version, n_components=9):
         title=f'baseline, mse={mse:.2f}, sampling=maxvar, n_comp.={n_components}',
     )
 
-    # plot components
+    # 3. plot components
     mse, y_test, y_pred, \
-        x_min, x_max, y_min, y_max, \
+        env_x_min, env_x_max, env_y_min, env_y_max, \
             results_path = fit(
                 config_version, 
-                n_components=n_components, 
+                n_components=n_components,
+                moving_trajectory=moving_trajectory,
+                sampling_rate=sampling_rate,
                 baseline=False,
             )
 
@@ -267,14 +383,20 @@ def eval_baseline_vs_components(config_version, n_components=9):
         ax=ax[3]
     )
 
+    title = f'prediction_baseline_vs_components_{n_components}_{moving_trajectory}{sampling_rate}'
+    plt.suptitle(title)
     plt.legend()
     plt.tight_layout()
-    plt.savefig(f'{results_path}/compare_baseline_vs_components_prediction_{n_components}.png')
+    plt.savefig(f'{results_path}/{title}.png')
 
 
-def eval_n_components(config_version, n_components_list):
+def eval_n_components(
+        config_version, 
+        n_components_list, 
+        moving_trajectory,
+        sampling_rate,):
     """
-    Evaluate the number of components to use
+    Evaluate effect of the number of components to use
     training the mapping on the final prediction
     accuracy.
     """
@@ -285,9 +407,11 @@ def eval_n_components(config_version, n_components_list):
             x_min, x_max, y_min, y_max, \
                 results_path = fit(
                     config_version, 
-                    n_components=n_components, 
+                    n_components=n_components,
+                    moving_trajectory=moving_trajectory,
+                    sampling_rate=sampling_rate,
                     baseline=True,
-                    baseline_sampling_method='maxvar'
+                    baseline_feature_selection='maxvar'
                 )
         mse_list.append(mse)
         print(f'n_components: {n_components}, mse: {mse:.2f}')
@@ -302,7 +426,9 @@ def eval_n_components(config_version, n_components_list):
             x_min, x_max, y_min, y_max, \
                 results_path = fit(
                     config_version, 
-                    n_components=n_components, 
+                    n_components=n_components,
+                    moving_trajectory=moving_trajectory,
+                    sampling_rate=sampling_rate,
                     baseline=False,
                 )
         mse_list.append(mse)
@@ -318,8 +444,11 @@ def eval_n_components(config_version, n_components_list):
     ax[1].set_ylabel('mse')
     ax[1].set_title('ours')
 
+    title = f'prediction_n_comp_vs_mse_{n_components_list[0]}-{n_components_list[-1]}' \
+            f'_{moving_trajectory}{sampling_rate}'
+    plt.suptitle(title)
     plt.tight_layout()
-    plt.savefig(f'{results_path}/n_components_vs_mse_{n_components_list[0]}-{n_components_list[-1]}.png')
+    plt.savefig(f'{results_path}/{title}.png')
         
 
 def plot_true_vs_pred(
@@ -332,6 +461,9 @@ def plot_true_vs_pred(
         ax,
         title,
     ):
+    """
+    Plot the true and predicted coordinates
+    """
     coords_true = np.array(coords_true)
     coords_pred = np.array(coords_pred)
     ax.scatter(coords_true[:, 0], coords_true[:, 1], label='true', c='g', alpha=0.5)
@@ -345,11 +477,32 @@ def plot_true_vs_pred(
 
 
 if __name__ == '__main__':
-    config_version = 'env8_2d_none_raw_9_pca'
+    os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+    config_version = 'env8_2d_vgg16_fc2_9_pca'
+    moving_trajectory = 'right'
+    sampling_rate = 0.9
 
-    for n_components in [1, 100, 1000]:
-        eval_baseline_vs_components(config_version=config_version, n_components=n_components)
+    # for n_components in [1, 10, 1000, 10000]:
+    for n_components in [10]:
+        eval_baseline_vs_components(
+            config_version=config_version, 
+            n_components=n_components,
+            moving_trajectory=moving_trajectory,
+            sampling_rate=sampling_rate,
+        )
+
+    # n_components_list = [1, 9, 90, 900, 9000, 90000, 900000]
+    # eval_n_components(
+    #     config_version=config_version, 
+    #     n_components_list=n_components_list,
+    #     moving_trajectory=moving_trajectory,
+    #     sampling_rate=sampling_rate,
+    # )
 
     # n_components_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    # n_components_list = [1, 9, 90, 900, 9000, 90000, 900000]
-    # eval_n_components(config_version=config_version, n_components_list=n_components_list)
+    # eval_n_components(
+    #     config_version=config_version, 
+    #     n_components_list=n_components_list,
+    #     moving_trajectory=moving_trajectory,
+    #     sampling_rate=sampling_rate,
+    # )

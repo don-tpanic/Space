@@ -99,11 +99,43 @@ def load_data(
     return batch_x
 
 
+def load_coords_targets(
+        movement_mode,
+        x_min,
+        x_max,
+        y_min,
+        y_max,
+        multiplier,
+        n_rotations
+    ):
+    """
+    Produce coordinates as targets for training/testing
+
+    return:
+        A list of lists, where each sublist is a coordinate
+        corresponding to a frame (or a number of frames from
+        n_rotations at the same location)
+    """
+
+    coords_true = []
+    if movement_mode == '1d':
+        NotImplementedError()
+
+    elif movement_mode == '2d':
+        # same idea as generating the frames in Unity
+        # so we get decimal coords in between the grid points
+        for i in range(x_min*multiplier, x_max*multiplier+1):
+            for j in range(y_min*multiplier, y_max*multiplier+1):
+                coords_true.append([i/multiplier, j/multiplier])
+    
+    return np.array(coords_true)
+
+
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
     import utils
-    config_version = "env6_2d_none_uniform999_9_pca"
+    config_version = "env8_2d_none_raw_9_pca"
     config = utils.load_config(config_version)
     unity_env = config['unity_env']
     model_name = config['model_name']
@@ -114,20 +146,19 @@ if __name__ == "__main__":
     y_min = config['y_min']
     y_max = config['y_max']
     multiplier = config['multiplier']
-    random_seed = config['random_seed']
     data_path = f"data/unity/{unity_env}/{movement_mode}"
 
-    generate_random_data(
-        data_path=data_path,
-        movement_mode=movement_mode,
-        x_min=x_min,
-        x_max=x_max,
-        y_min=y_min,
-        y_max=y_max,
-        multiplier=multiplier,
-        n_rotations=n_rotations,
-        random_seed=random_seed,
-    )
+    # generate_random_data(
+    #     data_path=data_path,
+    #     movement_mode=movement_mode,
+    #     x_min=x_min,
+    #     x_max=x_max,
+    #     y_min=y_min,
+    #     y_max=y_max,
+    #     multiplier=multiplier,
+    #     n_rotations=n_rotations,
+    #     random_seed=random_seed,
+    # )
 
     # load_data(
     #     data_path, 
@@ -140,3 +171,13 @@ if __name__ == "__main__":
     #     n_rotations,
     #     preprocess_func=None
     # )
+
+    load_coords_targets(
+        movement_mode,
+        x_min,
+        x_max,
+        y_min,
+        y_max,
+        multiplier,
+        n_rotations
+    )
