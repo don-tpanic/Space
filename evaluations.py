@@ -8,6 +8,7 @@ import utils
 def plot_components(
         unity_env,
         n_components,
+        n_rotations,
         movement_mode,
         model_name,
         output_layer,
@@ -19,24 +20,13 @@ def plot_components(
         y_max,
         multiplier,
     ):
-    # collect the top n components in a list
-    # this is for subplotting
-    components = []
-    for i in range(n_components):
-        components.append(
-            np.load(
-                f'{results_path}/components_{i+1}.npy')
-            )
-
-    # create the subplots (assume square)
-    subplot_dim = int(np.sqrt(n_components))
-    fig, ax = plt.subplots(subplot_dim, subplot_dim)
-
+    # prepare coordinates for plotting heatmap
     if movement_mode == '1d':
         x_axis_coords = []
-        y_axis_coords = np.zeros(len(components[0]))
+        y_axis_coords = []
         for i in range(x_min*multiplier, x_max*multiplier+1):
             x_axis_coords.append(i/multiplier)
+            y_axis_coords.append(0)
 
     elif movement_mode == '2d':
         x_axis_coords = []
@@ -48,34 +38,54 @@ def plot_components(
                 x_axis_coords.append(i/multiplier)
                 y_axis_coords.append(j/multiplier)
 
-    # each subplot is a component across
-    # the above x and y coords
-    for subplot_i in range(n_components):
-        components_i = components[subplot_i]
-        row_idx = int(subplot_i / subplot_dim)
-        col_idx = subplot_i % subplot_dim
-        # print(f'row_idx: {row_idx}, col_idx: {col_idx}')
+    # the fig has subplots 
+    # of the components for each rotation
+    fig, ax = plt.subplots(
+        n_components, 
+        n_rotations, 
+        figsize=(int(3*n_rotations), int(3*n_components))
+    )
 
-        ax[row_idx, col_idx].set_title(f'component {subplot_i+1}')
-        ax[row_idx, col_idx].set_xlim(x_min, x_max)
-        ax[row_idx, col_idx].set_ylim(y_min, y_max)
-        ax[row_idx, col_idx].scatter(
-            x_axis_coords, y_axis_coords, 
-            c=components_i, cmap='viridis', s=24
-        )
+    if n_rotations > 1:
 
-        # turn off unnec axes
-        if row_idx < subplot_dim-1:
-            ax[row_idx, col_idx].set_xticks([])
-        if col_idx > 0:
-            ax[row_idx, col_idx].set_yticks([])
+        for i in range(n_components):
+            # each is a matrix of (n_locations, n_rotations)
+            component = np.load(f'{results_path}/components_{i+1}.npy')
 
-    # add axes labels
-    ax[1, 0].set_ylabel('Unity z axis')
-    ax[2, 1].set_xlabel('Unity x axis')
+            for j in range(n_rotations):  # i.e. n_rotations
+                component_per_rotation = component[:, j]
 
-    # plt.tight_layout()
-    plt.suptitle(f'{movement_mode}, {model_name}, {output_layer}, {reduction_method}')
+                ax[i, j].scatter(
+                    x_axis_coords, y_axis_coords, 
+                    c=component_per_rotation, cmap='viridis', s=144)
+                ax[i, j].set_title(f'c{i+1}r{j+1}')
+                ax[i, j].set_xlim(x_min, x_max)
+                ax[i, j].set_ylim(y_min, y_max)
+
+                # # turn off unnec axes
+                if i < n_components-1:
+                    ax[i, j].set_xticks([])
+                if j > 0:
+                    ax[i, j].set_yticks([])
+        ax[n_components//2, 0].set_ylabel('Unity z axis')
+        ax[-1, n_rotations//2].set_xlabel('Unity x axis')
+
+    else:
+        for i in range(n_components):
+            # each is a matrix of (n_locations, 1)
+            component = np.load(f'{results_path}/components_{i+1}.npy')
+            ax[i].scatter(
+                x_axis_coords, y_axis_coords, 
+                c=component, cmap='viridis', s=144)
+            ax[i].set_title(f'c{i+1}')
+            ax[i].set_xlim(x_min, x_max)
+            ax[i].set_ylim(y_min, y_max)
+        ax[n_components//2].set_ylabel('Unity z axis')
+        ax[-1].set_xlabel('Unity x axis')
+
+    title = f'{movement_mode}, {model_name}, {output_layer}, {reduction_method}'
+    plt.tight_layout()
+    # plt.suptitle(title, y=1.05)
     plt.savefig(f'{results_path}/components.png')
 
 
@@ -241,42 +251,3 @@ if __name__ == "__main__":
     results_path = \
         f'results/{unity_env}/{movement_mode}/' \
         f'{model_name}/{output_layer}/{reduction_method}'
-
-    # plot_components(
-    #     unity_env,
-    #     n_components, 
-    #     movement_mode,
-    #     model_name,
-    #     output_layer,
-    #     reduction_method,
-    #     results_path,
-    #     x_min,
-    #     x_max,
-    #     y_min,
-    #     y_max,
-    #     multiplier,
-    # )
-
-    # plot_variance_explained(
-    #     movement_mode,
-    #     model_name,
-    #     output_layer,
-    #     reduction_method,
-    #     results_path,
-    # )
-
-    env_i = 'env1'
-    env_j = 'env2'
-    movement_mode = '2d'
-    model_name = 'vgg16'
-    output_layer = 'fc2'
-    reduction_method = 'pca'
-    plot_env_diff(
-        env_i, env_j, 
-        movement_mode, 
-        model_name, 
-        output_layer, 
-        reduction_method,
-    )
-
-        
