@@ -8,7 +8,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = "3"
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     num_processes = 70
-    envs = [3, 8, 9]
+    envs = [2, 4, 5, 8]
     movement_modes = ['2d']
     dim_reductions = ['pca', 'nmf']
     n_components_list = [9]
