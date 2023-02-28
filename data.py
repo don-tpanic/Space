@@ -73,7 +73,7 @@ def load_data(
         n_stops_y = len( range(y_min*multiplier, y_max*multiplier+1) )
         n_samples = (n_stops_x * n_stops_y) * n_rotations
 
-    print(f'n_samples: {n_samples}')
+    print(f'[Check] data loader - n_samples: {n_samples}')
 
     # build batch of image data
     batch_x = np.zeros((n_samples,) + image_shape, dtype=dtype)
@@ -95,7 +95,7 @@ def load_data(
             x = preprocess_func(x)
         batch_x[i] = x
     
-    print(f'batch_x.shape: {batch_x.shape}')
+    print(f'[Check] data loader - batch_x.shape: {batch_x.shape}')
     return batch_x
 
 
