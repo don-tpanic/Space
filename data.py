@@ -99,7 +99,7 @@ def load_data(
     return batch_x
 
 
-def load_coords_targets(
+def load_data_targets(
         movement_mode,
         x_min,
         x_max,
@@ -113,8 +113,7 @@ def load_coords_targets(
 
     return:
         A list of lists, where each sublist is a coordinate
-        corresponding to a frame (or a number of frames from
-        n_rotations at the same location)
+        corresponding to a frame and a rotation.
     """
 
     coords_true = []
@@ -126,7 +125,8 @@ def load_coords_targets(
         # so we get decimal coords in between the grid points
         for i in range(x_min*multiplier, x_max*multiplier+1):
             for j in range(y_min*multiplier, y_max*multiplier+1):
-                coords_true.append([i/multiplier, j/multiplier])
+                for k in range(n_rotations):
+                    coords_true.append([i/multiplier, j/multiplier, k])
     
     return np.array(coords_true)
 
@@ -172,7 +172,7 @@ if __name__ == "__main__":
     #     preprocess_func=None
     # )
 
-    load_coords_targets(
+    load_data_targets(
         movement_mode,
         x_min,
         x_max,

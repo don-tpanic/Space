@@ -4,12 +4,13 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = "3"
 
 import numpy as np
 from matplotlib import pyplot as plt
+from tensorflow.keras import backend as K
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 
 from models import load_model
-from data import load_data, load_coords_targets
+from data import load_data, load_data_targets
 import dimension_reduction
 import evaluations
 import utils
@@ -125,7 +126,7 @@ def fit(
         preprocess_func=preprocess_func,
     )
 
-    coords_true = load_coords_targets(
+    targets_true = load_data_targets(
         movement_mode=movement_mode,
         x_min=x_min,
         x_max=x_max,
@@ -143,6 +144,7 @@ def fit(
     else:
         # (n, 4096)
         model_reps = model.predict(preprocessed_data)
+        K.clear_session()
         del model
         if len(model_reps.shape) > 2:
             # when not a fc layer, we need to flatten the output dim
@@ -150,20 +152,10 @@ def fit(
             model_reps = model_reps.reshape(model_reps.shape[0], -1)
         print(f'model_reps.shape: {model_reps.shape}')
 
-    if movement_mode == '2d':
-        # due to each position in 2d takes 6 views, we 
-        # concat them so each position has 1 vector.
-        # also we use the fact the file names are sorted so
-        # every `n_rotations` files are the same position
-        n_rows = int(model_reps.shape[0] / n_rotations)
-        n_cols = int(model_reps.shape[1] * n_rotations)
-        model_reps = model_reps.reshape((n_rows, n_cols))
-        print(f'model_reps.shape: {model_reps.shape}')
-
     X_train, X_test, y_train, y_test = \
             determine_moving_trajectory(
                 model_reps=model_reps,
-                coords_true=coords_true,
+                targets_true=targets_true,
                 moving_trajectory=moving_trajectory,
                 sampling_rate=sampling_rate,
             )
@@ -171,7 +163,7 @@ def fit(
     print(f'X_test.shape: {X_test.shape}', f'y_test.shape: {len(y_test)}')
     
     if not baseline:
-        components, _, self_ = \
+        components, _, fitter = \
             dimension_reduction.compute_components(
                 X_train, 
                 reduction_method=reduction_method,
@@ -184,7 +176,7 @@ def fit(
             # projecting test data onto PCs.
             X_train_mean = np.mean(X_train, axis=0)
             X_train = components[:, :n_components]
-            Vt = self_.components_[:n_components, :]
+            Vt = fitter.components_[:n_components, :]
             X_test -= X_train_mean
             X_test = X_test @ Vt.T
         else:
@@ -222,15 +214,19 @@ def fit(
     LinearRegression_model = LinearRegression()
     LinearRegression_model.fit(X_train, y_train)
     y_pred = LinearRegression_model.predict(X_test)
-    mse = mean_squared_error(y_test, y_pred)
-    return mse, y_test, y_pred, x_min, x_max, y_min, y_max, results_path
+
+    # compute MSE wrt location
+    mse_loc = mean_squared_error(y_test[:, :2], y_pred[:, :2])
+    # compute MSE wrt rotation
+    mse_rot = mean_squared_error(y_test[:, 2:], y_pred[:, 2:])
+    return mse_loc, mse_rot, y_test, y_pred, x_min, x_max, y_min, y_max, results_path
 
 
 def determine_moving_trajectory(
         moving_trajectory, 
         sampling_rate, 
         model_reps, 
-        coords_true
+        targets_true
     ):
     """
     While the real data is captured by the agent moving uniformly
@@ -245,7 +241,9 @@ def determine_moving_trajectory(
     if moving_trajectory == 'uniform':
         X_train, X_test, y_train, y_test = \
             train_test_split(
-                model_reps, coords_true, test_size=1-sampling_rate, random_state=999
+                model_reps, targets_true, 
+                test_size=1-sampling_rate, 
+                random_state=999
         )
     
     elif moving_trajectory == 'left':
@@ -253,18 +251,18 @@ def determine_moving_trajectory(
         # as training data
         n_train = int(sampling_rate * model_reps.shape[0])
         X_train = model_reps[:n_train, :]
-        y_train = coords_true[:n_train, :]
+        y_train = targets_true[:n_train, :]
         X_test = model_reps[n_train:, :]
-        y_test = coords_true[n_train:, :]
+        y_test = targets_true[n_train:, :]
     
     elif moving_trajectory == 'right':
         # use the last `sampling_rate` of the data
         # as training data
         n_train = int(sampling_rate * model_reps.shape[0])
         X_train = model_reps[-n_train:, :]
-        y_train = coords_true[-n_train:, :]
+        y_train = targets_true[-n_train:, :]
         X_test = model_reps[:-n_train, :]
-        y_test = coords_true[:-n_train, :]
+        y_test = targets_true[:-n_train, :]
 
     else:
         # TODO: might have more sophisticated trajectories
@@ -292,96 +290,54 @@ def eval_baseline_vs_components(
         3. baseline (maxvar selection on columns)
         4. PCA (top n_components)
     """
-    fig, ax = plt.subplots(1, 4, figsize=(20, 5))
+    print(f'[Check] n_components: {n_components}')
+    subplots = ['none', 'random', 'maxvar', 'dim_reduce']
+    fig, ax = plt.subplots(2, len(subplots), figsize=(35, 20), dpi=300)
 
-    # 0. plot baseline (no selection on columns)
-    mse, y_test, y_pred, \
-        env_x_min, env_x_max, env_y_min, env_y_max, \
-            results_path = fit(
-                config_version, 
-                n_components=n_components,
-                moving_trajectory=moving_trajectory,
-                sampling_rate=sampling_rate,
-                baseline=True,
-                baseline_feature_selection='none')
-    
-    plot_true_vs_pred(
-        y_test, 
-        y_pred, 
-        env_x_min,
-        env_x_max,
-        env_y_min,
-        env_y_max,
-        ax=ax[0],
-        title=f'baseline, mse={mse:.2f}, sampling=none',
-    )
+    for i in range(len(subplots)):
+        subplot = subplots[i]
+        if subplot != 'dim_reduce':
+            baseline = True
+            baseline_feature_selection = subplot
+            subtitle = f'baseline, sampling={subplot}'
+        else:
+            baseline = False
+            baseline_feature_selection = None
+            subtitle = f'dim_reduce'
 
-    # 1. plot baseline (random selection on columns)
-    mse, y_test, y_pred, \
-        env_x_min, env_x_max, env_y_min, env_y_max, \
-            results_path = fit(
-                config_version, 
-                n_components=n_components,
-                moving_trajectory=moving_trajectory,
-                sampling_rate=sampling_rate,
-                baseline=True,
-                baseline_feature_selection='random')
-    
-    plot_true_vs_pred(
-        y_test, 
-        y_pred, 
-        env_x_min,
-        env_x_max,
-        env_y_min,
-        env_y_max,
-        ax=ax[1],
-        title=f'baseline, mse={mse:.2f}, sampling=random, n_comp.={n_components}',
-    )
+        mse_loc, mse_rot, y_test, y_pred, \
+            env_x_min, env_x_max, env_y_min, env_y_max, \
+                results_path = fit(
+                    config_version, 
+                    n_components=n_components,
+                    moving_trajectory=moving_trajectory,
+                    sampling_rate=sampling_rate,
+                    baseline=baseline,
+                    baseline_feature_selection=baseline_feature_selection
+        )
+        
+        plot_true_vs_pred_loc(
+            y_test[:, :2],     # true locations, exc rotation
+            y_pred[:, :2],     # predicted locations, exc rotation
+            env_x_min,
+            env_x_max,
+            env_y_min,
+            env_y_max,
+            ax=ax[0, i],
+            title=f'{subtitle}, mse_loc={mse_loc:.2f}',
+        )
 
-    # 2. plot baseline (maxvar selection on columns)
-    mse, y_test, y_pred, \
-        env_x_min, env_x_max, env_y_min, env_y_max, \
-            results_path = fit(
-                config_version, 
-                n_components=n_components,
-                moving_trajectory=moving_trajectory,
-                sampling_rate=sampling_rate,
-                baseline=True,
-                baseline_feature_selection='maxvar'
-            )
-    
-    plot_true_vs_pred(
-        y_test, 
-        y_pred, 
-        env_x_min,
-        env_x_max,
-        env_y_min,
-        env_y_max,
-        ax=ax[2],
-        title=f'baseline, mse={mse:.2f}, sampling=maxvar, n_comp.={n_components}',
-    )
-
-    # 3. plot components
-    mse, y_test, y_pred, \
-        env_x_min, env_x_max, env_y_min, env_y_max, \
-            results_path = fit(
-                config_version, 
-                n_components=n_components,
-                moving_trajectory=moving_trajectory,
-                sampling_rate=sampling_rate,
-                baseline=False,
-            )
-
-    plot_true_vs_pred(
-        y_test, 
-        y_pred, 
-        env_x_min,
-        env_x_max,
-        env_y_min,
-        env_y_max,
-        title=f'ours, mse={mse:.2f}, n_comp.={n_components}',
-        ax=ax[3]
-    )
+        plot_true_vs_pred_rot(
+            y_test[:, 2:],    # true rotation, exc location
+            y_pred[:, 2:],    # predicted rotation, exc location
+            y_test[:, :2],    # true locations to plot arrows against
+            env_x_min,
+            env_x_max,
+            env_y_min,
+            env_y_max,
+            ax=ax[1, i],
+            title=f'{subtitle}, mse_rot={mse_rot:.2f}',
+        )
 
     title = f'prediction_baseline_vs_components_{n_components}_{moving_trajectory}{sampling_rate}'
     plt.suptitle(title)
@@ -400,49 +356,45 @@ def eval_n_components(
     training the mapping on the final prediction
     accuracy.
     """
-    fig, ax = plt.subplots(1, 2, figsize=(10, 5))
-    mse_list = []
-    for n_components in n_components_list:
-        mse, y_test, y_pred, \
-            x_min, x_max, y_min, y_max, \
-                results_path = fit(
-                    config_version, 
-                    n_components=n_components,
-                    moving_trajectory=moving_trajectory,
-                    sampling_rate=sampling_rate,
-                    baseline=True,
-                    baseline_feature_selection='maxvar'
-                )
-        mse_list.append(mse)
-        print(f'n_components: {n_components}, mse: {mse:.2f}')
-    ax[0].plot(n_components_list, mse_list)
-    ax[0].set_xlabel('n_components')
-    ax[0].set_ylabel('mse')
-    ax[0].set_title('baseline, sampling=maxvar')
+    subplots = ['none', 'random', 'maxvar', 'dim_reduce']
+    fig, ax = plt.subplots(1, len(subplots), figsize=(20, 5))
 
-    mse_list = []
-    for n_components in n_components_list:
-        mse, y_test, y_pred, \
-            x_min, x_max, y_min, y_max, \
-                results_path = fit(
-                    config_version, 
-                    n_components=n_components,
-                    moving_trajectory=moving_trajectory,
-                    sampling_rate=sampling_rate,
-                    baseline=False,
-                )
-        mse_list.append(mse)
-        print(f'n_components: {n_components}, mse: {mse:.2f}')
-    
-    # convert to log scale if too different
-    if n_components_list[-1] - n_components_list[0] > 10:
-        ax[1].set_xscale('log')
-        ax[1].set_yscale('log')
+    for i in range(len(subplots)):
+        subplot = subplots[i]
+        if subplot != 'dim_reduce':
+            baseline = True
+            baseline_feature_selection = subplot
+            subtitle = f'baseline, sampling={subplot}'
+        else:
+            baseline = False
+            baseline_feature_selection = None
+            subtitle = f'dim_reduce'
 
-    ax[1].plot(n_components_list, mse_list)
-    ax[1].set_xlabel('n_components')
-    ax[1].set_ylabel('mse')
-    ax[1].set_title('ours')
+        mse_list = []
+        for n_components in n_components_list:
+            mse_loc, mse_rot, y_test, y_pred, \
+                x_min, x_max, y_min, y_max, \
+                    results_path = fit(
+                        config_version, 
+                        n_components=n_components,
+                        moving_trajectory=moving_trajectory,
+                        sampling_rate=sampling_rate,
+                        baseline=baseline,
+                        baseline_feature_selection=baseline_feature_selection
+                    )
+            mse_list.append(mse_loc)
+            print(f'n_components: {n_components}, mse: {mse_loc:.2f}')
+            
+        ax[i].plot(n_components_list, mse_list)
+        ax[i].set_xlabel('n_components')
+        ax[i].set_ylabel('mse')
+        ax[i].set_xscale('log')
+        ax[i].set_yscale('log')
+        ax[i].set_title(f'{subtitle}')
+        ax[i].set_xticks(n_components_list)
+        ax[i].set_xticklabels(n_components_list)
+        ax[i].set_yticks([0, 1, 10, 100, 1000, 10000, 100000])
+        ax[i].set_yticklabels([0, 1, 10, 100, 1000, 10000, 100000])
 
     title = f'prediction_n_comp_vs_mse_{n_components_list[0]}-{n_components_list[-1]}' \
             f'_{moving_trajectory}{sampling_rate}'
@@ -451,9 +403,9 @@ def eval_n_components(
     plt.savefig(f'{results_path}/{title}.png')
         
 
-def plot_true_vs_pred(
+def plot_true_vs_pred_loc(
         coords_true, 
-        coords_pred, 
+        coords_pred,
         env_x_min,
         env_x_max,
         env_y_min,
@@ -476,14 +428,64 @@ def plot_true_vs_pred(
     return ax
 
 
+def plot_true_vs_pred_rot(
+        rot_true, 
+        rot_pred, 
+        loc_true,   # Used to plot the arrows onto.
+        env_x_min,
+        env_x_max,
+        env_y_min,
+        env_y_max,
+        ax,
+        title,
+    ):
+    """
+    Plot the true and predicted rotations
+    """
+    rot_true = np.array(rot_true)
+    rot_pred = np.array(rot_pred)
+    loc_true = np.array(loc_true)
+
+    # Convert angles to radians
+    angles_true = np.deg2rad(rot_true * 60)
+    angles_pred = np.deg2rad(rot_pred * 60)    # TODO: not neat
+
+    arrow_dx_true = np.cos(angles_true)
+    arrow_dy_true = np.sin(angles_true)
+    arrow_dx_pred = np.cos(angles_pred)
+    arrow_dy_pred = np.sin(angles_pred)
+
+    # Plot scatter plot with arrows
+    ax.scatter(
+        loc_true[:, 0], loc_true[:, 1], 
+        label='true', c='g', alpha=0.5
+    )
+    ax.quiver(
+        loc_true[:, 0], loc_true[:, 1], 
+        arrow_dx_true, arrow_dy_true, 
+        angles='xy', scale_units='xy', color='k', label='true rot'
+    )
+    ax.quiver(
+        loc_true[:, 0], loc_true[:, 1], 
+        arrow_dx_pred, arrow_dy_pred, 
+        angles='xy', scale_units='xy', color='r', label='pred rot'
+    )
+
+    ax.set_xlabel('Unity x axis')
+    ax.set_ylabel('Unity z axis')
+    ax.set_xlim(env_x_min-1, env_x_max+1)
+    ax.set_ylim(env_y_min-1, env_y_max+1)
+    ax.set_title(f'{title}')
+    return ax
+
+
 if __name__ == '__main__':
-    os.environ["CUDA_VISIBLE_DEVICES"] = "2"
-    config_version = 'env8_2d_none_raw_9_pca'
+    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    config_version = 'env13_2d_vgg16_fc2_9_pca'
     moving_trajectory = 'uniform'
     sampling_rate = 0.9
 
-    # for n_components in [1, 10, 1000, 10000]:
-    # for n_components in [10]:
+    # for n_components in [1, 10, 100, 1000, 2000, 4000]:
     #     eval_baseline_vs_components(
     #         config_version=config_version, 
     #         n_components=n_components,
@@ -491,23 +493,7 @@ if __name__ == '__main__':
     #         sampling_rate=sampling_rate,
     #     )
 
-    # n_components_list = [1, 9, 90, 900, 9000, 90000, 900000]
-    # eval_n_components(
-    #     config_version=config_version, 
-    #     n_components_list=n_components_list,
-    #     moving_trajectory=moving_trajectory,
-    #     sampling_rate=sampling_rate,
-    # )
-
-    # n_components_list = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    # eval_n_components(
-    #     config_version=config_version, 
-    #     n_components_list=n_components_list,
-    #     moving_trajectory=moving_trajectory,
-    #     sampling_rate=sampling_rate,
-    # )
-
-    n_components_list = [1, 10, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 2000, 3000, 4000, 5000]
+    n_components_list = [1, 10, 100, 1000, 2000, 4000]
     eval_n_components(
         config_version=config_version, 
         n_components_list=n_components_list,
