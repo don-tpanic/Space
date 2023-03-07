@@ -393,8 +393,8 @@ def eval_n_components(
         ax[i].set_title(f'{subtitle}')
         ax[i].set_xticks(n_components_list)
         ax[i].set_xticklabels(n_components_list)
-        ax[i].set_yticks([0, 1, 10, 100, 1000, 10000, 100000])
-        ax[i].set_yticklabels([0, 1, 10, 100, 1000, 10000, 100000])
+        # ax[i].set_yticks([0, 1, 10, 100, 1000, 10000, 100000])
+        # ax[i].set_yticklabels([0, 1, 10, 100, 1000, 10000, 100000])
 
     title = f'prediction_n_comp_vs_mse_{n_components_list[0]}-{n_components_list[-1]}' \
             f'_{moving_trajectory}{sampling_rate}'
@@ -481,22 +481,22 @@ def plot_true_vs_pred_rot(
 
 if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-    config_version = 'env13_2d_vgg16_fc2_9_pca'
-    moving_trajectory = 'uniform'
+    config_version = 'env15_2d_vgg16_fc2_9_pca'
+    moving_trajectory = 'right'
     sampling_rate = 0.9
 
-    # for n_components in [1, 10, 100, 1000, 2000, 4000]:
-    #     eval_baseline_vs_components(
-    #         config_version=config_version, 
-    #         n_components=n_components,
-    #         moving_trajectory=moving_trajectory,
-    #         sampling_rate=sampling_rate,
-    #     )
+    for n_components in [1, 10, 100, 1000, 2000, 4000]:
+        eval_baseline_vs_components(
+            config_version=config_version, 
+            n_components=n_components,
+            moving_trajectory=moving_trajectory,
+            sampling_rate=sampling_rate,
+        )
 
-    n_components_list = [1, 10, 100, 1000, 2000, 4000]
-    eval_n_components(
-        config_version=config_version, 
-        n_components_list=n_components_list,
-        moving_trajectory=moving_trajectory,
-        sampling_rate=sampling_rate,
-    )
+    # n_components_list = [1, 10, 100, 1000, 2000, 4000]
+    # eval_n_components(
+    #     config_version=config_version, 
+    #     n_components_list=n_components_list,
+    #     moving_trajectory=moving_trajectory,
+    #     sampling_rate=sampling_rate,
+    # )

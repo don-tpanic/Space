@@ -107,8 +107,8 @@ def execute(config_version):
 
 
 if __name__ == "__main__":
-    os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-    execute('env13_2d_none_raw_9_nmf')
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+    execute('env16_2d_vgg16_fc2_9_pca')
 
     # num_processes = 70
     # envs = [13]
