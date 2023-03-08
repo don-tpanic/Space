@@ -30,7 +30,7 @@ def plot_components(
 
     # create the subplots (assume square)
     subplot_dim = int(np.sqrt(n_components))
-    fig, ax = plt.subplots(subplot_dim, subplot_dim)
+    fig, ax = plt.subplots(subplot_dim, subplot_dim, figsize=(10, 10))
 
     if movement_mode == '1d':
         x_axis_coords = []
@@ -61,7 +61,7 @@ def plot_components(
         ax[row_idx, col_idx].set_ylim(y_min, y_max)
         ax[row_idx, col_idx].scatter(
             x_axis_coords, y_axis_coords, 
-            c=components_i, cmap='viridis', s=24
+            c=components_i, cmap='viridis', 
         )
 
         # turn off unnec axes

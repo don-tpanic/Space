@@ -1,0 +1,16 @@
+config_version: env18_2d_vgg16_fc2_9_pca
+
+unity_env: env18
+model_name: vgg16
+output_layer: fc2
+n_components: 9
+movement_mode: 2d
+reduction_method: pca
+n_rotations: 1
+
+# unity settings
+x_min: -8
+x_max: 8
+y_min: -8
+y_max: 8
+multiplier: 8
