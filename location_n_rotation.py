@@ -28,14 +28,6 @@ used to predict the location given the visual input.
 The baselines would be directly using raw images / CNN outputs (of unseen) 
 frames to predict locations.
 
-QUESTIONs: 
-    1. should it be that PCs are trained on all data or subset? I guess subset makes
-        most sense but more difficult.
-    2. should baseline adjust for n_components, (like randomly sample same pixels or maxvar)
-        (note, a better sample should consider RGB channels)
-    3. Frames are so similar, so LR should be able to learn to predict OK, esp if training 
-        data is spread (i.e., interpolation)
-
 TODOs: 
     1. how to best visualise results? plot the true and predict see how much off?
         (tho hard to see which is which's prediction..)
