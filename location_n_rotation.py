@@ -3,6 +3,7 @@ os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = "3"
 
 import numpy as np
+import scipy
 from matplotlib import pyplot as plt
 from tensorflow.keras import backend as K
 from sklearn.model_selection import train_test_split
@@ -31,7 +32,8 @@ frames to predict locations.
 TODOs: 
     1. how to best visualise results? plot the true and predict see how much off?
         (tho hard to see which is which's prediction..)
-    3. is prediction more accurate if near landmark or nearby training point?
+    2. is prediction more accurate if near landmark or nearby training point?
+    3. consider sampling rotation more randomly for training.
 """
 
 def fit(
@@ -55,6 +57,7 @@ def fit(
         to acquire training data:
             1. uniform: the agent moves uniformly on a grid
             2. left: the agent moves only in the left side of the grid
+            3. right: the agent moves only in the right side of the grid
     
     sampling_rate:
         Determines the train/test split ratio.
@@ -395,6 +398,48 @@ def eval_n_components(
     plt.savefig(f'{results_path}/{title}.png')
         
 
+def eval_loc_n_rot_correlation(
+        config_version, 
+        n_components, 
+        moving_trajectory,
+        sampling_rate,
+    ):
+    """
+    For each location, eval errorbars of location and 
+    rotation prediction to see if there are correlations.
+    """
+    baseline = False
+    mse_loc, mse_rot, y_test, y_pred, \
+        env_x_min, env_x_max, env_y_min, env_y_max, \
+            results_path = fit(
+                config_version, 
+                n_components=n_components,
+                moving_trajectory=moving_trajectory,
+                sampling_rate=sampling_rate,
+                baseline=baseline,
+    )
+
+    # data-point wise prediction error
+    mse_loc_list = []
+    mse_rot_list = []
+    for i in range(len(y_test)):
+        mse_loc_list.append(mean_squared_error(y_test[i, :2], y_pred[i, :2]))
+        mse_rot_list.append(mean_squared_error(y_test[i, 2:], y_pred[i, 2:]))
+    
+    # plot errors against each other
+    fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+    ax.plot(mse_loc_list, 'o', label='mse_loc')
+    ax.plot(mse_rot_list, 'x', label='mse_rot')
+    
+    # correlation between location and rotation
+    pearsonr = scipy.stats.pearsonr(mse_loc_list, mse_rot_list)
+    spearmanr = scipy.stats.spearmanr(mse_loc_list, mse_rot_list)
+    print(f'loc vs rot pearsonr: {pearsonr[0]:.2f}')
+    print(f'loc vs rot spearmanr: {spearmanr[0]:.2f}')
+    plt.savefig(f'{results_path}/mse_loc_vs_mse_rot.png')
+
+
+
 def plot_true_vs_pred_loc(
         coords_true, 
         coords_pred,
@@ -471,19 +516,26 @@ def plot_true_vs_pred_rot(
     return ax
 
 
+def plot_relation_loc_n_rot():
+    """
+    For each location, plot errorbars of location and 
+    rotation prediction to see if there are correlations.
+    """
+
+
 if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
     config_version = 'env13fixed_2d_vgg16_fc2_9_pca'
     moving_trajectory = 'uniform'
     sampling_rate = 0.9
 
-    for n_components in [100]:
-        eval_baseline_vs_components(
-            config_version=config_version, 
-            n_components=n_components,
-            moving_trajectory=moving_trajectory,
-            sampling_rate=sampling_rate,
-        )
+    # for n_components in [100]:
+    #     eval_baseline_vs_components(
+    #         config_version=config_version, 
+    #         n_components=n_components,
+    #         moving_trajectory=moving_trajectory,
+    #         sampling_rate=sampling_rate,
+    #     )
 
     # n_components_list = [1, 10, 100, 1000, 2000, 4000]
     # eval_n_components(
@@ -492,3 +544,10 @@ if __name__ == '__main__':
     #     moving_trajectory=moving_trajectory,
     #     sampling_rate=sampling_rate,
     # )
+
+    eval_loc_n_rot_correlation(
+        config_version=config_version, 
+        n_components=100, 
+        moving_trajectory=moving_trajectory,
+        sampling_rate=sampling_rate
+    )
