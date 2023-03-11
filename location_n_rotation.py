@@ -153,6 +153,10 @@ def fit(
                 targets_true=targets_true,
                 moving_trajectory=moving_trajectory,
                 sampling_rate=sampling_rate,
+                x_min=x_min,
+                x_max=x_max,
+                y_min=y_min,
+                y_max=y_max,
             )
     print(f'X_train.shape: {X_train.shape}', f'y_train.shape: {len(y_train)}')
     print(f'X_test.shape: {X_test.shape}', f'y_test.shape: {len(y_test)}')
@@ -221,17 +225,18 @@ def determine_moving_trajectory(
         moving_trajectory, 
         sampling_rate, 
         model_reps, 
-        targets_true
+        targets_true,
+        x_min,
+        x_max,
+        y_min,
+        y_max,
     ):
     """
     While the real data is captured by the agent moving uniformly
     on a grid in Unity, we could manipulate the split of train/test
     to imitate different moving trajectories. This could be used to 
     investigate how well the model can generalise to unseen data (
-    i.e. interpolation vs extrapolation). For now we have two options
-    to acquire training data:
-        1. uniform: the agent moves uniformly on a grid
-        2. left: the agent moves only in the left side of the grid
+    i.e. interpolation vs extrapolation).
     """
     if moving_trajectory == 'uniform':
         X_train, X_test, y_train, y_test = \
@@ -259,11 +264,113 @@ def determine_moving_trajectory(
         X_test = model_reps[:-n_train, :]
         y_test = targets_true[:-n_train, :]
 
-    else:
-        # TODO: might have more sophisticated trajectories
-        # in which we take consideration of how often 
-        # landmarks are visited.
-        NotImplementedError()
+    elif moving_trajectory == 'second_quadrant':
+        # second quadrant bounds: 
+        # x_min =< x < x_max
+        # y_min =< y < y_max
+        x_axis_coords = targets_true[:, 0]
+        y_axis_coords = targets_true[:, 1]
+        train_sample_indices = []
+        for i, x in enumerate(x_axis_coords):
+            if x_min <= x <= 0 and 2 <= y_axis_coords[i] <= y_max:
+                train_sample_indices.append(i)
+        X_train = model_reps[train_sample_indices, :]
+        y_train = targets_true[train_sample_indices, :]
+        X_test = np.delete(model_reps, train_sample_indices, axis=0)
+        y_test = np.delete(targets_true, train_sample_indices, axis=0)
+    
+    elif moving_trajectory == 'second_quadrant_w_key':
+        # second quadrant bounds: 
+        # x_min =< x < x_max
+        # y_min =< y < y_max
+        x_axis_coords = targets_true[:, 0]
+        y_axis_coords = targets_true[:, 1]
+        train_sample_indices = []
+        for i, x in enumerate(x_axis_coords):
+            if x_min <= x <= 0 and 2 <= y_axis_coords[i] <= y_max:
+                train_sample_indices.append(i)
+            # also add key positions to training data
+            # key positions are the mid ones from the other three
+            # unsampled quadrants
+            if (x == -2 and y_axis_coords[i] == -2) or \
+                (x == 2 and y_axis_coords[i] == -2) or \
+                (x == 2 and y_axis_coords[i] == 2):
+                train_sample_indices.append(i)
+
+        X_train = model_reps[train_sample_indices, :]
+        y_train = targets_true[train_sample_indices, :]
+        X_test = np.delete(model_reps, train_sample_indices, axis=0)
+        y_test = np.delete(targets_true, train_sample_indices, axis=0)
+    
+    elif moving_trajectory == 'four_quadrants':
+        x_axis_coords = targets_true[:, 0]
+        y_axis_coords = targets_true[:, 1]
+        train_sample_indices = []
+        for i, x in enumerate(x_axis_coords):
+            if (x_min <= x <= -3 and 3 <= y_axis_coords[i] <= y_max) or \
+                (x_min <= x <= -3 and y_min <= y_axis_coords[i] <= -3) or \
+                (3 <= x <= x_max and y_min <= y_axis_coords[i] <= -3) or \
+                (3 <= x <= x_max and 3 <= y_axis_coords[i] <= y_max):
+                train_sample_indices.append(i)
+        X_train = model_reps[train_sample_indices, :]
+        y_train = targets_true[train_sample_indices, :]
+        X_test = np.delete(model_reps, train_sample_indices, axis=0)
+        y_test = np.delete(targets_true, train_sample_indices, axis=0)
+    
+    elif moving_trajectory == 'four_corners':
+        # extreme case where we only sample each corner
+        x_axis_coords = targets_true[:, 0]
+        y_axis_coords = targets_true[:, 1]
+        train_sample_indices = []
+        for i, x in enumerate(x_axis_coords):
+            if (x_min <= x <= x_min and y_max <= y_axis_coords[i] <= y_max) or \
+                (x_min <= x <= x_min and y_min <= y_axis_coords[i] <= y_min) or \
+                (x_max <= x <= x_max and y_min <= y_axis_coords[i] <= y_min) or \
+                (x_max <= x <= x_max and y_max <= y_axis_coords[i] <= y_max):
+                train_sample_indices.append(i)
+        X_train = model_reps[train_sample_indices, :]
+        y_train = targets_true[train_sample_indices, :]
+        X_test = np.delete(model_reps, train_sample_indices, axis=0)
+        y_test = np.delete(targets_true, train_sample_indices, axis=0)
+    
+    elif moving_trajectory == 'diag_quadrants':
+        x_axis_coords = targets_true[:, 0]
+        y_axis_coords = targets_true[:, 1]
+        train_sample_indices = []
+        for i, x in enumerate(x_axis_coords):
+            if (x_min <= x <= -3 and 3 <= y_axis_coords[i] <= y_max) or \
+                (3 <= x <= x_max and y_min <= y_axis_coords[i] <= -3):
+                train_sample_indices.append(i)
+        X_train = model_reps[train_sample_indices, :]
+        y_train = targets_true[train_sample_indices, :]
+        X_test = np.delete(model_reps, train_sample_indices, axis=0)
+        y_test = np.delete(targets_true, train_sample_indices, axis=0)
+
+    elif moving_trajectory == 'center_quadrant':
+        x_axis_coords = targets_true[:, 0]
+        y_axis_coords = targets_true[:, 1]
+        train_sample_indices = []
+        for i, x in enumerate(x_axis_coords):
+            if (-2 <= x <= 2 and -2 <= y_axis_coords[i] <= 2):
+                train_sample_indices.append(i)
+
+        X_train = model_reps[train_sample_indices, :]
+        y_train = targets_true[train_sample_indices, :]
+        X_test = np.delete(model_reps, train_sample_indices, axis=0)
+        y_test = np.delete(targets_true, train_sample_indices, axis=0)
+
+    elif moving_trajectory == 'center_quadrant_oneshot':
+        x_axis_coords = targets_true[:, 0]
+        y_axis_coords = targets_true[:, 1]
+        train_sample_indices = []
+        for i, x in enumerate(x_axis_coords):
+            if (0 <= x <= 0 and 0 <= y_axis_coords[i] <= 0):
+                train_sample_indices.append(i)
+
+        X_train = model_reps[train_sample_indices, :]
+        y_train = targets_true[train_sample_indices, :]
+        X_test = np.delete(model_reps, train_sample_indices, axis=0)
+        y_test = np.delete(targets_true, train_sample_indices, axis=0)
 
     return X_train, X_test, y_train, y_test
 
@@ -439,7 +546,6 @@ def eval_loc_n_rot_correlation(
     plt.savefig(f'{results_path}/mse_loc_vs_mse_rot.png')
 
 
-
 def plot_true_vs_pred_loc(
         coords_true, 
         coords_pred,
@@ -516,26 +622,19 @@ def plot_true_vs_pred_rot(
     return ax
 
 
-def plot_relation_loc_n_rot():
-    """
-    For each location, plot errorbars of location and 
-    rotation prediction to see if there are correlations.
-    """
-
-
 if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
     config_version = 'env13fixed_2d_vgg16_fc2_9_pca'
-    moving_trajectory = 'uniform'
-    sampling_rate = 0.9
+    moving_trajectory = 'center_quadrant_oneshot'
+    sampling_rate = None
 
-    # for n_components in [100]:
-    #     eval_baseline_vs_components(
-    #         config_version=config_version, 
-    #         n_components=n_components,
-    #         moving_trajectory=moving_trajectory,
-    #         sampling_rate=sampling_rate,
-    #     )
+    for n_components in [100]:
+        eval_baseline_vs_components(
+            config_version=config_version, 
+            n_components=n_components,
+            moving_trajectory=moving_trajectory,
+            sampling_rate=sampling_rate,
+        )
 
     # n_components_list = [1, 10, 100, 1000, 2000, 4000]
     # eval_n_components(
@@ -545,9 +644,9 @@ if __name__ == '__main__':
     #     sampling_rate=sampling_rate,
     # )
 
-    eval_loc_n_rot_correlation(
-        config_version=config_version, 
-        n_components=100, 
-        moving_trajectory=moving_trajectory,
-        sampling_rate=sampling_rate
-    )
+    # eval_loc_n_rot_correlation(
+    #     config_version=config_version, 
+    #     n_components=100, 
+    #     moving_trajectory=moving_trajectory,
+    #     sampling_rate=sampling_rate
+    # )
