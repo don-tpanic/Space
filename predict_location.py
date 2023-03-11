@@ -481,7 +481,7 @@ def plot_true_vs_pred_rot(
 
 if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-    config_version = 'env13b_2d_vgg16_fc2_9_pca'
+    config_version = 'env13fixed_2d_vgg16_fc2_9_pca'
     moving_trajectory = 'uniform'
     sampling_rate = 0.9
 
