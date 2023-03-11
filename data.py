@@ -116,7 +116,7 @@ def load_data_targets(
         corresponding to a frame and a rotation.
     """
 
-    coords_true = []
+    targets_true = []
     if movement_mode == '1d':
         NotImplementedError()
 
@@ -126,9 +126,9 @@ def load_data_targets(
         for i in range(x_min*multiplier, x_max*multiplier+1):
             for j in range(y_min*multiplier, y_max*multiplier+1):
                 for k in range(n_rotations):
-                    coords_true.append([i/multiplier, j/multiplier, k])
+                    targets_true.append([i/multiplier, j/multiplier, k])
     
-    return np.array(coords_true)
+    return np.array(targets_true)
 
 
 if __name__ == "__main__":
