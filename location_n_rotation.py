@@ -5,6 +5,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = "3"
 import numpy as np
 import scipy
 from matplotlib import pyplot as plt
+from collections import defaultdict
 from tensorflow.keras import backend as K
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
@@ -377,6 +378,39 @@ def determine_moving_trajectory(
     return X_train, X_test, y_train, y_test
 
 
+def average_error_per_loc(error_type, y_test, y_pred):
+    """
+    Due to in test set, we could have multiple samples per location,
+    for viz error in 2D, we have to average the error per location in order 
+    to have one data-point per loc.
+
+    Impl:
+        1. Store unique locations in a defaultdict 
+        2. Store error per location in defaultdict in a list 
+        3. Average error per location and return unique loc-error mapping
+
+    Args:
+        if error_type == 'loc', consider the first 2 columns of y_test
+        if error_type == 'rot', consider last columns of y_test
+    """
+    # store unique locations in a defaultdict
+    # store error per location in defaultdict in a list
+    unique_locs = defaultdict(list)
+    for i, loc in enumerate(y_test[:, :2]):
+        if error_type == 'loc':
+            error = np.linalg.norm(y_test[i, :2] - y_pred[i, :2])
+        elif error_type == 'rot':
+            error = np.linalg.norm(y_test[i, 2:] - y_pred[i, 2:])
+        unique_locs[tuple(loc)].append(error)
+    
+    # average error per location and return unique loc-error mapping
+    average_error_per_loc_mapping = {}
+    for loc, errors in unique_locs.items():
+        average_error_per_loc_mapping[loc] = np.mean(errors)
+        # print(f'loc: {loc}, error: {np.mean(errors)}, std: {np.std(errors)}')
+    return average_error_per_loc_mapping
+
+
 def eval_baseline_vs_components(
         config_version, 
         n_components, 
@@ -420,10 +454,9 @@ def eval_baseline_vs_components(
                     baseline_feature_selection=baseline_feature_selection
         )
         
-        plot_true_vs_pred_loc_heatmap(
-            train_coords_true=y_train[:, :2],     # true train locations, exc rotation
-            test_coords_true=y_test[:, :2],      # true test locations, exc rotation
-            test_coords_pred=y_pred[:, :2],     # predicted locations, exc rotation
+        plot_test_error_heatmap(
+            train_coords_true=y_train[:, :2],
+            average_error_per_loc_mapping=average_error_per_loc('loc', y_test, y_pred),
             env_x_min=env_x_min,
             env_x_max=env_x_max,
             env_y_min=env_y_min,
@@ -432,11 +465,9 @@ def eval_baseline_vs_components(
             title=f'{subtitle}, mse_loc={mse_loc:.2f}',
         )
 
-        plot_true_vs_pred_rot_heatmap(
-            train_coords_true=y_train[:, :2],   # true train locations
-            test_coords_true=y_test[:, :2],     # true test locations to plot arrows against
-            test_rot_true=y_test[:, 2:],        # true test rotation, exc location
-            test_rot_pred=y_pred[:, 2:],        # predicted rotation, exc location
+        plot_test_error_heatmap(
+            train_coords_true=y_train[:, :2],
+            average_error_per_loc_mapping=average_error_per_loc('rot', y_test, y_pred),
             env_x_min=env_x_min,
             env_x_max=env_x_max,
             env_y_min=env_y_min,
@@ -550,10 +581,9 @@ def eval_loc_n_rot_correlation(
     plt.savefig(f'{results_path}/mse_loc_vs_mse_rot.png')
 
 
-def plot_true_vs_pred_loc_heatmap(
+def plot_test_error_heatmap(
         train_coords_true,
-        test_coords_true, 
-        test_coords_pred,
+        average_error_per_loc_mapping,
         env_x_min,
         env_x_max,
         env_y_min,
@@ -562,21 +592,21 @@ def plot_true_vs_pred_loc_heatmap(
         title,
     ):
     """
-    Plot train true coords and test coord error as heatmap
+    Plot train true coords and test (average) error as heatmap
     """
-    # Get true train coords
+    # Get true train coords (landmarks)
     train_coords_true = np.array(train_coords_true)
     train_coords_true_x = train_coords_true[:, 0]
     train_coords_true_y = train_coords_true[:, 1]
 
-    # Get true test coords
-    test_coords_true = np.array(test_coords_true)
-    test_coords_true_x = test_coords_true[:, 0]
-    test_coords_true_y = test_coords_true[:, 1]
-
-    # Compute test error per coord
-    test_coords_pred = np.array(test_coords_pred)
-    test_coords_error = np.linalg.norm(test_coords_true - test_coords_pred, axis=1)
+    # Get true test coords and test error
+    test_coords_true_x = []
+    test_coords_true_y = []
+    test_error = []
+    for loc, error in average_error_per_loc_mapping.items():
+        test_coords_true_x.append(loc[0])
+        test_coords_true_y.append(loc[1])
+        test_error.append(error)
 
     # Plot true train coords
     ax.scatter(
@@ -584,67 +614,13 @@ def plot_true_vs_pred_loc_heatmap(
         label='train true', c='g'
     )
 
-    # Plot test coord errors as heatmap
+    # Plot test errors as heatmap
     ax.scatter(
         test_coords_true_x, test_coords_true_y, 
-        c=test_coords_error, 
+        c=test_error, 
         cmap='Reds', s=999
     )
         
-    # The rest
-    ax.set_xlabel('Unity x axis')
-    ax.set_ylabel('Unity z axis')
-    ax.set_xlim(env_x_min, env_x_max)
-    ax.set_ylim(env_y_min, env_y_max)
-    ax.set_title(f'{title}')
-    return ax
-
-
-def plot_true_vs_pred_rot_heatmap(
-        train_coords_true,
-        test_coords_true, 
-        test_rot_true, 
-        test_rot_pred,
-        env_x_min,
-        env_x_max,
-        env_y_min,
-        env_y_max,
-        ax,
-        title,
-    ):
-    """
-    Plot train true coords and test rot error as heatmap
-    """
-    # Get true train coords
-    train_coords_true = np.array(train_coords_true)
-    train_coords_true_x = train_coords_true[:, 0]
-    train_coords_true_y = train_coords_true[:, 1]
-
-    # Get true test coords
-    test_coords_true = np.array(test_coords_true)
-    test_coords_true_x = test_coords_true[:, 0]
-    test_coords_true_y = test_coords_true[:, 1]
-
-    # Get true and pred test rot
-    test_rot_true = np.array(test_rot_true)
-    test_rot_pred = np.array(test_rot_pred)
-
-    # Compute test error per coord
-    test_rot_error = np.linalg.norm(test_rot_true - test_rot_pred, axis=1)
-
-    # Plot true train coords
-    ax.scatter(
-        train_coords_true_x, train_coords_true_y,
-        label='train true', c='g'
-    )
-
-    # Plot test rot errors as heatmap
-    ax.scatter(
-        test_coords_true_x, test_coords_true_y,
-        c=test_rot_error,
-        cmap='Reds', s=999
-    )
-
     # The rest
     ax.set_xlabel('Unity x axis')
     ax.set_ylabel('Unity z axis')
@@ -658,7 +634,11 @@ if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
     config_version = 'env13fixed_2d_vgg16_fc2_9_pca'
     n_components_list = [100]
-    moving_trajectories = ['four_corners', 'second_quadrant_w_key', 'left', 'uniform']
+    moving_trajectories = [
+        'four_corners', 'second_quadrant_w_key', 
+        'left', 'uniform',
+        'diag_quadrants', 'center_quadrant'
+    ]
 
     for n_components in n_components_list:
         for moving_trajectory in moving_trajectories:
