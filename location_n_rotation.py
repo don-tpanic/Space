@@ -378,16 +378,16 @@ def determine_moving_trajectory(
     return X_train, X_test, y_train, y_test
 
 
-def average_error_per_loc(error_type, y_test, y_pred):
+def average_error_n_std_per_loc(error_type, y_test, y_pred):
     """
     Due to in test set, we could have multiple samples per location,
-    for viz error in 2D, we have to average the error per location in order 
+    for viz error in 2D, we have to average the error+std per location in order 
     to have one data-point per loc.
 
     Impl:
         1. Store unique locations in a defaultdict 
         2. Store error per location in defaultdict in a list 
-        3. Average error per location and return unique loc-error mapping
+        3. Average error+std per location and return unique loc-error mapping
 
     Args:
         if error_type == 'loc', consider the first 2 columns of y_test
@@ -405,10 +405,12 @@ def average_error_per_loc(error_type, y_test, y_pred):
     
     # average error per location and return unique loc-error mapping
     average_error_per_loc_mapping = {}
+    error_std_per_loc_mapping = {}
     for loc, errors in unique_locs.items():
         average_error_per_loc_mapping[loc] = np.mean(errors)
-        # print(f'loc: {loc}, error: {np.mean(errors)}, std: {np.std(errors)}')
-    return average_error_per_loc_mapping
+        error_std_per_loc_mapping[loc] = np.std(errors)
+
+    return average_error_per_loc_mapping, error_std_per_loc_mapping
 
 
 def eval_baseline_vs_components(
@@ -430,6 +432,7 @@ def eval_baseline_vs_components(
     """
     print(f'[Check] n_components: {n_components}')
     subplots = ['none', 'random', 'maxvar', 'dim_reduce']
+    error_types = ['loc', 'rot']
     fig, ax = plt.subplots(2, len(subplots), figsize=(35, 20))
 
     for i in range(len(subplots)):
@@ -454,27 +457,26 @@ def eval_baseline_vs_components(
                     baseline_feature_selection=baseline_feature_selection
         )
         
-        plot_landmark_n_test_error_heatmap(
-            train_coords_true=y_train[:, :2],
-            average_error_per_loc_mapping=average_error_per_loc('loc', y_test, y_pred),
-            env_x_min=env_x_min,
-            env_x_max=env_x_max,
-            env_y_min=env_y_min,
-            env_y_max=env_y_max,
-            ax=ax[0, i],
-            title=f'{subtitle}, mse_loc={mse_loc:.2f}',
-        )
+        for j in range(len(error_types)):
+            error_type = error_types[j]
+            if error_type == 'loc':
+                mse = mse_loc
+            elif error_type == 'rot':
+                mse = mse_rot
 
-        plot_landmark_n_test_error_heatmap(
-            train_coords_true=y_train[:, :2],
-            average_error_per_loc_mapping=average_error_per_loc('rot', y_test, y_pred),
-            env_x_min=env_x_min,
-            env_x_max=env_x_max,
-            env_y_min=env_y_min,
-            env_y_max=env_y_max,
-            ax=ax[1, i],
-            title=f'{subtitle}, mse_rot={mse_rot:.2f}',
-        )
+            average_error_per_loc_mapping, error_std_per_loc_mapping = \
+                average_error_n_std_per_loc(error_type, y_test, y_pred)
+
+            plot_landmark_n_test_error_heatmap(
+                train_coords_true=y_train[:, :2],
+                average_error_per_loc_mapping=average_error_per_loc_mapping,
+                env_x_min=env_x_min,
+                env_x_max=env_x_max,
+                env_y_min=env_y_min,
+                env_y_max=env_y_max,
+                ax=ax[j, i],
+                title=f'{subtitle}, mse_{error_type}={mse:.2f}',
+            )
 
     title = f'prediction_baseline_vs_components_{n_components}_{moving_trajectory}{sampling_rate}_heatmap'
     plt.suptitle(title)
@@ -634,11 +636,12 @@ if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
     config_version = 'env13fixed_2d_vgg16_fc2_9_pca'
     n_components_list = [100]
-    moving_trajectories = [
-        'four_corners', 'second_quadrant_w_key', 
-        'left', 'uniform',
-        'diag_quadrants', 'center_quadrant'
-    ]
+    # moving_trajectories = [
+    #     'four_corners', 'second_quadrant_w_key', 
+    #     'left', 'uniform',
+    #     'diag_quadrants', 'center_quadrant'
+    # ]
+    moving_trajectories = ['second_quadrant_w_key']
 
     for n_components in n_components_list:
         for moving_trajectory in moving_trajectories:
