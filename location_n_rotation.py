@@ -624,17 +624,22 @@ def plot_true_vs_pred_rot(
 
 if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-    config_version = 'env13fixed_2d_vgg16_fc2_9_pca'
-    moving_trajectory = 'center_quadrant_oneshot'
-    sampling_rate = None
+    config_version = 'env13fixed_2d_none_raw_9_pca'
+    n_components_list = [100]
+    moving_trajectories = ['four_corners', 'second_quadrant_w_key', 'left', 'uniform']
 
-    for n_components in [100]:
-        eval_baseline_vs_components(
-            config_version=config_version, 
-            n_components=n_components,
-            moving_trajectory=moving_trajectory,
-            sampling_rate=sampling_rate,
-        )
+    for n_components in n_components_list:
+        for moving_trajectory in moving_trajectories:
+            if moving_trajectory in ['left', 'uniform']:
+                sampling_rate = 0.9
+            else:
+                sampling_rate = None
+            eval_baseline_vs_components(
+                config_version=config_version, 
+                n_components=n_components,
+                moving_trajectory=moving_trajectory,
+                sampling_rate=sampling_rate,
+            )
 
     # n_components_list = [1, 10, 100, 1000, 2000, 4000]
     # eval_n_components(
