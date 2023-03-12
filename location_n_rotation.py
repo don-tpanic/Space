@@ -218,7 +218,9 @@ def fit(
     mse_loc = mean_squared_error(y_test[:, :2], y_pred[:, :2])
     # compute MSE wrt rotation
     mse_rot = mean_squared_error(y_test[:, 2:], y_pred[:, 2:])
-    return mse_loc, mse_rot, y_test, y_pred, x_min, x_max, y_min, y_max, results_path
+    return mse_loc, mse_rot, \
+        y_train, y_test, y_pred, \
+            x_min, x_max, y_min, y_max, results_path
 
 
 def determine_moving_trajectory(
@@ -287,7 +289,7 @@ def determine_moving_trajectory(
         y_axis_coords = targets_true[:, 1]
         train_sample_indices = []
         for i, x in enumerate(x_axis_coords):
-            if x_min <= x <= 0 and 2 <= y_axis_coords[i] <= y_max:
+            if x_min <= x <= -2 and 2 <= y_axis_coords[i] <= y_max:
                 train_sample_indices.append(i)
             # also add key positions to training data
             # key positions are the mid ones from the other three
@@ -394,7 +396,7 @@ def eval_baseline_vs_components(
     """
     print(f'[Check] n_components: {n_components}')
     subplots = ['none', 'random', 'maxvar', 'dim_reduce']
-    fig, ax = plt.subplots(2, len(subplots), figsize=(35, 20), dpi=300)
+    fig, ax = plt.subplots(2, len(subplots), figsize=(35, 20))
 
     for i in range(len(subplots)):
         subplot = subplots[i]
@@ -407,7 +409,7 @@ def eval_baseline_vs_components(
             baseline_feature_selection = None
             subtitle = f'dim_reduce'
 
-        mse_loc, mse_rot, y_test, y_pred, \
+        mse_loc, mse_rot, y_train, y_test, y_pred, \
             env_x_min, env_x_max, env_y_min, env_y_max, \
                 results_path = fit(
                     config_version, 
@@ -418,30 +420,32 @@ def eval_baseline_vs_components(
                     baseline_feature_selection=baseline_feature_selection
         )
         
-        plot_true_vs_pred_loc(
-            y_test[:, :2],     # true locations, exc rotation
-            y_pred[:, :2],     # predicted locations, exc rotation
-            env_x_min,
-            env_x_max,
-            env_y_min,
-            env_y_max,
+        plot_true_vs_pred_loc_heatmap(
+            train_coords_true=y_train[:, :2],     # true train locations, exc rotation
+            test_coords_true=y_test[:, :2],      # true test locations, exc rotation
+            test_coords_pred=y_pred[:, :2],     # predicted locations, exc rotation
+            env_x_min=env_x_min,
+            env_x_max=env_x_max,
+            env_y_min=env_y_min,
+            env_y_max=env_y_max,
             ax=ax[0, i],
             title=f'{subtitle}, mse_loc={mse_loc:.2f}',
         )
 
-        plot_true_vs_pred_rot(
-            y_test[:, 2:],    # true rotation, exc location
-            y_pred[:, 2:],    # predicted rotation, exc location
-            y_test[:, :2],    # true locations to plot arrows against
-            env_x_min,
-            env_x_max,
-            env_y_min,
-            env_y_max,
+        plot_true_vs_pred_rot_heatmap(
+            train_coords_true=y_train[:, :2],   # true train locations
+            test_coords_true=y_test[:, :2],     # true test locations to plot arrows against
+            test_rot_true=y_test[:, 2:],        # true test rotation, exc location
+            test_rot_pred=y_pred[:, 2:],        # predicted rotation, exc location
+            env_x_min=env_x_min,
+            env_x_max=env_x_max,
+            env_y_min=env_y_min,
+            env_y_max=env_y_max,
             ax=ax[1, i],
             title=f'{subtitle}, mse_rot={mse_rot:.2f}',
         )
 
-    title = f'prediction_baseline_vs_components_{n_components}_{moving_trajectory}{sampling_rate}'
+    title = f'prediction_baseline_vs_components_{n_components}_{moving_trajectory}{sampling_rate}_heatmap'
     plt.suptitle(title)
     plt.legend()
     plt.tight_layout()
@@ -474,7 +478,7 @@ def eval_n_components(
 
         mse_list = []
         for n_components in n_components_list:
-            mse_loc, mse_rot, y_test, y_pred, \
+            mse_loc, mse_rot, y_train, y_test, y_pred, \
                 x_min, x_max, y_min, y_max, \
                     results_path = fit(
                         config_version, 
@@ -516,7 +520,7 @@ def eval_loc_n_rot_correlation(
     rotation prediction to see if there are correlations.
     """
     baseline = False
-    mse_loc, mse_rot, y_test, y_pred, \
+    mse_loc, mse_rot, y_train, y_test, y_pred, \
         env_x_min, env_x_max, env_y_min, env_y_max, \
             results_path = fit(
                 config_version, 
@@ -546,9 +550,10 @@ def eval_loc_n_rot_correlation(
     plt.savefig(f'{results_path}/mse_loc_vs_mse_rot.png')
 
 
-def plot_true_vs_pred_loc(
-        coords_true, 
-        coords_pred,
+def plot_true_vs_pred_loc_heatmap(
+        train_coords_true,
+        test_coords_true, 
+        test_coords_pred,
         env_x_min,
         env_x_max,
         env_y_min,
@@ -557,24 +562,49 @@ def plot_true_vs_pred_loc(
         title,
     ):
     """
-    Plot the true and predicted coordinates
+    Plot train true coords and test coord error as heatmap
     """
-    coords_true = np.array(coords_true)
-    coords_pred = np.array(coords_pred)
-    ax.scatter(coords_true[:, 0], coords_true[:, 1], label='true', c='g', alpha=0.5)
-    ax.scatter(coords_pred[:, 0], coords_pred[:, 1], label='pred', c='b', alpha=0.5, marker='x')
+    # Get true train coords
+    train_coords_true = np.array(train_coords_true)
+    train_coords_true_x = train_coords_true[:, 0]
+    train_coords_true_y = train_coords_true[:, 1]
+
+    # Get true test coords
+    test_coords_true = np.array(test_coords_true)
+    test_coords_true_x = test_coords_true[:, 0]
+    test_coords_true_y = test_coords_true[:, 1]
+
+    # Compute test error per coord
+    test_coords_pred = np.array(test_coords_pred)
+    test_coords_error = np.linalg.norm(test_coords_true - test_coords_pred, axis=1)
+
+    # Plot true train coords
+    ax.scatter(
+        train_coords_true_x, train_coords_true_y, 
+        label='train true', c='g'
+    )
+
+    # Plot test coord errors as heatmap
+    ax.scatter(
+        test_coords_true_x, test_coords_true_y, 
+        c=test_coords_error, 
+        cmap='Reds', s=999
+    )
+        
+    # The rest
     ax.set_xlabel('Unity x axis')
     ax.set_ylabel('Unity z axis')
-    ax.set_xlim(env_x_min-1, env_x_max+1)
-    ax.set_ylim(env_y_min-1, env_y_max+1)
+    ax.set_xlim(env_x_min, env_x_max)
+    ax.set_ylim(env_y_min, env_y_max)
     ax.set_title(f'{title}')
     return ax
 
 
-def plot_true_vs_pred_rot(
-        rot_true, 
-        rot_pred, 
-        loc_true,   # Used to plot the arrows onto.
+def plot_true_vs_pred_rot_heatmap(
+        train_coords_true,
+        test_coords_true, 
+        test_rot_true, 
+        test_rot_pred,
         env_x_min,
         env_x_max,
         env_y_min,
@@ -583,48 +613,50 @@ def plot_true_vs_pred_rot(
         title,
     ):
     """
-    Plot the true and predicted rotations
+    Plot train true coords and test rot error as heatmap
     """
-    rot_true = np.array(rot_true)
-    rot_pred = np.array(rot_pred)
-    loc_true = np.array(loc_true)
+    # Get true train coords
+    train_coords_true = np.array(train_coords_true)
+    train_coords_true_x = train_coords_true[:, 0]
+    train_coords_true_y = train_coords_true[:, 1]
 
-    # Convert angles to radians
-    angles_true = np.deg2rad(rot_true * 60)
-    angles_pred = np.deg2rad(rot_pred * 60)    # TODO: not neat
+    # Get true test coords
+    test_coords_true = np.array(test_coords_true)
+    test_coords_true_x = test_coords_true[:, 0]
+    test_coords_true_y = test_coords_true[:, 1]
 
-    arrow_dx_true = np.cos(angles_true)
-    arrow_dy_true = np.sin(angles_true)
-    arrow_dx_pred = np.cos(angles_pred)
-    arrow_dy_pred = np.sin(angles_pred)
+    # Get true and pred test rot
+    test_rot_true = np.array(test_rot_true)
+    test_rot_pred = np.array(test_rot_pred)
 
-    # Plot scatter plot with arrows
+    # Compute test error per coord
+    test_rot_error = np.linalg.norm(test_rot_true - test_rot_pred, axis=1)
+
+    # Plot true train coords
     ax.scatter(
-        loc_true[:, 0], loc_true[:, 1], 
-        label='true', c='g', alpha=0.5
-    )
-    ax.quiver(
-        loc_true[:, 0], loc_true[:, 1], 
-        arrow_dx_true, arrow_dy_true, 
-        angles='xy', scale_units='xy', color='k', label='true rot'
-    )
-    ax.quiver(
-        loc_true[:, 0], loc_true[:, 1], 
-        arrow_dx_pred, arrow_dy_pred, 
-        angles='xy', scale_units='xy', color='r', label='pred rot'
+        train_coords_true_x, train_coords_true_y,
+        label='train true', c='g'
     )
 
+    # Plot test rot errors as heatmap
+    ax.scatter(
+        test_coords_true_x, test_coords_true_y,
+        c=test_rot_error,
+        cmap='Reds', s=999
+    )
+
+    # The rest
     ax.set_xlabel('Unity x axis')
     ax.set_ylabel('Unity z axis')
-    ax.set_xlim(env_x_min-1, env_x_max+1)
-    ax.set_ylim(env_y_min-1, env_y_max+1)
+    ax.set_xlim(env_x_min, env_x_max)
+    ax.set_ylim(env_y_min, env_y_max)
     ax.set_title(f'{title}')
     return ax
 
 
 if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-    config_version = 'env13fixed_2d_none_raw_9_pca'
+    config_version = 'env13fixed_2d_vgg16_fc2_9_pca'
     n_components_list = [100]
     moving_trajectories = ['four_corners', 'second_quadrant_w_key', 'left', 'uniform']
 
