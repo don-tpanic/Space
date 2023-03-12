@@ -454,7 +454,7 @@ def eval_baseline_vs_components(
                     baseline_feature_selection=baseline_feature_selection
         )
         
-        plot_test_error_heatmap(
+        plot_landmark_n_test_error_heatmap(
             train_coords_true=y_train[:, :2],
             average_error_per_loc_mapping=average_error_per_loc('loc', y_test, y_pred),
             env_x_min=env_x_min,
@@ -465,7 +465,7 @@ def eval_baseline_vs_components(
             title=f'{subtitle}, mse_loc={mse_loc:.2f}',
         )
 
-        plot_test_error_heatmap(
+        plot_landmark_n_test_error_heatmap(
             train_coords_true=y_train[:, :2],
             average_error_per_loc_mapping=average_error_per_loc('rot', y_test, y_pred),
             env_x_min=env_x_min,
@@ -581,7 +581,7 @@ def eval_loc_n_rot_correlation(
     plt.savefig(f'{results_path}/mse_loc_vs_mse_rot.png')
 
 
-def plot_test_error_heatmap(
+def plot_landmark_n_test_error_heatmap(
         train_coords_true,
         average_error_per_loc_mapping,
         env_x_min,
