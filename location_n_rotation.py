@@ -467,18 +467,26 @@ def eval_baseline_vs_components(
             average_error_per_loc_mapping, error_std_per_loc_mapping = \
                 average_error_n_std_per_loc(error_type, y_test, y_pred)
 
-            plot_landmark_n_test_error_heatmap(
-                train_coords_true=y_train[:, :2],
+            # plot_landmark_n_test_error_heatmap(
+            #     train_coords_true=y_train[:, :2],
+            #     average_error_per_loc_mapping=average_error_per_loc_mapping,
+            #     env_x_min=env_x_min,
+            #     env_x_max=env_x_max,
+            #     env_y_min=env_y_min,
+            #     env_y_max=env_y_max,
+            #     ax=ax[j, i],
+            #     title=f'{subtitle}, mse_{error_type}={mse:.2f}',
+            # )
+            plot_test_error_variation(
                 average_error_per_loc_mapping=average_error_per_loc_mapping,
-                env_x_min=env_x_min,
-                env_x_max=env_x_max,
-                env_y_min=env_y_min,
-                env_y_max=env_y_max,
+                error_std_per_loc_mapping=error_std_per_loc_mapping,
                 ax=ax[j, i],
                 title=f'{subtitle}, mse_{error_type}={mse:.2f}',
             )
 
-    title = f'prediction_baseline_vs_components_{n_components}_{moving_trajectory}{sampling_rate}_heatmap'
+    # title = f'prediction_baseline_vs_components_{n_components}_{moving_trajectory}{sampling_rate}_heatmap'
+    title = f'prediction_baseline_vs_components_{n_components}_{moving_trajectory}{sampling_rate}_variation'
+    
     plt.suptitle(title)
     plt.legend()
     plt.tight_layout()
@@ -630,6 +638,35 @@ def plot_landmark_n_test_error_heatmap(
     ax.set_ylim(env_y_min, env_y_max)
     ax.set_title(f'{title}')
     return ax
+
+
+def plot_test_error_variation(
+        average_error_per_loc_mapping,
+        error_std_per_loc_mapping,
+        ax,
+        title,
+    ):
+    """
+    Plot test error variation as errorbars. 
+    X axis are the locations (as 1D), Y axis are errorbars. 
+    X axis do not care about the order of locations.
+    """
+    for x_index, loc in enumerate(average_error_per_loc_mapping.keys()):
+        average_error = average_error_per_loc_mapping[loc]
+        error_std = error_std_per_loc_mapping[loc]
+        ax.errorbar(
+            x_index, average_error, yerr=error_std, 
+            fmt='o', label=f'{loc}'
+        )
+    ax.set_xlabel('Location index')
+    ax.set_ylabel('Average error')
+    ax.set_title(f'{title}')
+    return ax
+    
+
+
+
+
 
 
 if __name__ == '__main__':
