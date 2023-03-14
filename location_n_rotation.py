@@ -467,25 +467,25 @@ def eval_baseline_vs_components(
             average_error_per_loc_mapping, error_std_per_loc_mapping = \
                 average_error_n_std_per_loc(error_type, y_test, y_pred)
 
-            # plot_landmark_n_test_error_heatmap(
-            #     train_coords_true=y_train[:, :2],
-            #     average_error_per_loc_mapping=average_error_per_loc_mapping,
-            #     env_x_min=env_x_min,
-            #     env_x_max=env_x_max,
-            #     env_y_min=env_y_min,
-            #     env_y_max=env_y_max,
-            #     ax=ax[j, i],
-            #     title=f'{subtitle}, mse_{error_type}={mse:.2f}',
-            # )
-            plot_test_error_variation(
+            plot_landmark_n_test_error_heatmap(
+                train_coords_true=y_train[:, :2],
                 average_error_per_loc_mapping=average_error_per_loc_mapping,
-                error_std_per_loc_mapping=error_std_per_loc_mapping,
+                env_x_min=env_x_min,
+                env_x_max=env_x_max,
+                env_y_min=env_y_min,
+                env_y_max=env_y_max,
                 ax=ax[j, i],
                 title=f'{subtitle}, mse_{error_type}={mse:.2f}',
             )
+            # plot_test_error_variation(
+            #     average_error_per_loc_mapping=average_error_per_loc_mapping,
+            #     error_std_per_loc_mapping=error_std_per_loc_mapping,
+            #     ax=ax[j, i],
+            #     title=f'{subtitle}, mse_{error_type}={mse:.2f}',
+            # )
 
-    # title = f'prediction_baseline_vs_components_{n_components}_{moving_trajectory}{sampling_rate}_heatmap'
-    title = f'prediction_baseline_vs_components_{n_components}_{moving_trajectory}{sampling_rate}_variation'
+    title = f'prediction_baseline_vs_components_{n_components}_{moving_trajectory}{sampling_rate}_heatmap'
+    # title = f'prediction_baseline_vs_components_{n_components}_{moving_trajectory}{sampling_rate}_variation'
     
     plt.suptitle(title)
     plt.legend()
@@ -671,19 +671,22 @@ def plot_test_error_variation(
 
 if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-    config_version = 'env13fixed_2d_vgg16_fc2_9_pca'
+    config_version = 'env14fixed_2d_vgg16_fc2_9_pca'
     n_components_list = [100]
     # moving_trajectories = [
     #     'four_corners', 'second_quadrant_w_key', 
-    #     'left', 'uniform',
+    #     'left', 'right',
     #     'diag_quadrants', 'center_quadrant'
     # ]
-    moving_trajectories = ['second_quadrant_w_key']
+    moving_trajectories = [
+        'left', 'right',
+    ]
+
 
     for n_components in n_components_list:
         for moving_trajectory in moving_trajectories:
-            if moving_trajectory in ['left', 'uniform']:
-                sampling_rate = 0.9
+            if moving_trajectory in ['left', 'right']:
+                sampling_rate = 0.5
             else:
                 sampling_rate = None
             eval_baseline_vs_components(
