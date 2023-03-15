@@ -2,6 +2,7 @@ import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = "3"
 
+import multiprocessing
 import numpy as np
 import scipy
 from matplotlib import pyplot as plt
@@ -139,7 +140,7 @@ def fit(
     # use model output
     else:
         # (n, 4096)
-        model_reps = model.predict(preprocessed_data)
+        model_reps = model.predict(preprocessed_data, verbose=1)
         K.clear_session()
         del model
         if len(model_reps.shape) > 2:
@@ -644,17 +645,17 @@ def plot_landmark_n_test_error_heatmap(
         test_coords_true_y.append(loc[1])
         test_error.append(error)
 
-    # Plot true train coords
-    ax.scatter(
-        train_coords_true_x, train_coords_true_y, 
-        label='train true', c='g'
-    )
-
     # Plot test errors as heatmap
     ax.scatter(
         test_coords_true_x, test_coords_true_y, 
         c=test_error, 
         cmap='Reds', s=999
+    )
+
+    # Plot true train coords
+    ax.scatter(
+        train_coords_true_x, train_coords_true_y, 
+        label='train true', c='g', marker='x', s=900
     )
         
     # The rest
@@ -690,39 +691,57 @@ def plot_test_error_variation(
     return ax
     
 
-
-
-
-
-
 if __name__ == '__main__':
-    os.environ["CUDA_VISIBLE_DEVICES"] = "4"
-    config_version = 'env14_r24_2d_vgg16_fc2_9_pca'
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+    os.environ["TF_NUM_INTRAOP_THREADS"] = "1"
+    os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+
+    envs = ['13_r24', '14_r24', '15_r24', '16_r24']
+    movement_modes = ['2d']
+    dim_reductions = ['pca', 'nmf', 'maxvar']
     n_components_list = [100]
-    sampling_rate = 0.5
-    # moving_trajectories = [
-    #     'four_corners', 'second_quadrant_w_key', 
-    #     'left', 'right',
-    #     'diag_quadrants', 'center_quadrant'
-    # ]
-    # moving_trajectories = [
-    #     'left', 'right',
-    # ]
-    moving_trajectories = [
-        'up', 'down',
-    ]
+    model_types_n_reps = {'vgg16': 'fc2'}
+    sampling_rate = 0.01
+    moving_trajectories = ['uniform']
+    num_processes = 70
 
+    
+    eval_baseline_vs_components(
+        config_version = f'env16_r24_2d_vgg16_fc2_9_pca',
+        n_components = 100,
+        moving_trajectory = 'uniform',
+        sampling_rate = 0.01
+    )
+    exit()
+    
 
-    for n_components in n_components_list:
-        for moving_trajectory in moving_trajectories:
-            if moving_trajectory not in ['left', 'right', 'up', 'down']:
-                sampling_rate = None
-            eval_baseline_vs_components(
-                config_version=config_version, 
-                n_components=n_components,
-                moving_trajectory=moving_trajectory,
-                sampling_rate=sampling_rate,
-            )
+    with multiprocessing.Pool(num_processes) as pool:
+        for env in envs:
+            for movement_mode in movement_modes:
+                for dim_reduction in dim_reductions:
+                    for n_components in n_components_list:
+                        for model_type, model_rep in model_types_n_reps.items():
+                            config_version = \
+                                f'env{env}_{movement_mode}_{model_type}_{model_rep}_' \
+                                f'9_{dim_reduction}'
+                            
+                            for moving_trajectory in moving_trajectories:
+                                if moving_trajectory not in ['left', 'right', 'up', 'down', 'uniform']:
+                                    sampling_rate = None
+
+                                results = pool.apply_async(
+                                    eval_baseline_vs_components, 
+                                    args=[
+                                        config_version, 
+                                        n_components, 
+                                        moving_trajectory, 
+                                        sampling_rate
+                                    ]
+                                )
+                
+        print(results.get())
+        pool.close()
+        pool.join()
 
     # n_components_list = [1, 10, 100, 1000, 2000, 4000]
     # eval_n_components(
