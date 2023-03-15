@@ -42,6 +42,7 @@ def fit(
         config_version, 
         n_components,
         moving_trajectory,
+        n_rotations,
         sampling_rate,
         baseline=False, 
         baseline_feature_selection=None
@@ -154,6 +155,7 @@ def fit(
                 model_reps=model_reps,
                 targets_true=targets_true,
                 moving_trajectory=moving_trajectory,
+                n_rotations=n_rotations,
                 sampling_rate=sampling_rate,
                 x_min=x_min,
                 x_max=x_max,
@@ -226,7 +228,8 @@ def fit(
 
 
 def determine_moving_trajectory(
-        moving_trajectory, 
+        moving_trajectory,
+        n_rotations,
         sampling_rate, 
         model_reps, 
         targets_true,
@@ -243,12 +246,36 @@ def determine_moving_trajectory(
     i.e. interpolation vs extrapolation).
     """
     if moving_trajectory == 'uniform':
-        X_train, X_test, y_train, y_test = \
-            train_test_split(
-                model_reps, targets_true, 
-                test_size=1-sampling_rate, 
-                random_state=999
+        # X_train, X_test, y_train, y_test = \
+        #     train_test_split(
+        #         model_reps, targets_true, 
+        #         test_size=1-sampling_rate, 
+        #         random_state=999
+        # )
+
+        # make sure a sampled loc's all rotates are in train
+        # so the sampling indices need to be locs of all views
+        np.random.seed(999)
+        train_sample_loc_indices = np.random.choice(
+            model_reps.shape[0] // n_rotations,
+            size=int(sampling_rate * model_reps.shape[0] // n_rotations),
         )
+
+        # the actual sampling indices need to be adjusted
+        # to include all rotations of the sampled locs
+        # in other words, each index in sampled_loc_indices
+        # needs to be incremented n_rotations times
+        # e.g. if sampled_loc_indices = [0, 1, 2] and 
+        # n_rotations = 2, then sampled_indices = [0,1, 2,3, 4,5]
+        train_sample_indices = []
+        for i in train_sample_loc_indices:
+            train_sample_indices.extend([i*n_rotations + j for j in range(n_rotations)])
+
+        # now we can use the sampled indices to get the train/test data
+        X_train = model_reps[train_sample_indices, :]
+        y_train = targets_true[train_sample_indices, :]
+        X_test = np.delete(model_reps, train_sample_indices, axis=0)
+        y_test = np.delete(targets_true, train_sample_indices, axis=0)
     
     elif moving_trajectory == 'left':
         # use the first `sampling_rate` of the data
@@ -444,6 +471,7 @@ def eval_baseline_vs_components(
         config_version, 
         n_components, 
         moving_trajectory,
+        n_rotations,
         sampling_rate,
     ):
     """
@@ -479,6 +507,7 @@ def eval_baseline_vs_components(
                     config_version, 
                     n_components=n_components,
                     moving_trajectory=moving_trajectory,
+                    n_rotations=n_rotations,
                     sampling_rate=sampling_rate,
                     baseline=baseline,
                     baseline_feature_selection=baseline_feature_selection
@@ -697,20 +726,22 @@ if __name__ == '__main__':
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
 
     envs = ['13_r24', '14_r24', '15_r24', '16_r24']
+    n_rotations = 24
     movement_modes = ['2d']
     dim_reductions = ['pca', 'nmf', 'maxvar']
     n_components_list = [100]
     model_types_n_reps = {'vgg16': 'fc2'}
-    sampling_rate = 0.01
+    sampling_rate = 0.1
     moving_trajectories = ['uniform']
     num_processes = 70
 
     
     eval_baseline_vs_components(
-        config_version = f'env16_r24_2d_vgg16_fc2_9_pca',
+        config_version = f'env13_r24_2d_vgg16_fc2_9_pca',
         n_components = 100,
         moving_trajectory = 'uniform',
-        sampling_rate = 0.01
+        n_rotations=24,
+        sampling_rate = 0.1
     )
     exit()
     
