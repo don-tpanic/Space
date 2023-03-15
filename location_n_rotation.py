@@ -267,6 +267,32 @@ def determine_moving_trajectory(
         X_test = model_reps[:-n_train, :]
         y_test = targets_true[:-n_train, :]
 
+    elif moving_trajectory == 'up':
+        x_axis_coords = targets_true[:, 0]
+        y_axis_coords = targets_true[:, 1]
+        train_sample_indices = []
+        for i, x in enumerate(x_axis_coords):
+            # upper half of the grid
+            if x_min <= x <= x_max and 0 <= y_axis_coords[i] <= y_max:
+                train_sample_indices.append(i)
+        X_train = model_reps[train_sample_indices, :]
+        y_train = targets_true[train_sample_indices, :]
+        X_test = np.delete(model_reps, train_sample_indices, axis=0)
+        y_test = np.delete(targets_true, train_sample_indices, axis=0)
+    
+    elif moving_trajectory == 'down':
+        x_axis_coords = targets_true[:, 0]
+        y_axis_coords = targets_true[:, 1]
+        train_sample_indices = []
+        for i, x in enumerate(x_axis_coords):
+            # lower half of the grid
+            if x_min <= x <= x_max and y_min <= y_axis_coords[i] <= 0:
+                train_sample_indices.append(i)
+        X_train = model_reps[train_sample_indices, :]
+        y_train = targets_true[train_sample_indices, :]
+        X_test = np.delete(model_reps, train_sample_indices, axis=0)
+        y_test = np.delete(targets_true, train_sample_indices, axis=0)
+
     elif moving_trajectory == 'second_quadrant':
         # second quadrant bounds: 
         # x_min =< x < x_max
@@ -670,24 +696,26 @@ def plot_test_error_variation(
 
 
 if __name__ == '__main__':
-    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-    config_version = 'env14fixed_2d_vgg16_fc2_9_pca'
+    os.environ["CUDA_VISIBLE_DEVICES"] = "4"
+    config_version = 'env14_r24_2d_vgg16_fc2_9_pca'
     n_components_list = [100]
+    sampling_rate = 0.5
     # moving_trajectories = [
     #     'four_corners', 'second_quadrant_w_key', 
     #     'left', 'right',
     #     'diag_quadrants', 'center_quadrant'
     # ]
+    # moving_trajectories = [
+    #     'left', 'right',
+    # ]
     moving_trajectories = [
-        'left', 'right',
+        'up', 'down',
     ]
 
 
     for n_components in n_components_list:
         for moving_trajectory in moving_trajectories:
-            if moving_trajectory in ['left', 'right']:
-                sampling_rate = 0.5
-            else:
+            if moving_trajectory not in ['left', 'right', 'up', 'down']:
                 sampling_rate = None
             eval_baseline_vs_components(
                 config_version=config_version, 
