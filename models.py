@@ -18,7 +18,7 @@ def load_model(model_name, output_layer):
         preprocess_func = tf.keras.applications.vgg16.preprocess_input
     
     model = Model(inputs=model.input, outputs=model.get_layer(output_layer).output)
-    model.summary()
+    # model.summary()
     return model, preprocess_func
 
 
