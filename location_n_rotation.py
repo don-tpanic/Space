@@ -183,7 +183,7 @@ def fit(
             X_test -= X_train_mean
             X_test = X_test @ Vt.T
         else:
-            NotImplementedError()
+            raise NotImplementedError()
 
     else:
         # TODO: when baseline, for now imitate the same 
@@ -213,7 +213,7 @@ def fit(
             X_train = X_train[:, random_cols]
             X_test = X_test[:, random_cols]
 
-    print(f'X_test.shape: {X_test.shape}', f'y_test.shape: {len(y_test)}')
+    print(f'[Check] Fitting LinearRegression..')
     LinearRegression_model = LinearRegression()
     LinearRegression_model.fit(X_train, y_train)
     y_pred = LinearRegression_model.predict(X_test)
@@ -553,6 +553,7 @@ def eval_n_components(
         config_version, 
         n_components_list, 
         moving_trajectory,
+        n_rotations,
         sampling_rate,):
     """
     Evaluate effect of the number of components to use
@@ -560,10 +561,11 @@ def eval_n_components(
     accuracy.
     """
     subplots = ['none', 'random', 'maxvar', 'dim_reduce']
-    fig, ax = plt.subplots(1, len(subplots), figsize=(20, 5))
+    fig, ax = plt.subplots(2, len(subplots), figsize=(20, 5))
 
     for i in range(len(subplots)):
         subplot = subplots[i]
+        print(f'[Check] subplot: {subplot}')
         if subplot != 'dim_reduce':
             baseline = True
             baseline_feature_selection = subplot
@@ -573,7 +575,8 @@ def eval_n_components(
             baseline_feature_selection = None
             subtitle = f'dim_reduce'
 
-        mse_list = []
+        mse_loc_list = []
+        mse_rot_list = []
         for n_components in n_components_list:
             mse_loc, mse_rot, y_train, y_test, y_pred, \
                 x_min, x_max, y_min, y_max, \
@@ -581,23 +584,30 @@ def eval_n_components(
                         config_version, 
                         n_components=n_components,
                         moving_trajectory=moving_trajectory,
+                        n_rotations=n_rotations,
                         sampling_rate=sampling_rate,
                         baseline=baseline,
                         baseline_feature_selection=baseline_feature_selection
                     )
-            mse_list.append(mse_loc)
-            print(f'n_components: {n_components}, mse: {mse_loc:.2f}')
-            
-        ax[i].plot(n_components_list, mse_list)
-        ax[i].set_xlabel('n_components')
-        ax[i].set_ylabel('mse')
-        ax[i].set_xscale('log')
-        ax[i].set_yscale('log')
-        ax[i].set_title(f'{subtitle}')
-        ax[i].set_xticks(n_components_list)
-        ax[i].set_xticklabels(n_components_list)
-        # ax[i].set_yticks([0, 1, 10, 100, 1000, 10000, 100000])
-        # ax[i].set_yticklabels([0, 1, 10, 100, 1000, 10000, 100000])
+            mse_loc_list.append(mse_loc)
+            mse_rot_list.append(mse_rot)
+            print(f'[Check] n_components: {n_components}, mse_loc: {mse_loc:.2f}, mse_rot: {mse_rot:.2f}')
+        
+        # plot first row mse_loc, second row mse_rot
+        mses = [mse_loc_list, mse_rot_list]
+        for mse_idx in range(len(mses)):
+            mse_list = mses[mse_idx]
+            ax[mse_idx, i].plot(n_components_list, mse_list)
+            ax[mse_idx, i].set_xlabel('n_components')
+            if mse_idx == 0:
+                ax[mse_idx, i].set_ylabel('mse_loc')
+            else:
+                ax[mse_idx, i].set_ylabel('mse_rot')
+            # ax[mse_idx, i].set_xscale('log')
+            # ax[mse_idx, i].set_yscale('log')
+            ax[mse_idx, i].set_title(f'{subtitle}')
+            ax[mse_idx, i].set_xticks(n_components_list)
+            ax[mse_idx, i].set_xticklabels(n_components_list)
 
     title = f'prediction_n_comp_vs_mse_{n_components_list[0]}-{n_components_list[-1]}' \
             f'_{moving_trajectory}{sampling_rate}'
@@ -721,66 +731,69 @@ def plot_test_error_variation(
     
 
 if __name__ == '__main__':
-    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-    os.environ["TF_NUM_INTRAOP_THREADS"] = "1"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    os.environ["TF_NUM_INTRAOP_THREADS"] = "5"
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
 
     envs = ['13_r24', '14_r24', '15_r24', '16_r24']
     n_rotations = 24
     movement_modes = ['2d']
-    dim_reductions = ['pca', 'nmf', 'maxvar']
+    dim_reductions = ['pca']
     n_components_list = [100]
     model_types_n_reps = {'vgg16': 'fc2'}
     sampling_rate = 0.1
     moving_trajectories = ['uniform']
     num_processes = 70
 
-    
-    eval_baseline_vs_components(
-        config_version = f'env13_r24_2d_vgg16_fc2_9_pca',
-        n_components = 100,
-        moving_trajectory = 'uniform',
-        n_rotations=24,
-        sampling_rate = 0.1
-    )
-    exit()
-    
-
-    with multiprocessing.Pool(num_processes) as pool:
-        for env in envs:
-            for movement_mode in movement_modes:
-                for dim_reduction in dim_reductions:
-                    for n_components in n_components_list:
-                        for model_type, model_rep in model_types_n_reps.items():
-                            config_version = \
-                                f'env{env}_{movement_mode}_{model_type}_{model_rep}_' \
-                                f'9_{dim_reduction}'
-                            
-                            for moving_trajectory in moving_trajectories:
-                                if moving_trajectory not in ['left', 'right', 'up', 'down', 'uniform']:
-                                    sampling_rate = None
-
-                                results = pool.apply_async(
-                                    eval_baseline_vs_components, 
-                                    args=[
-                                        config_version, 
-                                        n_components, 
-                                        moving_trajectory, 
-                                        sampling_rate
-                                    ]
-                                )
-                
-        print(results.get())
-        pool.close()
-        pool.join()
-
-    # n_components_list = [1, 10, 100, 1000, 2000, 4000]
-    # eval_n_components(
-    #     config_version=config_version, 
-    #     n_components_list=n_components_list,
-    #     moving_trajectory=moving_trajectory,
-    #     sampling_rate=sampling_rate,
+    # # single proc run.
+    # eval_baseline_vs_components(
+    #     config_version = f'env16_r24_2d_vgg16_fc2_9_pca',
+    #     n_components = 100,
+    #     moving_trajectory = 'uniform',
+    #     n_rotations=24,
+    #     sampling_rate = 0.1
     # )
+    
+    # # multi proc run.
+    # with multiprocessing.Pool(num_processes) as pool:
+    #     for env in envs:
+    #         for movement_mode in movement_modes:
+    #             for dim_reduction in dim_reductions:
+    #                 for n_components in n_components_list:
+    #                     for model_type, model_rep in model_types_n_reps.items():
+    #                         config_version = \
+    #                             f'env{env}_{movement_mode}_{model_type}_{model_rep}_' \
+    #                             f'9_{dim_reduction}'
+                            
+    #                         for moving_trajectory in moving_trajectories:
+    #                             if moving_trajectory not in ['left', 'right', 'up', 'down', 'uniform']:
+    #                                 sampling_rate = None
+
+    #                             results = pool.apply_async(
+    #                                 eval_baseline_vs_components, 
+    #                                 args=[
+    #                                     config_version, 
+    #                                     n_components, 
+    #                                     moving_trajectory,
+    #                                     n_rotations,
+    #                                     sampling_rate
+    #                                 ]
+    #                             )     
+    #     print(results.get())
+    #     pool.close()
+    #     pool.join()
+
+    os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+    os.environ["TF_NUM_INTRAOP_THREADS"] = "5"
+    os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+    # single proc run.
+    eval_n_components(
+        config_version=f'env16_r24_2d_vgg16_fc2_9_pca', 
+        n_components_list=[1, 5, 10, 50, 100, 500, 1000, 1500, 2000],
+        moving_trajectory='uniform',
+        n_rotations=24,
+        sampling_rate=0.1,
+    )
 
     # eval_loc_n_rot_correlation(
     #     config_version=config_version, 
