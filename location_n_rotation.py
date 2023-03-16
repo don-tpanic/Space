@@ -554,7 +554,7 @@ def eval_n_components(
         n_components_list, 
         moving_trajectory,
         n_rotations,
-        sampling_rate,):
+        sampling_rate_list,):
     """
     Evaluate effect of the number of components to use
     training the mapping on the final prediction
@@ -575,44 +575,52 @@ def eval_n_components(
             baseline_feature_selection = None
             subtitle = f'dim_reduce'
 
-        mse_loc_list = []
-        mse_rot_list = []
-        for n_components in n_components_list:
-            mse_loc, mse_rot, y_train, y_test, y_pred, \
-                x_min, x_max, y_min, y_max, \
-                    results_path = fit(
-                        config_version, 
-                        n_components=n_components,
-                        moving_trajectory=moving_trajectory,
-                        n_rotations=n_rotations,
-                        sampling_rate=sampling_rate,
-                        baseline=baseline,
-                        baseline_feature_selection=baseline_feature_selection
-                    )
-            mse_loc_list.append(mse_loc)
-            mse_rot_list.append(mse_rot)
-            print(f'[Check] n_components: {n_components}, mse_loc: {mse_loc:.2f}, mse_rot: {mse_rot:.2f}')
+        sampling_rate_mse_loc_list = defaultdict(list)  # {sampling_rate: [mse_loc]}
+        sampling_rate_mse_rot_list = defaultdict(list)
+        for sampling_rate in sampling_rate_list:
+            for n_components in n_components_list:
+                mse_loc, mse_rot, y_train, y_test, y_pred, \
+                    x_min, x_max, y_min, y_max, \
+                        results_path = fit(
+                            config_version, 
+                            n_components=n_components,
+                            moving_trajectory=moving_trajectory,
+                            n_rotations=n_rotations,
+                            sampling_rate=sampling_rate,
+                            baseline=baseline,
+                            baseline_feature_selection=baseline_feature_selection
+                        )
+                sampling_rate_mse_loc_list[sampling_rate].append(mse_loc)
+                sampling_rate_mse_rot_list[sampling_rate].append(mse_rot)
+                print(f'[Check] sampling_rate: {sampling_rate}, ' \
+                      f'n_components: {n_components}, mse_loc: {mse_loc:.2f}, mse_rot: {mse_rot:.2f}')
         
         # plot first row mse_loc, second row mse_rot
-        mses = [mse_loc_list, mse_rot_list]
+        mses = [sampling_rate_mse_loc_list, sampling_rate_mse_rot_list]
         for mse_idx in range(len(mses)):
-            mse_list = mses[mse_idx]
-            ax[mse_idx, i].plot(n_components_list, mse_list)
-            ax[mse_idx, i].set_xlabel('n_components')
-            if mse_idx == 0:
-                ax[mse_idx, i].set_ylabel('mse_loc')
-            else:
-                ax[mse_idx, i].set_ylabel('mse_rot')
-            # ax[mse_idx, i].set_xscale('log')
-            # ax[mse_idx, i].set_yscale('log')
-            ax[mse_idx, i].set_title(f'{subtitle}')
-            ax[mse_idx, i].set_xticks(n_components_list)
-            ax[mse_idx, i].set_xticklabels(n_components_list)
+            sampling_rate_mse_list = mses[mse_idx]
+            for sampling_rate, mse_list in sampling_rate_mse_list.items():
+                ax[mse_idx, i].plot(
+                    n_components_list, 
+                    mse_list, 
+                    label=f'sampling_rate={sampling_rate}'
+                )
+                ax[mse_idx, i].set_xlabel('n_components')
+                if mse_idx == 0:
+                    ax[mse_idx, i].set_ylabel('mse_loc')
+                    ax[mse_idx, i].set_ylim(-1, 10)       # TEMP
+                else:
+                    ax[mse_idx, i].set_ylabel('mse_rot')
+                    ax[mse_idx, i].set_ylim(-1, 40)       # TEMP
+                ax[mse_idx, i].set_title(f'{subtitle}')
+                ax[mse_idx, i].set_xticks(n_components_list)
+                ax[mse_idx, i].set_xticklabels(n_components_list)
 
     title = f'prediction_n_comp_vs_mse_{n_components_list[0]}-{n_components_list[-1]}' \
-            f'_{moving_trajectory}{sampling_rate}'
+            f'_{moving_trajectory}_{sampling_rate_list[0]}-{sampling_rate_list[-1]}'
     plt.suptitle(title)
     plt.tight_layout()
+    plt.legend()
     plt.savefig(f'{results_path}/{title}.png')
         
 
@@ -744,17 +752,7 @@ if __name__ == '__main__':
     sampling_rate = 0.1
     moving_trajectories = ['uniform']
     num_processes = 70
-
-    # # single proc run.
-    # eval_baseline_vs_components(
-    #     config_version = f'env16_r24_2d_vgg16_fc2_9_pca',
-    #     n_components = 100,
-    #     moving_trajectory = 'uniform',
-    #     n_rotations=24,
-    #     sampling_rate = 0.1
-    # )
     
-    # # multi proc run.
     # with multiprocessing.Pool(num_processes) as pool:
     #     for env in envs:
     #         for movement_mode in movement_modes:
@@ -786,13 +784,12 @@ if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = "3"
     os.environ["TF_NUM_INTRAOP_THREADS"] = "5"
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
-    # single proc run.
     eval_n_components(
         config_version=f'env16_r24_2d_vgg16_fc2_9_pca', 
-        n_components_list=[1, 5, 10, 50, 100, 500, 1000, 1500, 2000],
+        n_components_list=[2, 5, 10, 20, 50, 100, 200, 500, 1000],
         moving_trajectory='uniform',
         n_rotations=24,
-        sampling_rate=0.1,
+        sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
     )
 
     # eval_loc_n_rot_correlation(
