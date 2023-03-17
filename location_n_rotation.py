@@ -15,27 +15,20 @@ from sklearn.metrics import mean_squared_error
 from models import load_model
 from data import load_data, load_data_targets
 import dimension_reduction
-import evaluations
 import utils
 
 """
 The idea is training a mapping from 
     raw images / CNN outputs / components 
-to spatial coordinates in the environment. And if it is trainable, 
+to spatial coordinates/rotations in the environment. And if it is trainable, 
 we can then test if the mapping can generalise to unseen data.
 
 e.g., if PCA is used, the test data (visual input) is first projected 
 to the extracted PCs from training data and the transformed the data is 
-used to predict the location given the visual input.
+used to predict the location/rotation given the visual input.
 
 The baselines would be directly using raw images / CNN outputs (of unseen) 
-frames to predict locations.
-
-TODOs: 
-    1. how to best visualise results? plot the true and predict see how much off?
-        (tho hard to see which is which's prediction..)
-    2. is prediction more accurate if near landmark or nearby training point?
-    3. consider sampling rotation more randomly for training.
+frames to predict locations/rotations.
 """
 
 def fit(
@@ -467,7 +460,7 @@ def average_error_n_std_per_loc(error_type, y_test, y_pred):
     return average_error_per_loc_mapping, error_std_per_loc_mapping
 
 
-def eval_baseline_vs_components(
+def WITHIN_ENV__decoding_error_across_reps(
         config_version, 
         n_components, 
         moving_trajectory,
@@ -475,8 +468,8 @@ def eval_baseline_vs_components(
         sampling_rate,
     ):
     """
-    Compare prediction accuracy using mapping
-    trained using baseline (no dimension reduction)
+    Compare loc&rot decoding error using mapping
+    trained with baselines (no dimension reduction)
     and mapping trained using projected components.
 
     For now we plot 4 figures:
@@ -484,6 +477,14 @@ def eval_baseline_vs_components(
         2. baseline (random selection on columns)
         3. baseline (maxvar selection on columns)
         4. PCA (top n_components)
+
+    returns:
+        1. heatmaps representing decoding error of held out locs;
+            and training samples as landmarks.
+
+        or 
+
+        2. decoding errors and their variations across rots.
     """
     print(f'[Check] n_components: {n_components}')
     subplots = ['none', 'random', 'maxvar', 'dim_reduce']
@@ -549,7 +550,7 @@ def eval_baseline_vs_components(
     plt.savefig(f'{results_path}/{title}.png')
 
 
-def eval_n_components(
+def WITHIN_ENV__decoding_error_across_n_components(
         config_version, 
         n_components_list, 
         moving_trajectory,
@@ -557,8 +558,7 @@ def eval_n_components(
         sampling_rate_list,):
     """
     Evaluate effect of the number of components to use
-    training the mapping on the final prediction
-    accuracy.
+    training the mapping on decoding errors of loc&rot.
     """
     subplots = ['none', 'random', 'maxvar', 'dim_reduce']
     fig, ax = plt.subplots(2, len(subplots), figsize=(20, 5))
@@ -639,7 +639,7 @@ def eval_n_components(
     plt.savefig(f'{results_path}/{title}.png')
         
 
-def eval_loc_n_rot_correlation(
+def WITHIN_ENV__eval_loc_n_rot_correlation(
         config_version, 
         n_components, 
         moving_trajectory,
@@ -782,7 +782,7 @@ if __name__ == '__main__':
     #                                 sampling_rate = None
 
     #                             results = pool.apply_async(
-    #                                 eval_baseline_vs_components, 
+    #                                 WITHIN_ENV__decoding_error_across_reps, 
     #                                 args=[
     #                                     config_version, 
     #                                     n_components, 
@@ -798,17 +798,10 @@ if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = "5"
     os.environ["TF_NUM_INTRAOP_THREADS"] = "5"
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
-    eval_n_components(
+    WITHIN_ENV__decoding_error_across_n_components(
         config_version=f'env27_r24_2d_vgg16_fc2_9_pca', 
         n_components_list=[2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 4000],
         moving_trajectory='uniform',
         n_rotations=24,
         sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
     )
-
-    # eval_loc_n_rot_correlation(
-    #     config_version=config_version, 
-    #     n_components=100, 
-    #     moving_trajectory=moving_trajectory,
-    #     sampling_rate=sampling_rate
-    # )
