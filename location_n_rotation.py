@@ -595,6 +595,21 @@ def eval_n_components(
                 print(f'[Check] sampling_rate: {sampling_rate}, ' \
                       f'n_components: {n_components}, mse_loc: {mse_loc:.2f}, mse_rot: {mse_rot:.2f}')
         
+        # same mse_loc and mse_rot for all sampling rates for all n_components;
+        # save one file per subplot
+        np.save(
+            f'{results_path}/mse_loc_{subtitle}_' \
+            f'{n_components_list[0]}-{n_components_list[-1]}_' \
+            f'{moving_trajectory}_{sampling_rate_list[0]}-{sampling_rate_list[-1]}.npy', 
+            sampling_rate_mse_loc_list
+        )
+        np.save(
+            f'{results_path}/mse_rot_{subtitle}_' \
+            f'{n_components_list[0]}-{n_components_list[-1]}_' \
+            f'{moving_trajectory}_{sampling_rate_list[0]}-{sampling_rate_list[-1]}.npy',
+            sampling_rate_mse_rot_list
+        )
+        
         # plot first row mse_loc, second row mse_rot
         mses = [sampling_rate_mse_loc_list, sampling_rate_mse_rot_list]
         for mse_idx in range(len(mses)):
@@ -739,20 +754,19 @@ def plot_test_error_variation(
     
 
 if __name__ == '__main__':
-    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-    os.environ["TF_NUM_INTRAOP_THREADS"] = "5"
-    os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+    # os.environ["CUDA_VISIBLE_DEVICES"] = "4"
+    # os.environ["TF_NUM_INTRAOP_THREADS"] = "5"
+    # os.environ["TF_NUM_INTEROP_THREADS"] = "1"
 
-    envs = ['13_r24', '14_r24', '15_r24', '16_r24']
-    n_rotations = 24
-    movement_modes = ['2d']
-    dim_reductions = ['pca']
-    n_components_list = [100]
-    model_types_n_reps = {'vgg16': 'fc2'}
-    sampling_rate = 0.1
-    moving_trajectories = ['uniform']
-    num_processes = 70
-    
+    # envs = ['25_r24']
+    # n_rotations = 24
+    # movement_modes = ['2d']
+    # dim_reductions = ['pca']
+    # n_components_list = [100]
+    # model_types_n_reps = {'vgg16': 'fc2'}
+    # sampling_rate = 0.1
+    # moving_trajectories = ['uniform']
+    # num_processes = 70
     # with multiprocessing.Pool(num_processes) as pool:
     #     for env in envs:
     #         for movement_mode in movement_modes:
@@ -781,12 +795,12 @@ if __name__ == '__main__':
     #     pool.close()
     #     pool.join()
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+    os.environ["CUDA_VISIBLE_DEVICES"] = "5"
     os.environ["TF_NUM_INTRAOP_THREADS"] = "5"
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
     eval_n_components(
-        config_version=f'env16_r24_2d_vgg16_fc2_9_pca', 
-        n_components_list=[2, 5, 10, 20, 50, 100, 200, 500, 1000],
+        config_version=f'env27_r24_2d_vgg16_fc2_9_pca', 
+        n_components_list=[2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 4000],
         moving_trajectory='uniform',
         n_rotations=24,
         sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
