@@ -569,7 +569,7 @@ def WITHIN_ENV__decoding_error_across_n_components(
         if subplot != 'dim_reduce':
             baseline = True
             baseline_feature_selection = subplot
-            subtitle = f'baseline, sampling={subplot}'
+            subtitle = f'baseline_sampling={subplot}'
         else:
             baseline = False
             baseline_feature_selection = None
@@ -753,11 +753,100 @@ def plot_test_error_variation(
     return ax
     
 
+def ACROSS_ENVS__decoding_error_across_reps_n_components(
+        envs=[
+            'env22_r24_2d_vgg16_fc2_9_pca',
+            # 'env23_r24_2d_vgg16_fc2_9_pca',
+            # 'env24_r24_2d_vgg16_fc2_9_pca',
+            'env25_r24_2d_vgg16_fc2_9_pca',
+            # 'env26_r24_2d_vgg16_fc2_9_pca',
+            'env27_r24_2d_vgg16_fc2_9_pca',
+        ],
+        sampling_rates=[0.01, 0.05, 0.1, 0.3, 0.5],
+        # n_components_list=[2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 4000],
+        n_components_list=range(1, 50, 2),
+        error_types=['mse_loc', 'mse_rot'],
+        reps=['none', 'random', 'maxvar', 'dim_reduce'],
+    ):
+    """
+    Given a sampling rate, compare decoding error across n_components
+    across a number of different envs. This is to see if with more 
+    decorated walls, the overall env's decoding error will be lower.
+
+    Each env's decoding error across sampling rates and n_components
+    are already computed and saved by 
+        `WITHIN_ENV__decoding_error_across_n_components`
+
+    So we will be loading results from those saved files, e.g.
+        '../mse_loc_baseline, sampling=maxvar_2-4000_uniform_0.01-0.5.npy'
+
+    where each file is a defaultdict whose keys are sampling rates and 
+    each sampling rate corresponds to a list of errors of each n_components 
+    from the `n_components_list`, which is pre-defined.
+
+    This function will creare a figure where each raw corresponds to a sampling
+    rate, and first column corresponds to decoding error of location (mse_loc),
+    and second column corresponds to decoding error of rotation (mse_rot).
+
+    Within each subplot, we plot all given envs' decoding errors across `n_components_list
+    """
+
+    env2wall = {
+        'env22_r24_2d_vgg16_fc2_9_pca': '4 walls',
+        'env23_r24_2d_vgg16_fc2_9_pca': '3 walls (1)',
+        'env24_r24_2d_vgg16_fc2_9_pca': '3 walls (2)',
+        'env25_r24_2d_vgg16_fc2_9_pca': '0 walls',
+        'env26_r24_2d_vgg16_fc2_9_pca': '2 walls',
+        'env27_r24_2d_vgg16_fc2_9_pca': '1 wall',
+    }
+
+    for rep in reps:
+        fig, axes = plt.subplots(
+            nrows=len(sampling_rates), ncols=len(error_types), figsize=(15, 15))
+    
+        for error_type_index, error_type in enumerate(error_types):
+            for env in envs:
+                env_results_path = utils.return_results_path(env)
+
+                if rep == 'dim_reduce': 
+                    temp_title = f'{error_type}_{rep}_'
+                else:
+                    temp_title = f'{error_type}_baseline_sampling={rep}_'
+                results_path = \
+                    f'{env_results_path}/' \
+                    f'{temp_title}' \
+                    f'{n_components_list[0]}-{n_components_list[-1]}_' \
+                    f'uniform_{sampling_rates[0]}-{sampling_rates[-1]}.npy'
+                results = np.load(results_path, allow_pickle=True).ravel()[0]
+
+                for sampling_rate_index, sampling_rate in enumerate(sampling_rates):
+                    ax = axes[sampling_rate_index, error_type_index]
+                    ax.plot(
+                        n_components_list, results[sampling_rate], 
+                        label=f'{env2wall[env]}', marker='o'
+                    )
+                    ax.set_ylabel(f'{error_type}')
+                    ax.set_title(f'sampling rate: {sampling_rate}')
+                    if error_type == 'mse_loc':
+                        ax.set_ylim(2, 10)
+                    elif error_type == 'mse_rot':
+                        ax.set_ylim(-0.05, 55)
+                    if sampling_rate_index == -1:
+                        ax.set_xlabel('n_components')
+
+        plt.legend() 
+        plt.tight_layout()
+        plt.suptitle(f'{rep}')
+        plt.savefig(
+            f'results/across_envs/' \
+            f'decoding_error_across_reps_n_components_{rep}.png'
+        )
+
+
 if __name__ == '__main__':
     # os.environ["CUDA_VISIBLE_DEVICES"] = "4"
     # os.environ["TF_NUM_INTRAOP_THREADS"] = "5"
     # os.environ["TF_NUM_INTEROP_THREADS"] = "1"
-
     # envs = ['25_r24']
     # n_rotations = 24
     # movement_modes = ['2d']
@@ -795,13 +884,17 @@ if __name__ == '__main__':
     #     pool.close()
     #     pool.join()
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = "5"
-    os.environ["TF_NUM_INTRAOP_THREADS"] = "5"
-    os.environ["TF_NUM_INTEROP_THREADS"] = "1"
-    WITHIN_ENV__decoding_error_across_n_components(
-        config_version=f'env27_r24_2d_vgg16_fc2_9_pca', 
-        n_components_list=[2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 4000],
-        moving_trajectory='uniform',
-        n_rotations=24,
-        sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
-    )
+    # os.environ["CUDA_VISIBLE_DEVICES"] = "5"
+    # os.environ["TF_NUM_INTRAOP_THREADS"] = "5"
+    # os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+    # WITHIN_ENV__decoding_error_across_n_components(
+    #     config_version=f'env27_r24_2d_vgg16_fc2_9_pca', 
+    #     # n_components_list=[2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 4000],
+    #     n_components_list=range(1, 50, 2),
+    #     moving_trajectory='uniform',
+    #     n_rotations=24,
+    #     sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
+    # )
+
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    ACROSS_ENVS__decoding_error_across_reps_n_components()

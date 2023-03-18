@@ -9,6 +9,19 @@ def load_config(config_version):
     return config
 
 
+def return_results_path(config_version):
+    config = load_config(config_version)
+    unity_env = config['unity_env']
+    model_name = config['model_name']
+    output_layer = config['output_layer']
+    movement_mode = config['movement_mode']
+    reduction_method = config['reduction_method']
+    env_results_path = f'results/{unity_env}/{movement_mode}' \
+                        f'/{model_name}/{output_layer}/' \
+                        f'{reduction_method}'
+    return env_results_path
+
+
 def cuda_manager(target, args_list, cuda_id_list, n_concurrent=None):
     """Create CUDA manager.
     Arguments:
