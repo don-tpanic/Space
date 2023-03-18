@@ -1,0 +1,16 @@
+config_version: env22_r24_2d_vgg16_fc2_9_maxvar
+
+unity_env: env22_r24
+model_name: vgg16
+output_layer: fc2
+n_components: 9
+movement_mode: 2d
+reduction_method: maxvar
+n_rotations: 24
+
+# unity settings
+x_min: -4
+x_max: 4
+y_min: -4
+y_max: 4
+multiplier: 2
