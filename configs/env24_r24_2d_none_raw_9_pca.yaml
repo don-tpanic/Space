@@ -1,0 +1,13 @@
+config_version: env24_r24_2d_none_raw_9_pca
+unity_env: env24_r24
+model_name: none
+output_layer: raw
+n_components: 9
+movement_mode: 2d
+reduction_method: pca
+n_rotations: 24
+x_min: -4
+x_max: 4
+y_min: -4
+y_max: 4
+multiplier: 2
