@@ -754,14 +754,19 @@ def plot_test_error_variation(
     
 
 def ACROSS_ENVS__decoding_error_across_reps_n_components(
-        envs=[
-            'env22_r24_2d_vgg16_fc2_9_pca',
-            # 'env23_r24_2d_vgg16_fc2_9_pca',
-            # 'env24_r24_2d_vgg16_fc2_9_pca',
-            'env25_r24_2d_vgg16_fc2_9_pca',
-            # 'env26_r24_2d_vgg16_fc2_9_pca',
-            'env27_r24_2d_vgg16_fc2_9_pca',
-        ],
+        envs2walls={
+            'env22': 4,
+            'env23': 3,
+            'env24': 3,
+            'env25': 0,
+            'env26': 1,
+            'env27': 2,
+        },
+        n_rotations=24,
+        movement_mode='2d',
+        model_name='vgg16',
+        output_layer='fc2',
+        reduction_method='pca',
         sampling_rates=[0.01, 0.05, 0.1, 0.3, 0.5],
         # n_components_list=[2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 4000],
         n_components_list=range(1, 50, 2),
@@ -790,23 +795,16 @@ def ACROSS_ENVS__decoding_error_across_reps_n_components(
 
     Within each subplot, we plot all given envs' decoding errors across `n_components_list
     """
-
-    env2wall = {
-        'env22_r24_2d_vgg16_fc2_9_pca': '4 walls',
-        'env23_r24_2d_vgg16_fc2_9_pca': '3 walls (1)',
-        'env24_r24_2d_vgg16_fc2_9_pca': '3 walls (2)',
-        'env25_r24_2d_vgg16_fc2_9_pca': '0 walls',
-        'env26_r24_2d_vgg16_fc2_9_pca': '2 walls',
-        'env27_r24_2d_vgg16_fc2_9_pca': '1 wall',
-    }
-
     for rep in reps:
         fig, axes = plt.subplots(
             nrows=len(sampling_rates), ncols=len(error_types), figsize=(15, 15))
     
         for error_type_index, error_type in enumerate(error_types):
-            for env in envs:
-                env_results_path = utils.return_results_path(env)
+            for env in envs2walls:
+                env_spec = f'{env}_r{n_rotations}_'\
+                      f'{movement_mode}_{model_name}_'\
+                      f'{output_layer}_9_{reduction_method}'
+                env_results_path = utils.return_results_path(env_spec)
 
                 if rep == 'dim_reduce': 
                     temp_title = f'{error_type}_{rep}_'
@@ -823,7 +821,8 @@ def ACROSS_ENVS__decoding_error_across_reps_n_components(
                     ax = axes[sampling_rate_index, error_type_index]
                     ax.plot(
                         n_components_list, results[sampling_rate], 
-                        label=f'{env2wall[env]}', marker='o'
+                        label=f'{envs2walls[env]} walls', marker='o', 
+                        c='grey', alpha=(1+envs2walls[env])*0.2,
                     )
                     ax.set_ylabel(f'{error_type}')
                     ax.set_title(f'sampling rate: {sampling_rate}')
@@ -839,7 +838,8 @@ def ACROSS_ENVS__decoding_error_across_reps_n_components(
         plt.suptitle(f'{rep}')
         plt.savefig(
             f'results/across_envs/' \
-            f'decoding_error_across_reps_n_components_{rep}.png'
+            f'decoding_error_across_reps_n_components_'\
+            f'{rep}_{model_name}_{output_layer}_{reduction_method}.png'
         )
 
 
@@ -915,33 +915,27 @@ if __name__ == '__main__':
     #     pool.close()
     #     pool.join()
 
-    # os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-    # os.environ["TF_NUM_INTRAOP_THREADS"] = "5"
-    # os.environ["TF_NUM_INTEROP_THREADS"] = "1"
-    # WITHIN_ENV__decoding_error_across_n_components(
-    #     config_version=f'env22_r24_2d_none_raw_9_pca', 
+    # multicuda_execute(
+    #     WITHIN_ENV__decoding_error_across_n_components,
+    #     config_versions=[
+    #         f'env22_r24_2d_none_raw_9_pca',
+    #         f'env23_r24_2d_none_raw_9_pca',
+    #         f'env24_r24_2d_none_raw_9_pca',
+    #         f'env25_r24_2d_none_raw_9_pca',
+    #         f'env26_r24_2d_none_raw_9_pca',
+    #         f'env27_r24_2d_none_raw_9_pca',
+    #     ],
     #     # n_components_list=[2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 4000],
     #     n_components_list=range(1, 50, 2),
     #     moving_trajectory='uniform',
     #     n_rotations=24,
     #     sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
+    #     cuda_id_list=[0, 1, 2, 3, 4, 5]
     # )
-    multicuda_execute(
-        WITHIN_ENV__decoding_error_across_n_components,
-        config_versions=[
-            f'env22_r24_2d_none_raw_9_pca',
-            f'env23_r24_2d_none_raw_9_pca',
-            f'env24_r24_2d_none_raw_9_pca',
-            f'env25_r24_2d_none_raw_9_pca',
-            f'env26_r24_2d_none_raw_9_pca',
-            f'env27_r24_2d_none_raw_9_pca',
-        ],
-        n_components_list=range(1, 50, 2),
-        moving_trajectory='uniform',
-        n_rotations=24,
-        sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
-        cuda_id_list=[0, 1, 2, 3, 4, 5]
-    )
 
-    # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-    # ACROSS_ENVS__decoding_error_across_reps_n_components()
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    ACROSS_ENVS__decoding_error_across_reps_n_components(
+        model_name='vgg16',
+        output_layer='fc2',
+        reduction_method='pca',
+    )
