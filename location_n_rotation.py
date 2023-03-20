@@ -843,6 +843,37 @@ def ACROSS_ENVS__decoding_error_across_reps_n_components(
         )
 
 
+def multicuda_execute(
+        target_func, 
+        config_versions,
+        n_components_list,
+        moving_trajectory,
+        n_rotations,
+        sampling_rate_list,
+        cuda_id_list,
+    ):
+    """
+    Launch multiple 
+        `WITHIN_ENV__decoding_error_across_n_components`
+    to specified GPUs.
+    """
+    args_list = []
+    for config_version in config_versions:
+        single_entry = {}
+        single_entry['config_version'] = config_version
+        single_entry['n_components_list'] = n_components_list
+        single_entry['moving_trajectory'] = moving_trajectory
+        single_entry['n_rotations'] = n_rotations
+        single_entry['sampling_rate_list'] = sampling_rate_list
+        args_list.append(single_entry)
+
+    print(args_list)
+    print(len(args_list))
+    utils.cuda_manager(
+        target_func, args_list, cuda_id_list
+    )
+
+
 if __name__ == '__main__':
     # os.environ["CUDA_VISIBLE_DEVICES"] = "4"
     # os.environ["TF_NUM_INTRAOP_THREADS"] = "5"
@@ -884,17 +915,33 @@ if __name__ == '__main__':
     #     pool.close()
     #     pool.join()
 
-    # os.environ["CUDA_VISIBLE_DEVICES"] = "5"
+    # os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     # os.environ["TF_NUM_INTRAOP_THREADS"] = "5"
     # os.environ["TF_NUM_INTEROP_THREADS"] = "1"
     # WITHIN_ENV__decoding_error_across_n_components(
-    #     config_version=f'env27_r24_2d_vgg16_fc2_9_pca', 
+    #     config_version=f'env22_r24_2d_none_raw_9_pca', 
     #     # n_components_list=[2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 4000],
     #     n_components_list=range(1, 50, 2),
     #     moving_trajectory='uniform',
     #     n_rotations=24,
     #     sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
     # )
+    multicuda_execute(
+        WITHIN_ENV__decoding_error_across_n_components,
+        config_versions=[
+            f'env22_r24_2d_none_raw_9_pca',
+            f'env23_r24_2d_none_raw_9_pca',
+            f'env24_r24_2d_none_raw_9_pca',
+            f'env25_r24_2d_none_raw_9_pca',
+            f'env26_r24_2d_none_raw_9_pca',
+            f'env27_r24_2d_none_raw_9_pca',
+        ],
+        n_components_list=range(1, 50, 2),
+        moving_trajectory='uniform',
+        n_rotations=24,
+        sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
+        cuda_id_list=[0, 1, 2, 3, 4, 5]
+    )
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-    ACROSS_ENVS__decoding_error_across_reps_n_components()
+    # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    # ACROSS_ENVS__decoding_error_across_reps_n_components()
