@@ -39,5 +39,7 @@ def generate_config(
 if __name__ == "__main__":
     generate_config(
         template_config='env22_r24_2d_vgg16_fc2_9_pca',
-        env_nums=['22', '23', '24', '25', '26', '27']
+        env_nums=['28', '29', '30', '31', '32', '33'],
+        model_names=['vgg16'],
+        output_layers=['block4_pool'],
     )
