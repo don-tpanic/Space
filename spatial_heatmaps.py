@@ -1,6 +1,7 @@
 import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = "3"
+
 import multiprocessing
 import utils
 from models import load_model
@@ -64,7 +65,7 @@ def single_config_reps(config):
     # use model output
     else:
         # (n, 4096)
-        model_reps = model.predict(preprocessed_data)
+        model_reps = model.predict(preprocessed_data, verbose=1)
         if len(model_reps.shape) > 2:
             # when not a fc layer, we need to flatten the output dim
             # except the batch dim.
@@ -96,23 +97,16 @@ def execute(config_version):
         results_path=results_path,
     )
 
-    if config['model_name'] == 'none':
-        # component reconstructions for now 
-        # only supports raw image reps
-        component_analysis.execute(
-            fitter=fitter,
-            config=config, 
-            results_path=results_path,
-        )
 
+def multiproc_execute():
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    os.environ["TF_NUM_INTRAOP_THREADS"] = "2"  # limit each execute's max threads
+    os.environ["TF_NUM_INTEROP_THREADS"] = "1"  # limit each execute's max threads
 
-if __name__ == "__main__":
-    os.environ["CUDA_VISIBLE_DEVICES"] = "4"
-
-    num_processes = 70
-    envs = ['13_r24']
+    num_processes = 20
+    envs = ['28_r24', '29_r24', '30_r24', '31_r24', '32_r24', '33_r24']
     movement_modes = ['2d']
-    dim_reductions = ['nmf']
+    dim_reductions = ['pca', 'nmf', 'maxvar']
     n_components_list = [9]
     model_types_n_reps = {'vgg16': 'fc2'}
 
@@ -134,3 +128,14 @@ if __name__ == "__main__":
         print(results.get())
         pool.close()
         pool.join()
+
+
+if __name__ == "__main__":
+    import time
+    start_time = time.time()
+
+    multiproc_execute()
+
+    end_time = time.time()
+    time_elapsed = (end_time - start_time) / 3600
+    print(f'Time elapsed: {time_elapsed} hrs')
