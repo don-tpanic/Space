@@ -468,11 +468,11 @@ def WITHIN_ENV__decoding_error_across_reps(
         sampling_rate,
     ):
     """
-    Compare loc&rot decoding error using mapping
-    trained with baselines (no dimension reduction)
-    and mapping trained using projected components.
+    Given an env and a fixed n_components, trajectory,
+    n_rotations, and sampling_rate, we visualize decoding 
+    error of loc&rot across reps in ['none', 'random', 'maxvar', 'dim_reduce'].
 
-    For now we plot 4 figures:
+    For now we plot 4 figures for loc/rot decoding error:
         1. baseline (no selection on columns)
         2. baseline (random selection on columns)
         3. baseline (maxvar selection on columns)
@@ -486,6 +486,11 @@ def WITHIN_ENV__decoding_error_across_reps(
 
         2. decoding errors and their variations across rots.
     """
+    # NOTE: little hack to make the multiproc_execute interface
+    # consistent with other analyses.
+    n_components = n_components[0]
+    sampling_rate = sampling_rate[0]
+
     print(f'[Check] n_components: {n_components}')
     subplots = ['none', 'random', 'maxvar', 'dim_reduce']
     error_types = ['loc', 'rot']
@@ -550,15 +555,29 @@ def WITHIN_ENV__decoding_error_across_reps(
     plt.savefig(f'{results_path}/{title}.png')
 
 
-def WITHIN_ENV__decoding_error_across_n_components(
+def WITHIN_ENV__decoding_error_across_reps_n_components(
         config_version, 
         n_components_list, 
         moving_trajectory,
         n_rotations,
         sampling_rate_list,):
     """
-    Evaluate effect of the number of components to use
-    training the mapping on decoding errors of loc&rot.
+    Given an env with fixed moving trajectory and n_rotations, 
+    we visualize how decoding error of loc&rot change across 
+    a range of n_components and sampling rates and across 
+    reps in ['none', 'random', 'maxvar', 'dim_reduce'].
+
+    returns:
+        1. saves dictionaries of mse_loc and mse_rot across n_components
+        and sampling rates. E.g., a resulting dict has structure: 
+        {sampling_rate1: [mse_loc1, mse_loc2, ...], ...} where in the list
+        are decoding errors across `n_components_list`.
+
+        2. plot decoding errors across n_components and sampling rates.
+    
+    The saved dictionary results are later used by
+        `ACROSS_ENVS__decoding_error_across_reps_n_components`
+    where we compare decoding errors across envs.
     """
     subplots = ['none', 'random', 'maxvar', 'dim_reduce']
     fig, ax = plt.subplots(2, len(subplots), figsize=(20, 5))
@@ -575,7 +594,7 @@ def WITHIN_ENV__decoding_error_across_n_components(
             baseline_feature_selection = None
             subtitle = f'dim_reduce'
 
-        sampling_rate_mse_loc_list = defaultdict(list)  # {sampling_rate: [mse_loc]}
+        sampling_rate_mse_loc_list = defaultdict(list)  # {sampling_rate1: [mse_loc1, mse_loc2, ...], ...}
         sampling_rate_mse_rot_list = defaultdict(list)
         for sampling_rate in sampling_rate_list:
             for n_components in n_components_list:
@@ -754,21 +773,13 @@ def plot_test_error_variation(
     
 
 def ACROSS_ENVS__decoding_error_across_reps_n_components(
-        envs2walls={
-            'env22': 4,
-            'env23': 3,
-            'env24': 3,
-            'env25': 0,
-            'env26': 1,
-            'env27': 2,
-        },
+        envs2walls,
         n_rotations=24,
         movement_mode='2d',
         model_name='vgg16',
         output_layer='fc2',
         reduction_method='pca',
         sampling_rates=[0.01, 0.05, 0.1, 0.3, 0.5],
-        # n_components_list=[2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 4000],
         n_components_list=range(1, 50, 2),
         error_types=['mse_loc', 'mse_rot'],
         reps=['none', 'random', 'maxvar', 'dim_reduce'],
@@ -795,6 +806,7 @@ def ACROSS_ENVS__decoding_error_across_reps_n_components(
 
     Within each subplot, we plot all given envs' decoding errors across `n_components_list
     """
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     for rep in reps:
         fig, axes = plt.subplots(
             nrows=len(sampling_rates), ncols=len(error_types), figsize=(15, 15))
@@ -836,106 +848,97 @@ def ACROSS_ENVS__decoding_error_across_reps_n_components(
         plt.legend() 
         plt.tight_layout()
         plt.suptitle(f'{rep}')
-        plt.savefig(
-            f'results/across_envs/' \
+        first_env = list(envs2walls.keys())[0]
+        last_env = list(envs2walls.keys())[-1]
+        fpath = \
+            f'results/across_envs/'\
             f'decoding_error_across_reps_n_components_'\
-            f'{rep}_{model_name}_{output_layer}_{reduction_method}.png'
-        )
+            f'{rep}_{model_name}_{output_layer}_'\
+            f'{reduction_method}_{first_env}-{last_env}.png'
+        plt.savefig(fpath)
 
 
-def multicuda_execute(
+def multiproc_execute(
         target_func, 
         config_versions,
         n_components_list,
         moving_trajectory,
         n_rotations,
         sampling_rate_list,
-        cuda_id_list,
+        n_processes,
     ):
     """
     Launch multiple 
         `WITHIN_ENV__decoding_error_across_n_components`
-    to specified GPUs.
+    to CPU processes.
     """
-    args_list = []
-    for config_version in config_versions:
-        single_entry = {}
-        single_entry['config_version'] = config_version
-        single_entry['n_components_list'] = n_components_list
-        single_entry['moving_trajectory'] = moving_trajectory
-        single_entry['n_rotations'] = n_rotations
-        single_entry['sampling_rate_list'] = sampling_rate_list
-        args_list.append(single_entry)
-
-    print(args_list)
-    print(len(args_list))
-    utils.cuda_manager(
-        target_func, args_list, cuda_id_list
-    )
-
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    os.environ["TF_NUM_INTRAOP_THREADS"] = "5"
+    os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+    with multiprocessing.Pool(n_processes) as pool:
+        for config_version in config_versions:
+            pool.apply_async(
+                target_func, 
+                args=(
+                    config_version,
+                    n_components_list,
+                    moving_trajectory,
+                    n_rotations,
+                    sampling_rate_list,
+                )
+            )
+        pool.close()
+        pool.join()
+       
 
 if __name__ == '__main__':
-    # os.environ["CUDA_VISIBLE_DEVICES"] = "4"
-    # os.environ["TF_NUM_INTRAOP_THREADS"] = "5"
-    # os.environ["TF_NUM_INTEROP_THREADS"] = "1"
-    # envs = ['25_r24']
-    # n_rotations = 24
-    # movement_modes = ['2d']
-    # dim_reductions = ['pca']
-    # n_components_list = [100]
-    # model_types_n_reps = {'vgg16': 'fc2'}
-    # sampling_rate = 0.1
-    # moving_trajectories = ['uniform']
-    # num_processes = 70
-    # with multiprocessing.Pool(num_processes) as pool:
-    #     for env in envs:
-    #         for movement_mode in movement_modes:
-    #             for dim_reduction in dim_reductions:
-    #                 for n_components in n_components_list:
-    #                     for model_type, model_rep in model_types_n_reps.items():
-    #                         config_version = \
-    #                             f'env{env}_{movement_mode}_{model_type}_{model_rep}_' \
-    #                             f'9_{dim_reduction}'
-                            
-    #                         for moving_trajectory in moving_trajectories:
-    #                             if moving_trajectory not in ['left', 'right', 'up', 'down', 'uniform']:
-    #                                 sampling_rate = None
+    import time
+    start_time = time.time()
 
-    #                             results = pool.apply_async(
-    #                                 WITHIN_ENV__decoding_error_across_reps, 
-    #                                 args=[
-    #                                     config_version, 
-    #                                     n_components, 
-    #                                     moving_trajectory,
-    #                                     n_rotations,
-    #                                     sampling_rate
-    #                                 ]
-    #                             )     
-    #     print(results.get())
-    #     pool.close()
-    #     pool.join()
-
-    # multicuda_execute(
-    #     WITHIN_ENV__decoding_error_across_n_components,
+    # multiproc_execute(
+    #     WITHIN_ENV__decoding_error_across_reps,
     #     config_versions=[
-    #         f'env22_r24_2d_none_raw_9_pca',
-    #         f'env23_r24_2d_none_raw_9_pca',
-    #         f'env24_r24_2d_none_raw_9_pca',
-    #         f'env25_r24_2d_none_raw_9_pca',
-    #         f'env26_r24_2d_none_raw_9_pca',
-    #         f'env27_r24_2d_none_raw_9_pca',
+    #         f'env28_r24_2d_vgg16_fc2_9_pca',
+    #         f'env29_r24_2d_vgg16_fc2_9_pca',
     #     ],
-    #     # n_components_list=[2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 4000],
+    #     n_components_list=[10],
+    #     moving_trajectory='uniform',
+    #     n_rotations=24,
+    #     sampling_rate_list=[0.01],
+    #     n_processes=2,
+    # )
+
+    # multiproc_execute(
+    #     WITHIN_ENV__decoding_error_across_reps_n_components,
+    #     config_versions=[
+    #         f'env28_r24_2d_vgg16_fc2_9_pca',
+    #         f'env29_r24_2d_vgg16_fc2_9_pca',
+    #         f'env30_r24_2d_vgg16_fc2_9_pca',
+    #         f'env31_r24_2d_vgg16_fc2_9_pca',
+    #         f'env32_r24_2d_vgg16_fc2_9_pca',
+    #         f'env33_r24_2d_vgg16_fc2_9_pca',
+    #     ],
     #     n_components_list=range(1, 50, 2),
     #     moving_trajectory='uniform',
     #     n_rotations=24,
     #     sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
-    #     cuda_id_list=[0, 1, 2, 3, 4, 5]
+    #     n_processes=70,
     # )
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     ACROSS_ENVS__decoding_error_across_reps_n_components(
+        envs2walls={
+            'env28': 4,
+            'env29': 3,
+            'env30': 2,
+            'env31': 2,
+            'env32': 1,
+            'env33': 0,
+        },
         model_name='vgg16',
         output_layer='fc2',
         reduction_method='pca',
     )
+
+    end_time = time.time()
+    time_elapsed = (end_time - start_time) / 3600
+    print(f'Time elapsed: {time_elapsed} hrs')
