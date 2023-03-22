@@ -555,7 +555,7 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
         n_components_list, 
         moving_trajectory,
         sampling_rate_list,
-        reps=['dim_reduce'],
+        reps=['maxvar'],
     ):
     """
     Given an env with fixed moving trajectory and n_rotations, 
@@ -575,6 +575,8 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
         `ACROSS_ENVS__decoding_error_across_reps_n_components`
     where we compare decoding errors across envs.
     """
+    os.environ["TF_NUM_INTRAOP_THREADS"] = "1"
+    os.environ["TF_NUM_INTEROP_THREADS"] = "1"
     print(f'[Check] config_version: {config_version}')
     config = utils.load_config(config_version)
     if config['model_name'] == 'none':
@@ -626,7 +628,7 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
                 # if so skip (inc.) the rest of n_components for this sampling rate.
                 # and jump right into the next sampling rate.
                 n_samples = preprocessed_data.shape[0] * sampling_rate
-                if n_components > n_samples:
+                if subplot == 'dim_reduce' and n_components > n_samples:
                     print(f'[Check] n_components: {n_components} > n_samples: {n_samples}, skip the rest of n_components')
                     break
                     
@@ -644,7 +646,7 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
                     )
                 sampling_rate_mse_loc_list[sampling_rate].append(mse_loc)
                 sampling_rate_mse_rot_list[sampling_rate].append(mse_rot)
-                print(f'[Check] sampling_rate: {sampling_rate}, ' \
+                print(f'[Check] {config_version} \n- sampling_rate: {sampling_rate}, ' \
                       f'n_components: {n_components}, mse_loc: {mse_loc:.2f}, mse_rot: {mse_rot:.2f}')
         
         # same mse_loc and mse_rot for all sampling rates for all n_components;
@@ -869,7 +871,8 @@ def ACROSS_ENVS__decoding_error_across_reps_n_components(
                 for sampling_rate_index, sampling_rate in enumerate(sampling_rates):
                     ax = axes[sampling_rate_index, error_type_index]
                     ax.plot(
-                        n_components_list, results[sampling_rate], 
+                        n_components_list[:len(results[sampling_rate])], 
+                        results[sampling_rate], 
                         label=f'{envs2walls[env]} walls', marker='o', 
                         c='grey', alpha=(1+envs2walls[env])*0.2,
                     )
@@ -981,7 +984,7 @@ if __name__ == '__main__':
             f'env32_r24_2d_vgg16_fc2_9_pca',
             f'env33_r24_2d_vgg16_fc2_9_pca',
         ],
-        n_components_list=[1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 1500, 2000, 3000, 4000],
+        n_components_list=[1, 2, 5, 10, 15, 20, 30, 50, 100, 200, 300, 500, 1000, 1500, 2000, 3000, 4000],
         moving_trajectory='uniform',
         sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
         cuda_id_list=[0, 1, 2, 3, 4, 5],
@@ -999,8 +1002,8 @@ if __name__ == '__main__':
     #     model_name='vgg16',
     #     output_layer='fc2',
     #     reduction_method='pca',
-    #     n_components_list=[50, 100, 200, 300, 500, 1000, 1500, 2000, 3000, 4000],
-    #     reps=['dim_reduce']
+    #     n_components_list=[1, 2, 5, 10, 15, 20, 30, 50, 100, 200, 300, 500, 1000, 1500, 2000, 3000, 4000],
+    #     reps=['maxvar']
     # )
 
     end_time = time.time()
