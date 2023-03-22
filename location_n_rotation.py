@@ -32,10 +32,12 @@ frames to predict locations/rotations.
 """
 
 def fit(
-        config_version, 
+        model,
+        config,
+        preprocessed_data,
+        targets_true,
         n_components,
         moving_trajectory,
-        n_rotations,
         sampling_rate,
         baseline=False, 
         baseline_feature_selection=None
@@ -68,20 +70,11 @@ def fit(
             1. random: randomly select n_components features
             2. maxvar: select n_components features with max variance
     """
-    config = utils.load_config(config_version)
     unity_env = config['unity_env']
     model_name = config['model_name']
     output_layer = config['output_layer']
-    # n_components = config['n_components']
     movement_mode = config['movement_mode']
     reduction_method = config['reduction_method']
-    n_rotations = config['n_rotations']
-    x_min = config['x_min']
-    x_max = config['x_max']
-    y_min = config['y_min']
-    y_max = config['y_max']
-    multiplier = config['multiplier']
-    data_path = f"data/unity/{unity_env}/{movement_mode}"
 
     # for backward compatibility 
     # when there is no reduction_hparams
@@ -99,33 +92,6 @@ def fit(
 
     if not os.path.exists(results_path):
         os.makedirs(results_path)
-
-    if model_name == 'none':
-        preprocess_func = None
-    else:
-        model, preprocess_func = load_model(model_name, output_layer)
-
-    preprocessed_data = load_data(
-        data_path=data_path, 
-        movement_mode=movement_mode,
-        x_min=x_min,
-        x_max=x_max,
-        y_min=y_min,
-        y_max=y_max,
-        multiplier=multiplier,
-        n_rotations=n_rotations,
-        preprocess_func=preprocess_func,
-    )
-
-    targets_true = load_data_targets(
-        movement_mode=movement_mode,
-        x_min=x_min,
-        x_max=x_max,
-        y_min=y_min,
-        y_max=y_max,
-        multiplier=multiplier,
-        n_rotations=n_rotations,
-    )
     
     # use raw image input 
     if model_name == 'none':
@@ -134,9 +100,9 @@ def fit(
     # use model output
     else:
         # (n, 4096)
-        model_reps = model.predict(preprocessed_data, verbose=1)
-        K.clear_session()
+        model_reps = model.predict(preprocessed_data)
         del model
+        K.clear_session()
         if len(model_reps.shape) > 2:
             # when not a fc layer, we need to flatten the output dim
             # except the batch dim.
@@ -148,12 +114,12 @@ def fit(
                 model_reps=model_reps,
                 targets_true=targets_true,
                 moving_trajectory=moving_trajectory,
-                n_rotations=n_rotations,
+                n_rotations=config['n_rotations'],
                 sampling_rate=sampling_rate,
-                x_min=x_min,
-                x_max=x_max,
-                y_min=y_min,
-                y_max=y_max,
+                x_min=config['x_min'],
+                x_max=config['x_max'],
+                y_min=config['y_min'],
+                y_max=config['y_max'],
             )
     print(f'X_train.shape: {X_train.shape}', f'y_train.shape: {len(y_train)}')
     print(f'X_test.shape: {X_test.shape}', f'y_test.shape: {len(y_test)}')
@@ -217,7 +183,7 @@ def fit(
     mse_rot = mean_squared_error(y_test[:, 2:], y_pred[:, 2:])
     return mse_loc, mse_rot, \
         y_train, y_test, y_pred, \
-            x_min, x_max, y_min, y_max, results_path
+            results_path
 
 
 def determine_moving_trajectory(
@@ -462,10 +428,9 @@ def average_error_n_std_per_loc(error_type, y_test, y_pred):
 
 def WITHIN_ENV__decoding_error_across_reps(
         config_version, 
-        n_components, 
+        n_components_list,
         moving_trajectory,
-        n_rotations,
-        sampling_rate,
+        sampling_rate_list,
     ):
     """
     Given an env and a fixed n_components, trajectory,
@@ -486,10 +451,39 @@ def WITHIN_ENV__decoding_error_across_reps(
 
         2. decoding errors and their variations across rots.
     """
+    config = utils.load_config(config_version)
+    if config['model_name'] == 'none':
+        preprocess_func = None
+    else:
+        model, preprocess_func = load_model(
+            config['model_name'], config['output_layer'])
+
+    preprocessed_data = load_data(
+        data_path=f"data/unity/{config['unity_env']}/{config['movement_mode']}", 
+        movement_mode=config['movement_mode'],
+        x_min=config['x_min'],
+        x_max=config['x_max'],
+        y_min=config['y_min'],
+        y_max=config['y_max'],
+        multiplier=config['multiplier'],
+        n_rotations=config['n_rotations'],
+        preprocess_func=preprocess_func,
+    )
+
+    targets_true = load_data_targets(
+        movement_mode=config['movement_mode'],
+        x_min=config['x_min'],
+        x_max=config['x_max'],
+        y_min=config['y_min'],
+        y_max=config['y_max'],
+        multiplier=config['multiplier'],
+        n_rotations=config['n_rotations'],
+    )
+
     # NOTE: little hack to make the multiproc_execute interface
     # consistent with other analyses.
-    n_components = n_components[0]
-    sampling_rate = sampling_rate[0]
+    n_components = n_components_list[0]
+    sampling_rate = sampling_rate_list[0]
 
     print(f'[Check] n_components: {n_components}')
     subplots = ['none', 'random', 'maxvar', 'dim_reduce']
@@ -508,16 +502,17 @@ def WITHIN_ENV__decoding_error_across_reps(
             subtitle = f'dim_reduce'
 
         mse_loc, mse_rot, y_train, y_test, y_pred, \
-            env_x_min, env_x_max, env_y_min, env_y_max, \
-                results_path = fit(
-                    config_version, 
-                    n_components=n_components,
-                    moving_trajectory=moving_trajectory,
-                    n_rotations=n_rotations,
-                    sampling_rate=sampling_rate,
-                    baseline=baseline,
-                    baseline_feature_selection=baseline_feature_selection
-        )
+            results_path = fit(
+                model=model,
+                config=config,
+                preprocessed_data=preprocessed_data,
+                targets_true=targets_true,
+                n_components=n_components,
+                moving_trajectory=moving_trajectory,
+                sampling_rate=sampling_rate,
+                baseline=baseline,
+                baseline_feature_selection=baseline_feature_selection
+            )
         
         for j in range(len(error_types)):
             error_type = error_types[j]
@@ -532,10 +527,10 @@ def WITHIN_ENV__decoding_error_across_reps(
             plot_landmark_n_test_error_heatmap(
                 train_coords_true=y_train[:, :2],
                 average_error_per_loc_mapping=average_error_per_loc_mapping,
-                env_x_min=env_x_min,
-                env_x_max=env_x_max,
-                env_y_min=env_y_min,
-                env_y_max=env_y_max,
+                env_x_min=config['x_min'],
+                env_x_max=config['x_max'],
+                env_y_min=config['y_min'],
+                env_y_max=config['y_max'],
                 ax=ax[j, i],
                 title=f'{subtitle}, mse_{error_type}={mse:.2f}',
             )
@@ -559,8 +554,9 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
         config_version, 
         n_components_list, 
         moving_trajectory,
-        n_rotations,
-        sampling_rate_list,):
+        sampling_rate_list,
+        reps=['dim_reduce'],
+    ):
     """
     Given an env with fixed moving trajectory and n_rotations, 
     we visualize how decoding error of loc&rot change across 
@@ -579,11 +575,39 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
         `ACROSS_ENVS__decoding_error_across_reps_n_components`
     where we compare decoding errors across envs.
     """
-    subplots = ['none', 'random', 'maxvar', 'dim_reduce']
-    fig, ax = plt.subplots(2, len(subplots), figsize=(20, 5))
+    print(f'[Check] config_version: {config_version}')
+    config = utils.load_config(config_version)
+    if config['model_name'] == 'none':
+        preprocess_func = None
+    else:
+        model, preprocess_func = load_model(
+            config['model_name'], config['output_layer'])
 
-    for i in range(len(subplots)):
-        subplot = subplots[i]
+    preprocessed_data = load_data(
+        data_path=f"data/unity/{config['unity_env']}/{config['movement_mode']}", 
+        movement_mode=config['movement_mode'],
+        x_min=config['x_min'],
+        x_max=config['x_max'],
+        y_min=config['y_min'],
+        y_max=config['y_max'],
+        multiplier=config['multiplier'],
+        n_rotations=config['n_rotations'],
+        preprocess_func=preprocess_func,
+    )
+
+    targets_true = load_data_targets(
+        movement_mode=config['movement_mode'],
+        x_min=config['x_min'],
+        x_max=config['x_max'],
+        y_min=config['y_min'],
+        y_max=config['y_max'],
+        multiplier=config['multiplier'],
+        n_rotations=config['n_rotations'],
+    )
+
+    fig, ax = plt.subplots(2, len(reps), figsize=(20, 5))
+    for i in range(len(reps)):
+        subplot = reps[i]
         print(f'[Check] subplot: {subplot}')
         if subplot != 'dim_reduce':
             baseline = True
@@ -598,17 +622,26 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
         sampling_rate_mse_rot_list = defaultdict(list)
         for sampling_rate in sampling_rate_list:
             for n_components in n_components_list:
+                # check if n_components is greater than training data sampled
+                # if so skip (inc.) the rest of n_components for this sampling rate.
+                # and jump right into the next sampling rate.
+                n_samples = preprocessed_data.shape[0] * sampling_rate
+                if n_components > n_samples:
+                    print(f'[Check] n_components: {n_components} > n_samples: {n_samples}, skip the rest of n_components')
+                    break
+                    
                 mse_loc, mse_rot, y_train, y_test, y_pred, \
-                    x_min, x_max, y_min, y_max, \
-                        results_path = fit(
-                            config_version, 
-                            n_components=n_components,
-                            moving_trajectory=moving_trajectory,
-                            n_rotations=n_rotations,
-                            sampling_rate=sampling_rate,
-                            baseline=baseline,
-                            baseline_feature_selection=baseline_feature_selection
-                        )
+                    results_path = fit(
+                        model=model,
+                        config=config,
+                        preprocessed_data=preprocessed_data,
+                        targets_true=targets_true,
+                        n_components=n_components,
+                        moving_trajectory=moving_trajectory,
+                        sampling_rate=sampling_rate,
+                        baseline=baseline,
+                        baseline_feature_selection=baseline_feature_selection
+                    )
                 sampling_rate_mse_loc_list[sampling_rate].append(mse_loc)
                 sampling_rate_mse_rot_list[sampling_rate].append(mse_rot)
                 print(f'[Check] sampling_rate: {sampling_rate}, ' \
@@ -628,34 +661,7 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
             f'{moving_trajectory}_{sampling_rate_list[0]}-{sampling_rate_list[-1]}.npy',
             sampling_rate_mse_rot_list
         )
-        
-        # plot first row mse_loc, second row mse_rot
-        mses = [sampling_rate_mse_loc_list, sampling_rate_mse_rot_list]
-        for mse_idx in range(len(mses)):
-            sampling_rate_mse_list = mses[mse_idx]
-            for sampling_rate, mse_list in sampling_rate_mse_list.items():
-                ax[mse_idx, i].plot(
-                    n_components_list, 
-                    mse_list, 
-                    label=f'sampling_rate={sampling_rate}'
-                )
-                ax[mse_idx, i].set_xlabel('n_components')
-                if mse_idx == 0:
-                    ax[mse_idx, i].set_ylabel('mse_loc')
-                    ax[mse_idx, i].set_ylim(-1, 10)       # TEMP
-                else:
-                    ax[mse_idx, i].set_ylabel('mse_rot')
-                    ax[mse_idx, i].set_ylim(-1, 40)       # TEMP
-                ax[mse_idx, i].set_title(f'{subtitle}')
-                ax[mse_idx, i].set_xticks(n_components_list)
-                ax[mse_idx, i].set_xticklabels(n_components_list)
-
-    title = f'prediction_n_comp_vs_mse_{n_components_list[0]}-{n_components_list[-1]}' \
-            f'_{moving_trajectory}_{sampling_rate_list[0]}-{sampling_rate_list[-1]}'
-    plt.suptitle(title)
-    plt.tight_layout()
-    plt.legend()
-    plt.savefig(f'{results_path}/{title}.png')
+        print('[Check] saved results.')
         
 
 def WITHIN_ENV__eval_loc_n_rot_correlation(
@@ -668,16 +674,47 @@ def WITHIN_ENV__eval_loc_n_rot_correlation(
     For each location, eval errorbars of location and 
     rotation prediction to see if there are correlations.
     """
+    config = utils.load_config(config_version)
+    if config['model_name'] == 'none':
+        preprocess_func = None
+    else:
+        model, preprocess_func = load_model(
+            config['model_name'], config['output_layer'])
+
+    preprocessed_data = load_data(
+        data_path=f"data/unity/{config['unity_env']}/{config['movement_mode']}", 
+        movement_mode=config['movement_mode'],
+        x_min=config['x_min'],
+        x_max=config['x_max'],
+        y_min=config['y_min'],
+        y_max=config['y_max'],
+        multiplier=config['multiplier'],
+        n_rotations=config['n_rotations'],
+        preprocess_func=preprocess_func,
+    )
+
+    targets_true = load_data_targets(
+        movement_mode=config['movement_mode'],
+        x_min=config['x_min'],
+        x_max=config['x_max'],
+        y_min=config['y_min'],
+        y_max=config['y_max'],
+        multiplier=config['multiplier'],
+        n_rotations=config['n_rotations'],
+    )
+
     baseline = False
     mse_loc, mse_rot, y_train, y_test, y_pred, \
-        env_x_min, env_x_max, env_y_min, env_y_max, \
-            results_path = fit(
-                config_version, 
-                n_components=n_components,
-                moving_trajectory=moving_trajectory,
-                sampling_rate=sampling_rate,
-                baseline=baseline,
-    )
+        results_path = fit(
+            model=model,
+            config=config,
+            preprocessed_data=preprocessed_data,
+            targets_true=targets_true,
+            n_components=n_components,
+            moving_trajectory=moving_trajectory,
+            sampling_rate=sampling_rate,
+            baseline=baseline,
+        )
 
     # data-point wise prediction error
     mse_loc_list = []
@@ -839,7 +876,7 @@ def ACROSS_ENVS__decoding_error_across_reps_n_components(
                     ax.set_ylabel(f'{error_type}')
                     ax.set_title(f'sampling rate: {sampling_rate}')
                     if error_type == 'mse_loc':
-                        ax.set_ylim(2, 10)
+                        ax.set_ylim(-0.05, 10)
                     elif error_type == 'mse_rot':
                         ax.set_ylim(-0.05, 55)
                     if sampling_rate_index == -1:
@@ -863,7 +900,6 @@ def multiproc_execute(
         config_versions,
         n_components_list,
         moving_trajectory,
-        n_rotations,
         sampling_rate_list,
         n_processes,
     ):
@@ -883,7 +919,6 @@ def multiproc_execute(
                     config_version,
                     n_components_list,
                     moving_trajectory,
-                    n_rotations,
                     sampling_rate_list,
                 )
             )
@@ -896,7 +931,6 @@ def multicuda_execute(
         config_versions,
         n_components_list,
         moving_trajectory,
-        n_rotations,
         sampling_rate_list,
         cuda_id_list,
     ):
@@ -911,7 +945,6 @@ def multicuda_execute(
         single_entry['config_version'] = config_version
         single_entry['n_components_list'] = n_components_list
         single_entry['moving_trajectory'] = moving_trajectory
-        single_entry['n_rotations'] = n_rotations
         single_entry['sampling_rate_list'] = sampling_rate_list
         args_list.append(single_entry)
 
@@ -926,7 +959,7 @@ if __name__ == '__main__':
     import time
     start_time = time.time()
 
-    # multiproc_execute(
+    # multicuda_execute(
     #     WITHIN_ENV__decoding_error_across_reps,
     #     config_versions=[
     #         f'env28_r24_2d_vgg16_fc2_9_pca',
@@ -934,41 +967,41 @@ if __name__ == '__main__':
     #     ],
     #     n_components_list=[10],
     #     moving_trajectory='uniform',
-    #     n_rotations=24,
-    #     sampling_rate_list=[0.01],
-    #     n_processes=2,
+    #     sampling_rate_list=[0.1],
+    #     cuda_id_list=[6, 7],
     # )
 
-    # multicuda_execute(
-    #     WITHIN_ENV__decoding_error_across_reps_n_components,
-    #     config_versions=[
-    #         f'env28_r24_2d_vgg16_fc2_9_pca',
-    #         f'env29_r24_2d_vgg16_fc2_9_pca',
-    #         f'env30_r24_2d_vgg16_fc2_9_pca',
-    #         f'env31_r24_2d_vgg16_fc2_9_pca',
-    #         f'env32_r24_2d_vgg16_fc2_9_pca',
-    #         f'env33_r24_2d_vgg16_fc2_9_pca',
-    #     ],
-    #     n_components_list=range(1, 50, 2),
-    #     moving_trajectory='uniform',
-    #     n_rotations=24,
-    #     sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
-    #     cuda_id_list=[0, 1, 2, 3, 4, 5]
-    # )
-
-    ACROSS_ENVS__decoding_error_across_reps_n_components(
-        envs2walls={
-            'env28': 4,
-            'env29': 3,
-            'env30': 2,
-            'env31': 2,
-            'env32': 1,
-            'env33': 0,
-        },
-        model_name='none',
-        output_layer='raw',
-        reduction_method='pca',
+    multicuda_execute(
+        WITHIN_ENV__decoding_error_across_reps_n_components,
+        config_versions=[
+            f'env28_r24_2d_vgg16_fc2_9_pca',
+            f'env29_r24_2d_vgg16_fc2_9_pca',
+            f'env30_r24_2d_vgg16_fc2_9_pca',
+            f'env31_r24_2d_vgg16_fc2_9_pca',
+            f'env32_r24_2d_vgg16_fc2_9_pca',
+            f'env33_r24_2d_vgg16_fc2_9_pca',
+        ],
+        n_components_list=[1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 1500, 2000, 3000, 4000],
+        moving_trajectory='uniform',
+        sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
+        cuda_id_list=[0, 1, 2, 3, 4, 5],
     )
+
+    # ACROSS_ENVS__decoding_error_across_reps_n_components(
+    #     envs2walls={
+    #         'env28': 4,
+    #         'env29': 3,
+    #         'env30': 2,
+    #         'env31': 2,
+    #         'env32': 1,
+    #         'env33': 0,
+    #     },
+    #     model_name='vgg16',
+    #     output_layer='fc2',
+    #     reduction_method='pca',
+    #     n_components_list=[50, 100, 200, 300, 500, 1000, 1500, 2000, 3000, 4000],
+    #     reps=['dim_reduce']
+    # )
 
     end_time = time.time()
     time_elapsed = (end_time - start_time) / 3600
