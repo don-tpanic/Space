@@ -4,7 +4,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = "3"
 
 import multiprocessing
 import numpy as np
-import scipy
+from scipy import stats
 from matplotlib import pyplot as plt
 from collections import defaultdict
 from tensorflow.keras import backend as K
@@ -177,13 +177,28 @@ def fit(
     LinearRegression_model.fit(X_train, y_train)
     y_pred = LinearRegression_model.predict(X_test)
 
-    # compute MSE wrt location
-    mse_loc = mean_squared_error(y_test[:, :2], y_pred[:, :2])
-    # compute MSE wrt rotation
-    mse_rot = mean_squared_error(y_test[:, 2:], y_pred[:, 2:])
-    return mse_loc, mse_rot, \
-        y_train, y_test, y_pred, \
-            results_path
+    # # compute MSE wrt location
+    # mse_loc = mean_squared_error(y_test[:, :2], y_pred[:, :2])
+    # # compute MSE wrt rotation
+    # mse_rot = mean_squared_error(y_test[:, 2:], y_pred[:, 2:])
+
+    # compute element-wise MSE and average and bootstrap CI
+    # for location, we compute per location MSE of coordinates
+    per_loc_mse_loc_samples = np.mean(np.square(y_test[:, :2] - y_pred[:, :2]), axis=1)
+    per_loc_mse_rot_samples = np.mean(np.square(y_test[:, 2:] - y_pred[:, 2:]), axis=1)
+    print('[Check] per_loc_mse_loc_samples.shape=', per_loc_mse_loc_samples.shape)
+    print('[Check] per_loc_mse_rot_samples.shape=', per_loc_mse_rot_samples.shape)
+
+    mse_loc = np.mean(per_loc_mse_loc_samples)
+    mse_rot = np.mean(per_loc_mse_rot_samples)
+
+    ci_loc = stats.bootstrap(
+        (per_loc_mse_loc_samples,), np.mean).confidence_interval
+    ci_rot = stats.bootstrap(
+        (per_loc_mse_rot_samples,), np.mean).confidence_interval
+
+    return mse_loc, mse_rot, ci_loc, ci_rot, \
+            y_train, y_test, y_pred, results_path
 
 
 def determine_moving_trajectory(
@@ -501,8 +516,8 @@ def WITHIN_ENV__decoding_error_across_reps(
             baseline_feature_selection = None
             subtitle = f'dim_reduce'
 
-        mse_loc, mse_rot, y_train, y_test, y_pred, \
-            results_path = fit(
+        mse_loc, mse_rot, ci_loc, ci_rot, \
+            y_train, y_test, y_pred, results_path = fit(
                 model=model,
                 config=config,
                 preprocessed_data=preprocessed_data,
@@ -534,16 +549,7 @@ def WITHIN_ENV__decoding_error_across_reps(
                 ax=ax[j, i],
                 title=f'{subtitle}, mse_{error_type}={mse:.2f}',
             )
-            # plot_test_error_variation(
-            #     average_error_per_loc_mapping=average_error_per_loc_mapping,
-            #     error_std_per_loc_mapping=error_std_per_loc_mapping,
-            #     ax=ax[j, i],
-            #     title=f'{subtitle}, mse_{error_type}={mse:.2f}',
-            # )
-
     title = f'prediction_baseline_vs_components_{n_components}_{moving_trajectory}{sampling_rate}_heatmap'
-    # title = f'prediction_baseline_vs_components_{n_components}_{moving_trajectory}{sampling_rate}_variation'
-    
     plt.suptitle(title)
     plt.legend()
     plt.tight_layout()
@@ -555,7 +561,7 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
         n_components_list, 
         moving_trajectory,
         sampling_rate_list,
-        reps=['maxvar'],
+        reps=['dim_reduce'],
     ):
     """
     Given an env with fixed moving trajectory and n_rotations, 
@@ -622,6 +628,8 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
 
         sampling_rate_mse_loc_list = defaultdict(list)  # {sampling_rate1: [mse_loc1, mse_loc2, ...], ...}
         sampling_rate_mse_rot_list = defaultdict(list)
+        sampling_rate_ci_loc_list = defaultdict(list)
+        sampling_rate_ci_rot_list = defaultdict(list)
         for sampling_rate in sampling_rate_list:
             for n_components in n_components_list:
                 # check if n_components is greater than training data sampled
@@ -629,11 +637,12 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
                 # and jump right into the next sampling rate.
                 n_samples = preprocessed_data.shape[0] * sampling_rate
                 if subplot == 'dim_reduce' and n_components > n_samples:
-                    print(f'[Check] n_components: {n_components} > n_samples: {n_samples}, skip the rest of n_components')
+                    print(f'[Check] n_components: {n_components} > n_samples: {n_samples}, '\
+                          f'skip the rest of n_components')
                     break
                     
-                mse_loc, mse_rot, y_train, y_test, y_pred, \
-                    results_path = fit(
+                mse_loc, mse_rot, ci_loc, ci_rot, \
+                    y_train, y_test, y_pred, results_path = fit(
                         model=model,
                         config=config,
                         preprocessed_data=preprocessed_data,
@@ -646,8 +655,13 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
                     )
                 sampling_rate_mse_loc_list[sampling_rate].append(mse_loc)
                 sampling_rate_mse_rot_list[sampling_rate].append(mse_rot)
-                print(f'[Check] {config_version} \n- sampling_rate: {sampling_rate}, ' \
-                      f'n_components: {n_components}, mse_loc: {mse_loc:.2f}, mse_rot: {mse_rot:.2f}')
+                sampling_rate_ci_loc_list[sampling_rate].append(ci_loc)
+                sampling_rate_ci_rot_list[sampling_rate].append(ci_rot)
+                print(
+                    f'[Check] {config_version} \n- sampling_rate: {sampling_rate}, ' \
+                    f'n_components: {n_components}, mse_loc: {mse_loc:.2f}, mse_rot: {mse_rot:.2f}' \
+                    f', ci_loc: {ci_loc[0], ci_loc[1]}, ci_rot: {ci_rot[0], ci_rot[1]}'
+                )
         
         # same mse_loc and mse_rot for all sampling rates for all n_components;
         # save one file per subplot
@@ -663,80 +677,20 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
             f'{moving_trajectory}_{sampling_rate_list[0]}-{sampling_rate_list[-1]}.npy',
             sampling_rate_mse_rot_list
         )
+        np.save(
+            f'{results_path}/ci_loc_{subtitle}_' \
+            f'{n_components_list[0]}-{n_components_list[-1]}_' \
+            f'{moving_trajectory}_{sampling_rate_list[0]}-{sampling_rate_list[-1]}.npy',
+            sampling_rate_ci_loc_list
+        )
+        np.save(
+            f'{results_path}/ci_rot_{subtitle}_' \
+            f'{n_components_list[0]}-{n_components_list[-1]}_' \
+            f'{moving_trajectory}_{sampling_rate_list[0]}-{sampling_rate_list[-1]}.npy',
+            sampling_rate_ci_rot_list
+        )
         print('[Check] saved results.')
         
-
-def WITHIN_ENV__eval_loc_n_rot_correlation(
-        config_version, 
-        n_components, 
-        moving_trajectory,
-        sampling_rate,
-    ):
-    """
-    For each location, eval errorbars of location and 
-    rotation prediction to see if there are correlations.
-    """
-    config = utils.load_config(config_version)
-    if config['model_name'] == 'none':
-        preprocess_func = None
-    else:
-        model, preprocess_func = load_model(
-            config['model_name'], config['output_layer'])
-
-    preprocessed_data = load_data(
-        data_path=f"data/unity/{config['unity_env']}/{config['movement_mode']}", 
-        movement_mode=config['movement_mode'],
-        x_min=config['x_min'],
-        x_max=config['x_max'],
-        y_min=config['y_min'],
-        y_max=config['y_max'],
-        multiplier=config['multiplier'],
-        n_rotations=config['n_rotations'],
-        preprocess_func=preprocess_func,
-    )
-
-    targets_true = load_data_targets(
-        movement_mode=config['movement_mode'],
-        x_min=config['x_min'],
-        x_max=config['x_max'],
-        y_min=config['y_min'],
-        y_max=config['y_max'],
-        multiplier=config['multiplier'],
-        n_rotations=config['n_rotations'],
-    )
-
-    baseline = False
-    mse_loc, mse_rot, y_train, y_test, y_pred, \
-        results_path = fit(
-            model=model,
-            config=config,
-            preprocessed_data=preprocessed_data,
-            targets_true=targets_true,
-            n_components=n_components,
-            moving_trajectory=moving_trajectory,
-            sampling_rate=sampling_rate,
-            baseline=baseline,
-        )
-
-    # data-point wise prediction error
-    mse_loc_list = []
-    mse_rot_list = []
-    for i in range(len(y_test)):
-        mse_loc_list.append(mean_squared_error(y_test[i, :2], y_pred[i, :2]))
-        mse_rot_list.append(mean_squared_error(y_test[i, 2:], y_pred[i, 2:]))
-    
-    # plot errors against each other
-    fig, ax = plt.subplots(1, 1, figsize=(10, 10))
-    ax.plot(mse_loc_list, 'o', label='mse_loc')
-    ax.plot(mse_rot_list, 'x', label='mse_rot')
-    
-    # correlation between location and rotation
-    pearsonr = scipy.stats.pearsonr(mse_loc_list, mse_rot_list)
-    spearmanr = scipy.stats.spearmanr(mse_loc_list, mse_rot_list)
-    print(f'loc vs rot pearsonr: {pearsonr[0]:.2f}')
-    print(f'loc vs rot spearmanr: {spearmanr[0]:.2f}')
-    plt.savefig(f'{results_path}/mse_loc_vs_mse_rot.png')
-
 
 def plot_landmark_n_test_error_heatmap(
         train_coords_true,
@@ -785,30 +739,6 @@ def plot_landmark_n_test_error_heatmap(
     ax.set_ylim(env_y_min, env_y_max)
     ax.set_title(f'{title}')
     return ax
-
-
-def plot_test_error_variation(
-        average_error_per_loc_mapping,
-        error_std_per_loc_mapping,
-        ax,
-        title,
-    ):
-    """
-    Plot test error variation as errorbars. 
-    X axis are the locations (as 1D), Y axis are errorbars. 
-    X axis do not care about the order of locations.
-    """
-    for x_index, loc in enumerate(average_error_per_loc_mapping.keys()):
-        average_error = average_error_per_loc_mapping[loc]
-        error_std = error_std_per_loc_mapping[loc]
-        ax.errorbar(
-            x_index, average_error, yerr=error_std, 
-            fmt='o', label=f'{loc}'
-        )
-    ax.set_xlabel('Location index')
-    ax.set_ylabel('Average error')
-    ax.set_title(f'{title}')
-    return ax
     
 
 def ACROSS_ENVS__decoding_error_across_reps_n_components(
@@ -820,7 +750,7 @@ def ACROSS_ENVS__decoding_error_across_reps_n_components(
         reduction_method='pca',
         sampling_rates=[0.01, 0.05, 0.1, 0.3, 0.5],
         n_components_list=range(1, 50, 2),
-        error_types=['mse_loc', 'mse_rot'],
+        error_types=['loc', 'rot'],
         reps=['none', 'random', 'maxvar', 'dim_reduce'],
     ):
     """
@@ -858,29 +788,60 @@ def ACROSS_ENVS__decoding_error_across_reps_n_components(
                 env_results_path = utils.return_results_path(env_spec)
 
                 if rep == 'dim_reduce': 
-                    temp_title = f'{error_type}_{rep}_'
+                    temp_title_mse = f'mse_{error_type}_{rep}_'
+                    temp_title_ci = f'ci_{error_type}_{rep}_'
                 else:
-                    temp_title = f'{error_type}_baseline_sampling={rep}_'
-                results_path = \
+                    temp_title_mse = f'mse_{error_type}_baseline_sampling={rep}_'
+                    temp_title_ci = f'ci_{error_type}_baseline_sampling={rep}_'
+                results_path_mse = \
                     f'{env_results_path}/' \
-                    f'{temp_title}' \
+                    f'{temp_title_mse}' \
                     f'{n_components_list[0]}-{n_components_list[-1]}_' \
                     f'uniform_{sampling_rates[0]}-{sampling_rates[-1]}.npy'
-                results = np.load(results_path, allow_pickle=True).ravel()[0]
+                results_path_ci = \
+                    f'{env_results_path}/' \
+                    f'{temp_title_ci}' \
+                    f'{n_components_list[0]}-{n_components_list[-1]}_' \
+                    f'uniform_{sampling_rates[0]}-{sampling_rates[-1]}.npy'
+                results_mse = np.load(results_path_mse, allow_pickle=True).ravel()[0]
+                results_ci = np.load(results_path_ci, allow_pickle=True).ravel()[0]
 
                 for sampling_rate_index, sampling_rate in enumerate(sampling_rates):
                     ax = axes[sampling_rate_index, error_type_index]
+
                     ax.plot(
-                        n_components_list[:len(results[sampling_rate])], 
-                        results[sampling_rate], 
-                        label=f'{envs2walls[env]} walls', marker='o', 
-                        c='grey', alpha=(1+envs2walls[env])*0.2,
+                        n_components_list[:len(results_mse[sampling_rate])], 
+                        results_mse[sampling_rate], 
+                        # label=f'{envs2walls[env]} walls', 
+                        # marker='o', 
+                        c='k',
+                        alpha=0.1,
+                        # alpha=(1+envs2walls[env])*0.2,
                     )
+
+                    results_ci_low = []
+                    results_ci_high = []
+                    for i in range(len(results_ci[sampling_rate])):
+                        results_ci_low.append(results_ci[sampling_rate][i][0])
+                        results_ci_high.append(results_ci[sampling_rate][i][1])
+
+                    ax.fill_between(
+                        n_components_list[:len(results_mse[sampling_rate])], 
+                        results_ci_low,
+                        results_ci_high,
+                        # color='grey',
+                        alpha=(1+envs2walls[env])*0.2,
+                        label=f'{env}-{envs2walls[env]} walls',
+                    )
+
                     ax.set_ylabel(f'{error_type}')
                     ax.set_title(f'sampling rate: {sampling_rate}')
-                    if error_type == 'mse_loc':
-                        ax.set_ylim(-0.05, 10)
-                    elif error_type == 'mse_rot':
+                    if error_type == 'loc':
+                        if sampling_rate == 0.01:
+                            ax.set_ylim(6, 10)
+                        else:
+                            ax.set_ylim(-0.05, 7)
+                    elif error_type == 'rot':
                         ax.set_ylim(-0.05, 55)
                     if sampling_rate_index == -1:
                         ax.set_xlabel('n_components')
@@ -974,37 +935,37 @@ if __name__ == '__main__':
     #     cuda_id_list=[6, 7],
     # )
 
-    multicuda_execute(
-        WITHIN_ENV__decoding_error_across_reps_n_components,
-        config_versions=[
-            f'env28_r24_2d_vgg16_fc2_9_pca',
-            f'env29_r24_2d_vgg16_fc2_9_pca',
-            f'env30_r24_2d_vgg16_fc2_9_pca',
-            f'env31_r24_2d_vgg16_fc2_9_pca',
-            f'env32_r24_2d_vgg16_fc2_9_pca',
-            f'env33_r24_2d_vgg16_fc2_9_pca',
-        ],
-        n_components_list=[1, 2, 5, 10, 15, 20, 30, 50, 100, 200, 300, 500, 1000, 1500, 2000, 3000, 4000],
-        moving_trajectory='uniform',
-        sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
-        cuda_id_list=[0, 1, 2, 3, 4, 5],
-    )
-
-    # ACROSS_ENVS__decoding_error_across_reps_n_components(
-    #     envs2walls={
-    #         'env28': 4,
-    #         'env29': 3,
-    #         'env30': 2,
-    #         'env31': 2,
-    #         'env32': 1,
-    #         'env33': 0,
-    #     },
-    #     model_name='vgg16',
-    #     output_layer='fc2',
-    #     reduction_method='pca',
+    # multicuda_execute(
+    #     WITHIN_ENV__decoding_error_across_reps_n_components,
+    #     config_versions=[
+    #         f'env28_r24_2d_vgg16_fc2_9_pca',
+    #         f'env29_r24_2d_vgg16_fc2_9_pca',
+    #         f'env30_r24_2d_vgg16_fc2_9_pca',
+    #         f'env31_r24_2d_vgg16_fc2_9_pca',
+    #         f'env32_r24_2d_vgg16_fc2_9_pca',
+    #         f'env33_r24_2d_vgg16_fc2_9_pca',
+    #     ],
     #     n_components_list=[1, 2, 5, 10, 15, 20, 30, 50, 100, 200, 300, 500, 1000, 1500, 2000, 3000, 4000],
-    #     reps=['maxvar']
+    #     moving_trajectory='uniform',
+    #     sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
+    #     cuda_id_list=[0, 1, 2, 3, 4, 5],
     # )
+
+    ACROSS_ENVS__decoding_error_across_reps_n_components(
+        envs2walls={
+            # 'env28': 4,
+            # 'env29': 3,
+            'env30': 2,
+            'env31': 2,
+            # 'env32': 1,
+            # 'env33': 0,
+        },
+        model_name='vgg16',
+        output_layer='fc2',
+        reduction_method='pca',
+        n_components_list=[1, 2, 5, 10, 15, 20, 30, 50, 100, 200, 300, 500, 1000, 1500, 2000, 3000, 4000],
+        reps=['dim_reduce']
+    )
 
     end_time = time.time()
     time_elapsed = (end_time - start_time) / 3600
