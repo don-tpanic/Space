@@ -561,7 +561,7 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
         n_components_list, 
         moving_trajectory,
         sampling_rate_list,
-        reps=['dim_reduce'],
+        reps=['maxvar', 'dim_reduce'],
     ):
     """
     Given an env with fixed moving trajectory and n_rotations, 
@@ -586,6 +586,7 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
     print(f'[Check] config_version: {config_version}')
     config = utils.load_config(config_version)
     if config['model_name'] == 'none':
+        model = None
         preprocess_func = None
     else:
         model, preprocess_func = load_model(
@@ -778,7 +779,7 @@ def ACROSS_ENVS__decoding_error_across_reps_n_components(
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     for rep in reps:
         fig, axes = plt.subplots(
-            nrows=len(sampling_rates), ncols=len(error_types), figsize=(15, 15))
+            nrows=len(sampling_rates), ncols=len(error_types), figsize=(9, 9))
     
         for error_type_index, error_type in enumerate(error_types):
             for env in envs2walls:
@@ -812,11 +813,8 @@ def ACROSS_ENVS__decoding_error_across_reps_n_components(
                     ax.plot(
                         n_components_list[:len(results_mse[sampling_rate])], 
                         results_mse[sampling_rate], 
-                        # label=f'{envs2walls[env]} walls', 
-                        # marker='o', 
                         c='k',
                         alpha=0.1,
-                        # alpha=(1+envs2walls[env])*0.2,
                     )
 
                     results_ci_low = []
@@ -829,9 +827,9 @@ def ACROSS_ENVS__decoding_error_across_reps_n_components(
                         n_components_list[:len(results_mse[sampling_rate])], 
                         results_ci_low,
                         results_ci_high,
-                        # color='grey',
+                        color='grey',
                         alpha=(1+envs2walls[env])*0.2,
-                        label=f'{env}-{envs2walls[env]} walls',
+                        label=f'{env}({envs2walls[env]}walls)',
                     )
 
                     ax.set_ylabel(f'{error_type}')
@@ -849,13 +847,14 @@ def ACROSS_ENVS__decoding_error_across_reps_n_components(
         plt.legend() 
         plt.tight_layout()
         plt.suptitle(f'{rep}')
-        first_env = list(envs2walls.keys())[0]
-        last_env = list(envs2walls.keys())[-1]
+        envs_as_string = ''
+        for env in envs2walls:
+            envs_as_string += f'{env}'
         fpath = \
             f'results/across_envs/'\
             f'decoding_error_across_reps_n_components_'\
             f'{rep}_{model_name}_{output_layer}_'\
-            f'{reduction_method}_{first_env}-{last_env}.png'
+            f'{reduction_method}_{envs_as_string}.png'
         plt.savefig(fpath)
 
 
@@ -935,37 +934,37 @@ if __name__ == '__main__':
     #     cuda_id_list=[6, 7],
     # )
 
-    # multicuda_execute(
-    #     WITHIN_ENV__decoding_error_across_reps_n_components,
-    #     config_versions=[
-    #         f'env28_r24_2d_vgg16_fc2_9_pca',
-    #         f'env29_r24_2d_vgg16_fc2_9_pca',
-    #         f'env30_r24_2d_vgg16_fc2_9_pca',
-    #         f'env31_r24_2d_vgg16_fc2_9_pca',
-    #         f'env32_r24_2d_vgg16_fc2_9_pca',
-    #         f'env33_r24_2d_vgg16_fc2_9_pca',
-    #     ],
-    #     n_components_list=[1, 2, 5, 10, 15, 20, 30, 50, 100, 200, 300, 500, 1000, 1500, 2000, 3000, 4000],
-    #     moving_trajectory='uniform',
-    #     sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
-    #     cuda_id_list=[0, 1, 2, 3, 4, 5],
-    # )
-
-    ACROSS_ENVS__decoding_error_across_reps_n_components(
-        envs2walls={
-            # 'env28': 4,
-            # 'env29': 3,
-            'env30': 2,
-            'env31': 2,
-            # 'env32': 1,
-            # 'env33': 0,
-        },
-        model_name='vgg16',
-        output_layer='fc2',
-        reduction_method='pca',
+    multicuda_execute(
+        WITHIN_ENV__decoding_error_across_reps_n_components,
+        config_versions=[
+            f'env28_r24_2d_none_raw_9_pca',
+            f'env29_r24_2d_none_raw_9_pca',
+            f'env30_r24_2d_none_raw_9_pca',
+            f'env31_r24_2d_none_raw_9_pca',
+            f'env32_r24_2d_none_raw_9_pca',
+            f'env33_r24_2d_none_raw_9_pca',
+        ],
         n_components_list=[1, 2, 5, 10, 15, 20, 30, 50, 100, 200, 300, 500, 1000, 1500, 2000, 3000, 4000],
-        reps=['dim_reduce']
+        moving_trajectory='uniform',
+        sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
+        cuda_id_list=[0, 1, 2, 3, 4, 5],
     )
+
+    # ACROSS_ENVS__decoding_error_across_reps_n_components(
+    #     envs2walls={
+    #         'env28': 4,
+    #         # 'env29': 3,
+    #         # 'env30': 2,
+    #         # 'env31': 2,
+    #         # 'env32': 1,
+    #         'env33': 0,
+    #     },
+    #     model_name='vgg16',
+    #     output_layer='fc2',
+    #     reduction_method='pca',
+    #     n_components_list=[1, 2, 5, 10, 15, 20, 30, 50, 100, 200, 300, 500, 1000, 1500, 2000, 3000, 4000],
+    #     reps=['maxvar']
+    # )
 
     end_time = time.time()
     time_elapsed = (end_time - start_time) / 3600
