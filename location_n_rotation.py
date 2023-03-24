@@ -501,9 +501,10 @@ def WITHIN_ENV__decoding_error_across_reps(
     sampling_rate = sampling_rate_list[0]
 
     print(f'[Check] n_components: {n_components}')
-    subplots = ['none', 'random', 'maxvar', 'dim_reduce']
+    # subplots = ['none', 'random', 'maxvar', 'dim_reduce']
+    subplots = ['maxvar', 'dim_reduce']
     error_types = ['loc', 'rot']
-    fig, ax = plt.subplots(2, len(subplots), figsize=(35, 20))
+    fig, ax = plt.subplots(2, len(subplots), figsize=(20, 20))
 
     for i in range(len(subplots)):
         subplot = subplots[i]
@@ -922,17 +923,16 @@ if __name__ == '__main__':
     import time
     start_time = time.time()
 
-    # multicuda_execute(
-    #     WITHIN_ENV__decoding_error_across_reps,
-    #     config_versions=[
-    #         f'env28_r24_2d_vgg16_fc2_9_pca',
-    #         f'env29_r24_2d_vgg16_fc2_9_pca',
-    #     ],
-    #     n_components_list=[10],
-    #     moving_trajectory='uniform',
-    #     sampling_rate_list=[0.1],
-    #     cuda_id_list=[6, 7],
-    # )
+    multicuda_execute(
+        WITHIN_ENV__decoding_error_across_reps,
+        config_versions=[
+            f'env28_r24_2d_vgg16_fc2_9_pca',
+        ],
+        n_components_list=[300],
+        moving_trajectory='uniform',
+        sampling_rate_list=[0.05],
+        cuda_id_list=[0],
+    )
 
     # multicuda_execute(
     #     WITHIN_ENV__decoding_error_across_reps_n_components,
@@ -950,21 +950,21 @@ if __name__ == '__main__':
     #     cuda_id_list=[0, 1, 2, 3, 4, 5],
     # )
 
-    ACROSS_ENVS__decoding_error_across_reps_n_components(
-        envs2walls={
-            'env28': 4,
-            # 'env29': 3,
-            # 'env30': 2,
-            # 'env31': 2,
-            # 'env32': 1,
-            'env33': 0,
-        },
-        model_name='none',
-        output_layer='raw',
-        reduction_method='pca',
-        n_components_list=[1, 2, 5, 10, 15, 20, 30, 50, 100, 200, 300, 500, 1000, 1500, 2000, 3000, 4000],
-        reps=['maxvar']
-    )
+    # ACROSS_ENVS__decoding_error_across_reps_n_components(
+    #     envs2walls={
+    #         'env28': 4,
+    #         # 'env29': 3,
+    #         # 'env30': 2,
+    #         # 'env31': 2,
+    #         # 'env32': 1,
+    #         'env33': 0,
+    #     },
+    #     model_name='none',
+    #     output_layer='raw',
+    #     reduction_method='pca',
+    #     n_components_list=[1, 2, 5, 10, 15, 20, 30, 50, 100, 200, 300, 500, 1000, 1500, 2000, 3000, 4000],
+    #     reps=['maxvar']
+    # )
 
     end_time = time.time()
     time_elapsed = (end_time - start_time) / 3600
