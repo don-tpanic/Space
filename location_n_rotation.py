@@ -934,37 +934,37 @@ if __name__ == '__main__':
     #     cuda_id_list=[6, 7],
     # )
 
-    multicuda_execute(
-        WITHIN_ENV__decoding_error_across_reps_n_components,
-        config_versions=[
-            f'env28_r24_2d_none_raw_9_pca',
-            f'env29_r24_2d_none_raw_9_pca',
-            f'env30_r24_2d_none_raw_9_pca',
-            f'env31_r24_2d_none_raw_9_pca',
-            f'env32_r24_2d_none_raw_9_pca',
-            f'env33_r24_2d_none_raw_9_pca',
-        ],
-        n_components_list=[1, 2, 5, 10, 15, 20, 30, 50, 100, 200, 300, 500, 1000, 1500, 2000, 3000, 4000],
-        moving_trajectory='uniform',
-        sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
-        cuda_id_list=[0, 1, 2, 3, 4, 5],
-    )
-
-    # ACROSS_ENVS__decoding_error_across_reps_n_components(
-    #     envs2walls={
-    #         'env28': 4,
-    #         # 'env29': 3,
-    #         # 'env30': 2,
-    #         # 'env31': 2,
-    #         # 'env32': 1,
-    #         'env33': 0,
-    #     },
-    #     model_name='vgg16',
-    #     output_layer='fc2',
-    #     reduction_method='pca',
+    # multicuda_execute(
+    #     WITHIN_ENV__decoding_error_across_reps_n_components,
+    #     config_versions=[
+    #         f'env28_r24_2d_none_raw_9_pca',
+    #         f'env29_r24_2d_none_raw_9_pca',
+    #         f'env30_r24_2d_none_raw_9_pca',
+    #         f'env31_r24_2d_none_raw_9_pca',
+    #         f'env32_r24_2d_none_raw_9_pca',
+    #         f'env33_r24_2d_none_raw_9_pca',
+    #     ],
     #     n_components_list=[1, 2, 5, 10, 15, 20, 30, 50, 100, 200, 300, 500, 1000, 1500, 2000, 3000, 4000],
-    #     reps=['maxvar']
+    #     moving_trajectory='uniform',
+    #     sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
+    #     cuda_id_list=[0, 1, 2, 3, 4, 5],
     # )
+
+    ACROSS_ENVS__decoding_error_across_reps_n_components(
+        envs2walls={
+            'env28': 4,
+            # 'env29': 3,
+            # 'env30': 2,
+            # 'env31': 2,
+            # 'env32': 1,
+            'env33': 0,
+        },
+        model_name='none',
+        output_layer='raw',
+        reduction_method='pca',
+        n_components_list=[1, 2, 5, 10, 15, 20, 30, 50, 100, 200, 300, 500, 1000, 1500, 2000, 3000, 4000],
+        reps=['maxvar']
+    )
 
     end_time = time.time()
     time_elapsed = (end_time - start_time) / 3600
