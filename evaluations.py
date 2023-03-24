@@ -6,6 +6,7 @@ import utils
 
 
 def plot_components(
+        stats,
         unity_env,
         n_components,
         n_rotations,
@@ -51,6 +52,7 @@ def plot_components(
         for i in range(n_components):
             # each is a matrix of (n_locations, n_rotations)
             component = np.load(f'{results_path}/components_{i+1}.npy')
+            per_component_variance_explained = stats[i]
 
             for j in range(n_rotations):  # i.e. n_rotations
                 component_per_rotation = component[:, j]
@@ -67,6 +69,11 @@ def plot_components(
                     ax[i, j].set_xticks([])
                 if j > 0:
                     ax[i, j].set_yticks([])
+            
+            # plot variance explained per component on the right most column
+            ax2 = ax[i, -1].twinx()
+            ax2.set_ylabel(f'{per_component_variance_explained:.4f}', rotation=180)
+
         ax[n_components//2, 0].set_ylabel('Unity z axis')
         ax[-1, n_rotations//2].set_xlabel('Unity x axis')
 
@@ -111,13 +118,21 @@ def plot_variance_explained(
 
     # need to plot accumulatively
     accumulative_variance = accumulate_sum(explained_variance_ratio)
+
+    # find the number of components that explain 90% of variance
+    n_components = 0
+    for i in range(len(accumulative_variance)):
+        if accumulative_variance[i] >= 0.9:
+            n_components = i+1
+            break
+
     fig, ax = plt.subplots()
     ax.scatter(range(len(accumulative_variance)), accumulative_variance)
     ax.set_xlabel('number of components')
     ax.set_ylabel('accumulative variance explained')
     ax.set_xticks(range(0, len(accumulative_variance), 10))
     ax.set_xticklabels(range(1, len(accumulative_variance)+1, 10))
-    plt.suptitle(f'{movement_mode}, {model_name}, {output_layer}, {reduction_method}')
+    plt.suptitle(f'{movement_mode}, {model_name}, {output_layer}, {reduction_method}\n{n_components} explained 90% of variance')
     plt.savefig(f'{results_path}/explained_variance_ratio.png')
 
 

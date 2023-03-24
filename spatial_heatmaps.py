@@ -129,6 +129,7 @@ def execute(config_version):
 
     # eval
     evaluations.plot_components(
+        stats=stats,
         unity_env=config['unity_env'],
         n_components=config['n_components'],
         n_rotations=config['n_rotations'],
@@ -151,10 +152,10 @@ def multiproc_execute():
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"  # limit each execute's max threads
 
     num_processes = 20
-    envs = ['28_r24', '29_r24', '30_r24', '31_r24', '32_r24', '33_r24']
+    envs = ['28_r24', '33_r24']
     movement_modes = ['2d']
-    dim_reductions = ['pca', 'nmf', 'maxvar']
-    n_components_list = [9]
+    dim_reductions = ['pca']
+    n_components_list = [50]
     model_types_n_reps = {'vgg16': 'fc2'}
 
     with multiprocessing.Pool(num_processes) as pool:
@@ -178,10 +179,10 @@ def multiproc_execute():
 
 
 def multicuda_execute(target_func, cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7]):
-    envs = ['28_r24', '29_r24', '30_r24', '31_r24', '32_r24', '33_r24']
+    envs = ['28_r24', '33_r24']
     movement_modes = ['2d']
-    dim_reductions = ['pca', 'nmf', 'maxvar']
-    n_components_list = [9]
+    dim_reductions = ['maxvar', 'nmf']
+    n_components_list = [50]
     model_types_n_reps = {'vgg16': 'fc2'}
 
     config_versions = []
