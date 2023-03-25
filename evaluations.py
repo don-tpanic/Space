@@ -52,7 +52,9 @@ def plot_components(
         for i in range(n_components):
             # each is a matrix of (n_locations, n_rotations)
             component = np.load(f'{results_path}/components_{i+1}.npy')
-            per_component_variance_explained = stats[i]
+
+            if reduction_method == 'pca':
+                per_component_variance_explained = stats[i]
 
             for j in range(n_rotations):  # i.e. n_rotations
                 component_per_rotation = component[:, j]
@@ -70,9 +72,10 @@ def plot_components(
                 if j > 0:
                     ax[i, j].set_yticks([])
             
-            # plot variance explained per component on the right most column
-            ax2 = ax[i, -1].twinx()
-            ax2.set_ylabel(f'{per_component_variance_explained:.4f}', rotation=180)
+            if reduction_method == 'pca':
+                # plot variance explained per component on the right most column
+                ax2 = ax[i, -1].twinx()
+                ax2.set_ylabel(f'{per_component_variance_explained:.4f}', rotation=180)
 
         ax[n_components//2, 0].set_ylabel('Unity z axis')
         ax[-1, n_rotations//2].set_xlabel('Unity x axis')
@@ -249,7 +252,7 @@ def plot_env_diff(
 
 if __name__ == "__main__":
     import utils 
-    config_version = "env1_2d_none_raw_9_nmf"
+    config_version = "env33_r24_2d_vgg16_fc2_50_maxvar"
     config = utils.load_config(config_version)
     unity_env = config['unity_env']
     model_name = config['model_name']
@@ -266,3 +269,19 @@ if __name__ == "__main__":
     results_path = \
         f'results/{unity_env}/{movement_mode}/' \
         f'{model_name}/{output_layer}/{reduction_method}'
+    plot_components(
+        stats=None,
+        unity_env=unity_env,
+        n_components=n_components,
+        n_rotations=n_rotations,
+        movement_mode=movement_mode,
+        model_name=model_name,
+        output_layer=output_layer,
+        reduction_method=reduction_method,
+        results_path=results_path,
+        x_min=x_min,
+        x_max=x_max,
+        y_min=y_min,
+        y_max=y_max,
+        multiplier=multiplier,
+    )
