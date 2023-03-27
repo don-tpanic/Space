@@ -152,6 +152,10 @@ def fit(
             n_components = 0
             while accumulative_variance[n_components] < v:
                 n_components += 1
+            print(
+                f'[Check] n_components: {n_components}, '\
+                f'explained {accumulative_variance[n_components]} variance.'
+            )
             n_components_list.append(n_components)
 
             X_train_proj = components[:, :n_components+1]
@@ -359,6 +363,7 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
         sampling_rate_mse_rot_list = defaultdict(list)
         sampling_rate_ci_loc_list = defaultdict(list)
         sampling_rate_ci_rot_list = defaultdict(list)
+        sampling_rate_n_components_list_xticks = defaultdict(list)
         for sampling_rate in sampling_rate_list:
         
             X_train, X_test, y_train, y_test, \
@@ -397,6 +402,7 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
             sampling_rate_mse_rot_list[sampling_rate].extend(mse_rot_across_n_components)
             sampling_rate_ci_loc_list[sampling_rate].extend(ci_loc_across_n_components)
             sampling_rate_ci_rot_list[sampling_rate].extend(ci_rot_across_n_components)
+            sampling_rate_n_components_list_xticks[sampling_rate].extend(n_components_list)
             print(f'[Check] {config_version}, sampling_rate: {sampling_rate}')
         
         if variance_explained_interval is None:
@@ -426,6 +432,12 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
                 f'accu_var_explained_{variance_explained_list[0]}-{variance_explained_list[-1]}_' \
                 f'{moving_trajectory}_{sampling_rate_list[0]}-{sampling_rate_list[-1]}.npy',
                 sampling_rate_ci_rot_list
+            )
+            np.save(
+                f'{results_path}/n_components_list_xticks_{subtitle}_' \
+                f'accu_var_explained_{variance_explained_list[0]}-{variance_explained_list[-1]}_' \
+                f'{moving_trajectory}_{sampling_rate_list[0]}-{sampling_rate_list[-1]}.npy',
+                sampling_rate_n_components_list_xticks
             )
         else:
             # save the defaultdicts named as the variance_explained_interval and the
@@ -477,7 +489,7 @@ def ACROSS_ENVS__decoding_error_across_reps_n_components(
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     for rep in reps:
         fig, axes = plt.subplots(
-            nrows=len(sampling_rates), ncols=len(error_types), figsize=(9, 9))
+            nrows=len(sampling_rates), ncols=len(error_types), figsize=(18, 18))
     
         for error_type_index, error_type in enumerate(error_types):
             for env in envs2walls:
@@ -499,8 +511,17 @@ def ACROSS_ENVS__decoding_error_across_reps_n_components(
                         f'{temp_title_ci}' \
                         f'accu_var_explained_{variance_explained_list[0]}-{variance_explained_list[-1]}_' \
                         f'{moving_trajectory}_{sampling_rates[0]}-{sampling_rates[-1]}.npy'
+                    results_path_x_ticks_components = \
+                        f'{env_results_path}/' \
+                        f'n_components_list_xticks_{rep}_' \
+                        f'accu_var_explained_{variance_explained_list[0]}-{variance_explained_list[-1]}_' \
+                        f'{moving_trajectory}_{sampling_rates[0]}-{sampling_rates[-1]}.npy'
+                    
                     # x axis are just the set of variance explained levels.
-                    x_axis = variance_explained_list 
+                    x_axis = np.around(variance_explained_list, 2)
+                    # we also plot next to the variance the actual number of compoenents
+                    # which *at least* explain that much variance
+                    x_ticks_n_components =np.load(results_path_x_ticks_components, allow_pickle=True).ravel()[0]
 
                 else:
                     results_path_mse = \
@@ -560,6 +581,12 @@ def ACROSS_ENVS__decoding_error_across_reps_n_components(
                         ax.set_ylim(-0.05, 55)
                     if sampling_rate_index == -1:
                         ax.set_xlabel('variance explained')
+                    if variance_explained_interval is None:
+                        x_ticks_n_components_per_sampling_rate = x_ticks_n_components[sampling_rate]
+                        x_ticklabels = [f'{x_axis[i]}\n({x_ticks_n_components_per_sampling_rate[i]})' for i in range(len(x_axis))]
+                        ax.set_xticks(x_axis)
+                        ax.set_xticklabels(x_ticklabels)
+                    ax.grid(True)
 
         plt.legend() 
         plt.tight_layout()
@@ -625,34 +652,41 @@ if __name__ == '__main__':
         WITHIN_ENV__decoding_error_across_reps_n_components,
         config_versions=[
             # f'env28_r24_2d_vgg16_fc2_9_pca',
+            # f'env33_r24_2d_vgg16_fc2_9_pca',
+            f'env29_r24_2d_vgg16_fc2_9_pca',
+            f'env30_r24_2d_vgg16_fc2_9_pca',
+            f'env31_r24_2d_vgg16_fc2_9_pca',
+            f'env32_r24_2d_vgg16_fc2_9_pca',
             f'env33_r24_2d_vgg16_fc2_9_pca',
         ],
-        # variance_explained_list=[0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99],
-        variance_explained_list=None,
-        variance_explained_interval=0.1,
+        variance_explained_list=np.linspace(0.5, 0.99, 21),
+        # variance_explained_list=None,
+        # variance_explained_interval=0.1,
+        variance_explained_interval=None,
         moving_trajectory='uniform',
         sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
-        cuda_id_list=[0, 1],
+        cuda_id_list=[0, 1, 2, 3, 4],
     )
 
-    ACROSS_ENVS__decoding_error_across_reps_n_components(
-        envs2walls={
-            'env28': 4,
-            # 'env29': 3,
-            # 'env30': 2,
-            # 'env31': 2,
-            # 'env32': 1,
-            'env33': 0,
-        },
-        model_name='vgg16',
-        output_layer='fc2',
-        reduction_method='pca',
-        reps=['dim_reduce'],
-        sampling_rates=[0.01, 0.05, 0.1, 0.3, 0.5],
-        # variance_explained_list=[0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99],
-        variance_explained_list=None,
-        variance_explained_interval=0.1,
-    )
+    # ACROSS_ENVS__decoding_error_across_reps_n_components(
+    #     envs2walls={
+    #         'env28': 4,
+    #         # 'env29': 3,
+    #         # 'env30': 2,
+    #         # 'env31': 2,
+    #         # 'env32': 1,
+    #         'env33': 0,
+    #     },
+    #     model_name='vgg16',
+    #     output_layer='fc2',
+    #     reduction_method='pca',
+    #     reps=['dim_reduce'],
+    #     sampling_rates=[0.01, 0.05, 0.1, 0.3, 0.5],
+    #     variance_explained_list=np.linspace(0.5, 0.99, 21),
+    #     # variance_explained_list=None,
+    #     # variance_explained_interval=0.1,
+    #     variance_explained_interval=None,
+    # )
 
     end_time = time.time()
     time_elapsed = (end_time - start_time) / 3600
