@@ -37,15 +37,21 @@ def compute_per_loc_mse_rot_samples(
     (i.e. 180 degrees). If so, we need to convert the difference
     to the other side of the circle (i.e. 360 - diff).
     """
+    # check if y_test and y_pred same length
+    # if not meaning we are in baseline mode, 
+    # where the y_pred should be repeated 
+    # to be the same length as y_test
+    if len(y_test) != len(y_pred):
+        assert len(y_pred) == 1
+        y_pred = np.repeat(y_pred, len(y_test))
+
     rotation_error = np.empty(len(y_test))
     for i in range(len(y_test)):
         y_test_i = y_test[i]
         y_pred_i = y_pred[i]
         diff = abs(y_test_i - y_pred_i)
-        print(f'diff: {diff}')
         if diff > n_rotations / 2:
             diff = n_rotations - diff
-            print(f'converting diff to other side of circle, diff: {diff}')
         rotation_error[i] = diff**2
     return rotation_error
 
@@ -133,19 +139,12 @@ def fit(
         results_path,
         reduction_hparams,
         config,
-        variance_explained_list=[0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
-        variance_explained_interval=0.1,
+        variance_explained_list,
+        variance_explained_interval,
     ):
     """
     # TODO: docstring
     """    
-    components, explained_variance_ratio, fitter = \
-        dimension_reduction.compute_components(
-            X_train, 
-            reduction_method=config['reduction_method'],
-            reduction_hparams=reduction_hparams,
-        )
-
     # find n_components that explain
     # a certain amount of variance
     mse_loc_across_n_components = []
@@ -153,6 +152,23 @@ def fit(
     ci_loc_across_n_components = []
     ci_rot_across_n_components = []
 
+    # baseline 1, where the agent just predicts
+    # the centre of the room for location and 90 degrees for rotation prediction
+    baseline_predict_mid_mse_loc_across_n_components = []
+    baseline_predict_mid_mse_rot_across_n_components = []
+
+    # baseline error 2, where the agent just predicts
+    # location and rotation at random
+    baseline_predict_random_mse_loc_across_n_components = []
+    baseline_predict_random_mse_rot_across_n_components = []
+
+    # into the actions.. 
+    components, explained_variance_ratio, fitter = \
+        dimension_reduction.compute_components(
+            X_train, 
+            reduction_method=config['reduction_method'],
+            reduction_hparams=reduction_hparams,
+        )
     # if pca, we need to mean-center test data
     # based on mean of training data before
     # projecting test data onto PCs.
@@ -176,7 +192,8 @@ def fit(
                 n_components += 1
             print(
                 f'[Check] n_components: {n_components}, '\
-                f'explained {accumulative_variance[n_components]} variance.'
+                f'explained '\
+                f'{accumulative_variance[n_components]:.2f} variance.'
             )
             n_components_list.append(n_components)
 
@@ -191,10 +208,20 @@ def fit(
 
             # compute element-wise MSE and average and bootstrap CI
             # for location, we compute per location MSE of coordinates
-            per_loc_mse_loc_samples = np.mean(np.square(y_test[:, :2] - y_pred[:, :2]), axis=1)
-            per_loc_mse_rot_samples = compute_per_loc_mse_rot_samples(y_test[:, 2:], y_pred[:, 2:], config['n_rotations'])
-            print('[Check] per_loc_mse_loc_samples.shape=', per_loc_mse_loc_samples.shape)
-            print('[Check] per_loc_mse_rot_samples.shape=', per_loc_mse_rot_samples.shape)
+            per_loc_mse_loc_samples = np.mean(
+                np.square(y_test[:, :2] - y_pred[:, :2]), axis=1
+            )
+            per_loc_mse_rot_samples = compute_per_loc_mse_rot_samples(
+                y_test[:, 2:], y_pred[:, 2:], config['n_rotations'])
+            
+            print(
+                '[Check] per_loc_mse_loc_samples.shape=', 
+                per_loc_mse_loc_samples.shape
+            )
+            print(
+                '[Check] per_loc_mse_rot_samples.shape=', 
+                per_loc_mse_rot_samples.shape
+            )
 
             mse_loc = np.mean(per_loc_mse_loc_samples)
             mse_rot = np.mean(per_loc_mse_rot_samples)
@@ -208,6 +235,70 @@ def fit(
             ci_loc_across_n_components.append(ci_loc)
             ci_rot_across_n_components.append(ci_rot)
             print('done1')
+
+            # baseline 1, predict mid
+            mid_loc = np.array(
+                [(config['x_max']+config['x_min']), 
+                (config['y_max']+config['y_min'])]
+            )
+            mid_rot = np.array([config['n_rotations']//4])
+            baseline_predict_mid_mse_loc = np.mean(
+                np.square(y_test[:, :2] - mid_loc), axis=1
+            )
+            baseline_predict_mid_mse_rot = compute_per_loc_mse_rot_samples(
+                y_test[:, 2:], mid_rot, config['n_rotations']
+            )
+            print(
+                '[Check] baseline_predict_mid_mse_loc.shape=', 
+                baseline_predict_mid_mse_loc.shape
+            )
+            print(
+                '[Check] baseline_predict_mid_mse_rot.shape=', 
+                baseline_predict_mid_mse_rot.shape
+            )
+            baseline_predict_mid_mse_loc_across_n_components.append(
+                np.mean(baseline_predict_mid_mse_loc)
+            )
+            baseline_predict_mid_mse_rot_across_n_components.append(
+                np.mean(baseline_predict_mid_mse_rot)
+            )
+            print('done2')
+
+            # baseline error 2, predict random
+            # first, we sample random locations based on bounds of the env
+            np.random.seed(999)
+            random_loc = np.random.uniform(
+                low=np.array([config['x_min'], config['y_min']]),
+                high=np.array([config['x_max'], config['y_max']]),
+                size=(y_test.shape[0], 2)
+            )
+            # second, we sample random rotations
+            random_rot = np.random.randint(
+                low=0, high=config['n_rotations'], size=(y_test.shape[0], 1)
+            )
+            # then we can compute error like before
+            baseline_predict_random_mse_loc = np.mean(
+                np.square(y_test[:, :2] - random_loc), axis=1
+            )
+            baseline_predict_random_mse_rot = compute_per_loc_mse_rot_samples(
+                y_test[:, 2:], random_rot, config['n_rotations']
+            )
+            print(
+                '[Check] baseline_predict_random_mse_loc.shape=', 
+                baseline_predict_random_mse_loc.shape
+            )
+            print(
+                '[Check] baseline_predict_random_mse_rot.shape=', 
+                baseline_predict_random_mse_rot.shape
+            )
+            baseline_predict_random_mse_loc_across_n_components.append(
+                np.mean(baseline_predict_random_mse_loc)
+            )
+            baseline_predict_random_mse_rot_across_n_components.append(
+                np.mean(baseline_predict_random_mse_rot)
+            )
+            print('done3')
+
     
     # 2. This analysis we evaluate decoding error
     # with comopnents that explain (not accumulative)
@@ -267,8 +358,11 @@ def fit(
             else:
                 accumulated_variance_so_far += v
 
-    return n_components_list, mse_loc_across_n_components, mse_rot_across_n_components, \
-            ci_loc_across_n_components, ci_rot_across_n_components, \
+    return n_components_list, \
+        mse_loc_across_n_components, mse_rot_across_n_components, \
+        ci_loc_across_n_components, ci_rot_across_n_components, \
+            baseline_predict_mid_mse_loc_across_n_components, baseline_predict_mid_mse_rot_across_n_components, \
+            baseline_predict_random_mse_loc_across_n_components, baseline_predict_random_mse_rot_across_n_components, \
                 results_path
 
 
@@ -334,6 +428,7 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
         reps=['dim_reduce'],
     ):
     """
+    # TODO: add docstring
     """
     os.environ["TF_NUM_INTRAOP_THREADS"] = "1"
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
@@ -368,13 +463,16 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
         n_rotations=config['n_rotations'],
     )
 
-    fig, ax = plt.subplots(2, len(reps), figsize=(20, 5))
     for i in range(len(reps)):
         subtitle = reps[i]
         sampling_rate_mse_loc_list = defaultdict(list)  # {sampling_rate1: [mse_loc1, mse_loc2, ...], ...}
         sampling_rate_mse_rot_list = defaultdict(list)
         sampling_rate_ci_loc_list = defaultdict(list)
         sampling_rate_ci_rot_list = defaultdict(list)
+        sampling_rate_baseline_predict_mid_mse_loc_list = defaultdict(list)
+        sampling_rate_baseline_predict_mid_mse_rot_list = defaultdict(list)
+        sampling_rate_baseline_predict_random_mse_loc_list = defaultdict(list)
+        sampling_rate_baseline_predict_random_mse_rot_list = defaultdict(list)
         sampling_rate_n_components_list_xticks = defaultdict(list)
         for sampling_rate in sampling_rate_list:
         
@@ -389,23 +487,46 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
                         sampling_rate=sampling_rate,
                     )
             
-            n_components_list, mse_loc_across_n_components, mse_rot_across_n_components, \
+            n_components_list, \
+                mse_loc_across_n_components, mse_rot_across_n_components, \
                 ci_loc_across_n_components, ci_rot_across_n_components, \
-                    results_path = fit(
-                        X_train=X_train,
-                        X_test=X_test,
-                        y_train=y_train,
-                        y_test=y_test,
-                        results_path=results_path,
-                        reduction_hparams=reduction_hparams,
-                        config=config,
-                        variance_explained_list=variance_explained_list,
-                        variance_explained_interval=variance_explained_interval
-                    )
-            sampling_rate_mse_loc_list[sampling_rate].extend(mse_loc_across_n_components)
-            sampling_rate_mse_rot_list[sampling_rate].extend(mse_rot_across_n_components)
-            sampling_rate_ci_loc_list[sampling_rate].extend(ci_loc_across_n_components)
-            sampling_rate_ci_rot_list[sampling_rate].extend(ci_rot_across_n_components)
+                    baseline_predict_mid_mse_loc_across_n_components, \
+                    baseline_predict_mid_mse_rot_across_n_components, \
+                    baseline_predict_random_mse_loc_across_n_components, \
+                    baseline_predict_random_mse_rot_across_n_components, \
+                        results_path = fit(
+                            X_train=X_train,
+                            X_test=X_test,
+                            y_train=y_train,
+                            y_test=y_test,
+                            results_path=results_path,
+                            reduction_hparams=reduction_hparams,
+                            config=config,
+                            variance_explained_list=variance_explained_list,
+                            variance_explained_interval=variance_explained_interval
+                        )
+
+            sampling_rate_mse_loc_list[
+                sampling_rate].extend(mse_loc_across_n_components)
+            sampling_rate_mse_rot_list[
+                sampling_rate].extend(mse_rot_across_n_components)
+            sampling_rate_ci_loc_list[
+                sampling_rate].extend(ci_loc_across_n_components)
+            sampling_rate_ci_rot_list[
+                sampling_rate].extend(ci_rot_across_n_components)
+
+            # baseline 1
+            sampling_rate_baseline_predict_mid_mse_loc_list[
+                sampling_rate].extend(baseline_predict_mid_mse_loc_across_n_components)
+            sampling_rate_baseline_predict_mid_mse_rot_list[
+                sampling_rate].extend(baseline_predict_mid_mse_rot_across_n_components)
+
+            # baseline 2
+            sampling_rate_baseline_predict_random_mse_loc_list[
+                sampling_rate].extend(baseline_predict_random_mse_loc_across_n_components)
+            sampling_rate_baseline_predict_random_mse_rot_list[
+                sampling_rate].extend(baseline_predict_random_mse_rot_across_n_components)
+
             sampling_rate_n_components_list_xticks[sampling_rate].extend(n_components_list)
             print(f'[Check] {config_version}, sampling_rate: {sampling_rate}')
         
@@ -437,6 +558,33 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
                 f'{moving_trajectory}_{sampling_rate_list[0]}-{sampling_rate_list[-1]}.npy',
                 sampling_rate_ci_rot_list
             )
+            # baseline 1. predict mid
+            np.save(
+                f'{results_path}/baseline_predict_mid_mse_loc_{subtitle}_' \
+                f'accu_var_explained_{variance_explained_list[0]}-{variance_explained_list[-1]}_' \
+                f'{moving_trajectory}_{sampling_rate_list[0]}-{sampling_rate_list[-1]}.npy',
+                sampling_rate_baseline_predict_mid_mse_loc_list
+            )
+            np.save(
+                f'{results_path}/baseline_predict_mid_mse_rot_{subtitle}_' \
+                f'accu_var_explained_{variance_explained_list[0]}-{variance_explained_list[-1]}_' \
+                f'{moving_trajectory}_{sampling_rate_list[0]}-{sampling_rate_list[-1]}.npy',
+                sampling_rate_baseline_predict_mid_mse_rot_list
+            )
+            # baseline 2. predict random
+            np.save(
+                f'{results_path}/baseline_predict_random_mse_loc_{subtitle}_' \
+                f'accu_var_explained_{variance_explained_list[0]}-{variance_explained_list[-1]}_' \
+                f'{moving_trajectory}_{sampling_rate_list[0]}-{sampling_rate_list[-1]}.npy',
+                sampling_rate_baseline_predict_random_mse_loc_list
+            )
+            np.save(
+                f'{results_path}/baseline_predict_random_mse_rot_{subtitle}_' \
+                f'accu_var_explained_{variance_explained_list[0]}-{variance_explained_list[-1]}_' \
+                f'{moving_trajectory}_{sampling_rate_list[0]}-{sampling_rate_list[-1]}.npy',
+                sampling_rate_baseline_predict_random_mse_rot_list
+            )
+            # n_components_list_xticks
             np.save(
                 f'{results_path}/n_components_list_xticks_{subtitle}_' \
                 f'accu_var_explained_{variance_explained_list[0]}-{variance_explained_list[-1]}_' \
@@ -521,11 +669,26 @@ def ACROSS_ENVS__decoding_error_across_reps_n_components(
                         f'accu_var_explained_{variance_explained_list[0]}-{variance_explained_list[-1]}_' \
                         f'{moving_trajectory}_{sampling_rates[0]}-{sampling_rates[-1]}.npy'
                     
+
+                    # baseline 1. predict mid
+                    results_path_baseline_mse = \
+                        f'{env_results_path}/baseline_predict_mid_{temp_title_mse}' \
+                        f'accu_var_explained_{variance_explained_list[0]}-{variance_explained_list[-1]}_' \
+                        f'{moving_trajectory}_{sampling_rates[0]}-{sampling_rates[-1]}.npy'
+                    
+                    # baseline 2. predict random
+                    results_path_baseline_predict_random_mse = \
+                        f'{env_results_path}/baseline_predict_random_{temp_title_mse}' \
+                        f'accu_var_explained_{variance_explained_list[0]}-{variance_explained_list[-1]}_' \
+                        f'{moving_trajectory}_{sampling_rates[0]}-{sampling_rates[-1]}.npy'
+                    
                     # x axis are just the set of variance explained levels.
                     x_axis = np.around(variance_explained_list, 2)
                     # we also plot next to the variance the actual number of compoenents
                     # which *at least* explain that much variance
-                    x_ticks_n_components =np.load(results_path_x_ticks_components, allow_pickle=True).ravel()[0]
+                    x_ticks_n_components = np.load(
+                        results_path_x_ticks_components, 
+                        allow_pickle=True).ravel()[0]
 
                 else:
                     results_path_mse = \
@@ -540,9 +703,19 @@ def ACROSS_ENVS__decoding_error_across_reps_n_components(
                         f'{moving_trajectory}_{sampling_rates[0]}-{sampling_rates[-1]}.npy'
                     # x axis needs set for each sampling rate, as the number of intervals
                     # may differ across sampling rates (different number of components)
+
+                # loading results
                 results_mse = np.load(results_path_mse, allow_pickle=True).ravel()[0]
                 results_ci = np.load(results_path_ci, allow_pickle=True).ravel()[0]
+                # loading baseline results
+                results_baseline_predict_mid_mse = np.load(
+                    results_path_baseline_mse, 
+                    allow_pickle=True).ravel()[0]
+                results_baseline_predict_random_mse = np.load(
+                    results_path_baseline_predict_random_mse, 
+                    allow_pickle=True).ravel()[0]
 
+                # begin plotting
                 for sampling_rate_index, sampling_rate in enumerate(sampling_rates):
                     ax = axes[sampling_rate_index, error_type_index]
 
@@ -559,13 +732,11 @@ def ACROSS_ENVS__decoding_error_across_reps_n_components(
                         c='k',
                         alpha=0.1,
                     )
-
                     results_ci_low = []
                     results_ci_high = []
                     for i in range(len(results_ci[sampling_rate])):
                         results_ci_low.append(results_ci[sampling_rate][i][0])
                         results_ci_high.append(results_ci[sampling_rate][i][1])
-
                     ax.fill_between(
                         x_axis,
                         results_ci_low,
@@ -578,9 +749,11 @@ def ACROSS_ENVS__decoding_error_across_reps_n_components(
                     ax.set_title(f'sampling rate: {sampling_rate}')
                     if error_type == 'loc':
                         if sampling_rate == 0.01:
-                            ax.set_ylim(6, 10)
+                            # ax.set_ylim(6, 10)
+                            pass
                         else:
-                            ax.set_ylim(-0.05, 7)
+                            # ax.set_ylim(-0.05, 7)
+                            pass
                     elif error_type == 'rot':
                         ax.set_ylim(-0.05, 55)
                     if sampling_rate_index == -1:
@@ -591,6 +764,20 @@ def ACROSS_ENVS__decoding_error_across_reps_n_components(
                         ax.set_xticks(x_axis)
                         ax.set_xticklabels(x_ticklabels)
                     ax.grid(True)
+
+                    # plot baselines
+                    ax.plot(
+                        x_axis,
+                        results_baseline_predict_mid_mse[sampling_rate],
+                        c='r',
+                        label='baseline 1: predict mid',
+                    )
+                    ax.plot(
+                        x_axis,
+                        results_baseline_predict_random_mse[sampling_rate],
+                        c='b',
+                        label='baseline 2: predict random',
+                    )
 
         plt.legend() 
         plt.tight_layout()
@@ -676,8 +863,8 @@ if __name__ == '__main__':
             # 'env32': 1,
             'env33': 0,
         },
-        model_name='none',
-        output_layer='raw',
+        model_name='vgg16',
+        output_layer='fc2',
         reduction_method='pca',
         reps=['dim_reduce'],
         sampling_rates=[0.01, 0.05, 0.1, 0.3, 0.5],
