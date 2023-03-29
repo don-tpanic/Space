@@ -20,6 +20,36 @@ import utils
 """
 """
 
+def compute_per_loc_mse_rot_samples(
+        y_test,
+        y_pred,
+        n_rotations,
+    ):
+    """
+    Compute rotation error with MSE for each data-point.
+    The thing here is to take into account that 
+    predicting 15 degrees and 345 degrees while ground truth
+    is 0 degrees should have the same error.
+
+    Notice the y_test here are integers from 0 to n_rotations-1.
+    So when computing MSE for each pair of predict and true, we 
+    must consider if their difference is more than half of n_rotations
+    (i.e. 180 degrees). If so, we need to convert the difference
+    to the other side of the circle (i.e. 360 - diff).
+    """
+    rotation_error = np.empty(len(y_test))
+    for i in range(len(y_test)):
+        y_test_i = y_test[i]
+        y_pred_i = y_pred[i]
+        diff = abs(y_test_i - y_pred_i)
+        print(f'diff: {diff}')
+        if diff > n_rotations / 2:
+            diff = n_rotations - diff
+            print(f'converting diff to other side of circle, diff: {diff}')
+        rotation_error[i] = diff**2
+    return rotation_error
+
+
 def accumulate_sum(array):
     accu_array = array.copy()
     for i in range(1, len(array)):
@@ -92,7 +122,7 @@ def loading_train_test_data(
     print(f'X_train.shape: {X_train.shape}', f'y_train.shape: {len(y_train)}')
     print(f'X_test.shape: {X_test.shape}', f'y_test.shape: {len(y_test)}')
     return X_train, X_test, y_train, y_test, \
-            results_path, reduction_method, reduction_hparams
+            results_path, reduction_hparams
 
 
 def fit(
@@ -101,16 +131,8 @@ def fit(
         y_train,
         y_test,
         results_path,
-        reduction_method,
         reduction_hparams,
-        model,
         config,
-        preprocessed_data,
-        targets_true,
-        moving_trajectory,
-        sampling_rate,
-        baseline=False, 
-        baseline_feature_selection=None,
         variance_explained_list=[0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
         variance_explained_interval=0.1,
     ):
@@ -120,7 +142,7 @@ def fit(
     components, explained_variance_ratio, fitter = \
         dimension_reduction.compute_components(
             X_train, 
-            reduction_method=reduction_method,
+            reduction_method=config['reduction_method'],
             reduction_hparams=reduction_hparams,
         )
 
@@ -170,7 +192,7 @@ def fit(
             # compute element-wise MSE and average and bootstrap CI
             # for location, we compute per location MSE of coordinates
             per_loc_mse_loc_samples = np.mean(np.square(y_test[:, :2] - y_pred[:, :2]), axis=1)
-            per_loc_mse_rot_samples = np.mean(np.square(y_test[:, 2:] - y_pred[:, 2:]), axis=1)
+            per_loc_mse_rot_samples = compute_per_loc_mse_rot_samples(y_test[:, 2:], y_pred[:, 2:], config['n_rotations'])
             print('[Check] per_loc_mse_loc_samples.shape=', per_loc_mse_loc_samples.shape)
             print('[Check] per_loc_mse_rot_samples.shape=', per_loc_mse_rot_samples.shape)
 
@@ -247,7 +269,7 @@ def fit(
 
     return n_components_list, mse_loc_across_n_components, mse_rot_across_n_components, \
             ci_loc_across_n_components, ci_rot_across_n_components, \
-                y_train, y_test, y_pred, results_path
+                results_path
 
 
 def determine_moving_trajectory(
@@ -348,17 +370,7 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
 
     fig, ax = plt.subplots(2, len(reps), figsize=(20, 5))
     for i in range(len(reps)):
-        subplot = reps[i]
-        print(f'[Check] subplot: {subplot}')
-        if subplot != 'dim_reduce':
-            baseline = True
-            baseline_feature_selection = subplot
-            subtitle = f'baseline_sampling={subplot}'
-        else:
-            baseline = False
-            baseline_feature_selection = None
-            subtitle = f'dim_reduce'
-
+        subtitle = reps[i]
         sampling_rate_mse_loc_list = defaultdict(list)  # {sampling_rate1: [mse_loc1, mse_loc2, ...], ...}
         sampling_rate_mse_rot_list = defaultdict(list)
         sampling_rate_ci_loc_list = defaultdict(list)
@@ -367,7 +379,7 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
         for sampling_rate in sampling_rate_list:
         
             X_train, X_test, y_train, y_test, \
-                results_path, reduction_method, reduction_hparams = \
+                results_path, reduction_hparams = \
                     loading_train_test_data(
                         model=model,
                         config=config,
@@ -379,22 +391,14 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
             
             n_components_list, mse_loc_across_n_components, mse_rot_across_n_components, \
                 ci_loc_across_n_components, ci_rot_across_n_components, \
-                    y_train, y_test, y_pred, results_path = fit(
+                    results_path = fit(
                         X_train=X_train,
                         X_test=X_test,
                         y_train=y_train,
                         y_test=y_test,
                         results_path=results_path,
-                        reduction_method=reduction_method,
                         reduction_hparams=reduction_hparams,
-                        model=model,
                         config=config,
-                        preprocessed_data=preprocessed_data,
-                        targets_true=targets_true,
-                        moving_trajectory=moving_trajectory,
-                        sampling_rate=sampling_rate,
-                        baseline=baseline,
-                        baseline_feature_selection=baseline_feature_selection,
                         variance_explained_list=variance_explained_list,
                         variance_explained_interval=variance_explained_interval
                     )
@@ -651,12 +655,7 @@ if __name__ == '__main__':
     multicuda_execute(
         WITHIN_ENV__decoding_error_across_reps_n_components,
         config_versions=[
-            # f'env28_r24_2d_vgg16_fc2_9_pca',
-            # f'env33_r24_2d_vgg16_fc2_9_pca',
-            f'env29_r24_2d_vgg16_fc2_9_pca',
-            f'env30_r24_2d_vgg16_fc2_9_pca',
-            f'env31_r24_2d_vgg16_fc2_9_pca',
-            f'env32_r24_2d_vgg16_fc2_9_pca',
+            f'env28_r24_2d_vgg16_fc2_9_pca',
             f'env33_r24_2d_vgg16_fc2_9_pca',
         ],
         variance_explained_list=np.linspace(0.5, 0.99, 21),
@@ -668,25 +667,25 @@ if __name__ == '__main__':
         cuda_id_list=[0, 1, 2, 3, 4],
     )
 
-    # ACROSS_ENVS__decoding_error_across_reps_n_components(
-    #     envs2walls={
-    #         'env28': 4,
-    #         # 'env29': 3,
-    #         # 'env30': 2,
-    #         # 'env31': 2,
-    #         # 'env32': 1,
-    #         'env33': 0,
-    #     },
-    #     model_name='vgg16',
-    #     output_layer='fc2',
-    #     reduction_method='pca',
-    #     reps=['dim_reduce'],
-    #     sampling_rates=[0.01, 0.05, 0.1, 0.3, 0.5],
-    #     variance_explained_list=np.linspace(0.5, 0.99, 21),
-    #     # variance_explained_list=None,
-    #     # variance_explained_interval=0.1,
-    #     variance_explained_interval=None,
-    # )
+    ACROSS_ENVS__decoding_error_across_reps_n_components(
+        envs2walls={
+            'env28': 4,
+            # 'env29': 3,
+            # 'env30': 2,
+            # 'env31': 2,
+            # 'env32': 1,
+            'env33': 0,
+        },
+        model_name='none',
+        output_layer='raw',
+        reduction_method='pca',
+        reps=['dim_reduce'],
+        sampling_rates=[0.01, 0.05, 0.1, 0.3, 0.5],
+        variance_explained_list=np.linspace(0.5, 0.99, 21),
+        # variance_explained_list=None,
+        # variance_explained_interval=0.1,
+        variance_explained_interval=None,
+    )
 
     end_time = time.time()
     time_elapsed = (end_time - start_time) / 3600
