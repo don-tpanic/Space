@@ -38,8 +38,10 @@ def generate_config(
 
 if __name__ == "__main__":
     generate_config(
-        template_config='env22_r24_2d_vgg16_fc2_9_pca',
-        env_nums=['28', '29', '30', '31', '32', '33'],
+        template_config='env28_r24_2d_vgg16_fc2_50_pca',
+        env_nums=['28', '33'],
         model_names=['vgg16'],
-        output_layers=['block4_pool'],
+        output_layers=['fc2'],
+        reduction_methods=['minvar'],
+        n_components=50,
     )

@@ -60,6 +60,15 @@ def compute_components(X, reduction_method, reduction_hparams, random_state=999)
         print(f'  col_ranks_desc.shape: {col_ranks_desc.shape}')
         X_latent = X[:, col_ranks_desc]
         return X_latent, None, None
+    
+    elif reduction_method == 'minvar':
+        print(f'[Check] running minvar...')
+        # sort the matrix columns based on min variance
+        # of each column
+        col_ranks_desc = np.argsort(np.var(X, axis=0))
+        print(f'  col_ranks_desc.shape: {col_ranks_desc.shape}')
+        X_latent = X[:, col_ranks_desc]
+        return X_latent, None, None
 
 
 if __name__ == "__main__":

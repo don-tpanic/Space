@@ -128,7 +128,7 @@ def execute(config_version):
         )
 
     # eval
-    evaluations.plot_components(stats=stats, config=config)
+    evaluations.plot_components(stats=stats, config_version=config_version)
 
 
 def multiproc_execute():
@@ -166,7 +166,7 @@ def multiproc_execute():
 def multicuda_execute(target_func, cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7]):
     envs = ['28_r24', '33_r24']
     movement_modes = ['2d']
-    dim_reductions = ['maxvar', 'nmf']
+    dim_reductions = ['minvar']
     n_components_list = [50]
     model_types_n_reps = {'vgg16': 'fc2'}
 
