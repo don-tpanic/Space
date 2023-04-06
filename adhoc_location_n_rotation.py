@@ -104,7 +104,9 @@ def loading_train_test_data(
     # use model output
     else:
         # (n, 4096)
-        model_reps = model.predict(preprocessed_data)
+        model_reps = model.predict(preprocessed_data, verbose=1)
+        # TODO: solution to OOM for early layers is to save batches to disk
+        # and merge on CPU and do whatever operations come below.
         del model
         K.clear_session()
         if len(model_reps.shape) > 2:
@@ -749,10 +751,10 @@ def ACROSS_ENVS__decoding_error_across_reps_n_components(
                     ax.set_title(f'sampling rate: {sampling_rate}')
                     if error_type == 'loc':
                         if sampling_rate == 0.01:
-                            # ax.set_ylim(6, 10)
+                            ax.set_ylim(6, 14)
                             pass
                         else:
-                            # ax.set_ylim(-0.05, 7)
+                            ax.set_ylim(-0.05, 12)
                             pass
                     elif error_type == 'rot':
                         ax.set_ylim(-0.05, 55)
@@ -835,15 +837,48 @@ def multicuda_execute(
     )
 
 
+def multiproc_execute(
+        target_func, 
+        config_versions,
+        variance_explained_list,
+        variance_explained_interval,
+        moving_trajectory,
+        sampling_rate_list,
+        n_processes,
+    ):
+    """
+    Launch multiple 
+        `WITHIN_ENV__decoding_error_across_n_components`
+    to CPUs
+    """
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    # use apply_async
+    with multiprocessing.Pool(processes=n_processes) as pool:
+        for config_version in config_versions:
+            results = pool.apply_async(
+                target_func,
+                args=(
+                    config_version,
+                    variance_explained_list,
+                    variance_explained_interval,
+                    moving_trajectory,
+                    sampling_rate_list,
+                )
+            )
+        print(results.get())
+        pool.close()
+        pool.join()
+
+
 if __name__ == '__main__':
     import time
     start_time = time.time()
 
-    multicuda_execute(
+    multiproc_execute(
         WITHIN_ENV__decoding_error_across_reps_n_components,
         config_versions=[
-            f'env28_r24_2d_vgg16_fc2_9_pca',
-            f'env33_r24_2d_vgg16_fc2_9_pca',
+            f'env28_r24_2d_vgg16_block3_pool_9_pca',
+            f'env33_r24_2d_vgg16_block3_pool_9_pca',
         ],
         variance_explained_list=np.linspace(0.5, 0.99, 21),
         # variance_explained_list=None,
@@ -851,7 +886,8 @@ if __name__ == '__main__':
         variance_explained_interval=None,
         moving_trajectory='uniform',
         sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
-        cuda_id_list=[0, 1, 2, 3, 4],
+        # cuda_id_list=[0, 1, 2, 3, 4],
+        n_processes=40,
     )
 
     ACROSS_ENVS__decoding_error_across_reps_n_components(
@@ -864,7 +900,7 @@ if __name__ == '__main__':
             'env33': 0,
         },
         model_name='vgg16',
-        output_layer='fc2',
+        output_layer='block3_pool',
         reduction_method='pca',
         reps=['dim_reduce'],
         sampling_rates=[0.01, 0.05, 0.1, 0.3, 0.5],
