@@ -16,10 +16,17 @@ def return_results_path(config_version):
     output_layer = config['output_layer']
     movement_mode = config['movement_mode']
     reduction_method = config['reduction_method']
-    env_results_path = f'results/{unity_env}/{movement_mode}' \
-                        f'/{model_name}/{output_layer}/' \
-                        f'{reduction_method}'
-    return env_results_path
+    try:
+        reduction_hparams = config['reduction_hparams']
+    except KeyError:
+        reduction_hparams = None
+    results_path = f'results/{unity_env}/' \
+                   f'{movement_mode}/{model_name}/' \
+                   f'{output_layer}/{reduction_method}/'
+    if reduction_hparams:
+        for k, v in reduction_hparams.items():
+            results_path += f'_{k}{v}'
+    return results_path
 
 
 def cuda_manager(target, args_list, cuda_id_list, n_concurrent=None):
