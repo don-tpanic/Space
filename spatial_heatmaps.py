@@ -128,22 +128,7 @@ def execute(config_version):
         )
 
     # eval
-    evaluations.plot_components(
-        stats=stats,
-        unity_env=config['unity_env'],
-        n_components=config['n_components'],
-        n_rotations=config['n_rotations'],
-        movement_mode=config['movement_mode'],
-        model_name=config['model_name'],
-        output_layer=config['output_layer'],
-        reduction_method=config['reduction_method'],
-        results_path=results_path,
-        x_min=config['x_min'],
-        x_max=config['x_max'],
-        y_min=config['y_min'],
-        y_max=config['y_max'],
-        multiplier=config['multiplier'],
-    )
+    evaluations.plot_components(stats=stats, config=config)
 
 
 def multiproc_execute():
