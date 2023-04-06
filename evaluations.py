@@ -5,22 +5,29 @@ import matplotlib.pyplot as plt
 import utils
 
 
-def plot_components(
-        stats,
-        unity_env,
-        n_components,
-        n_rotations,
-        movement_mode,
-        model_name,
-        output_layer,
-        reduction_method,
-        results_path,
-        x_min,
-        x_max,
-        y_min,
-        y_max,
-        multiplier,
-    ):
+def plot_components(stats, config):
+    """
+    Plot individual components of each rotation separately,
+    up to the specified `n_components` and `n_rotations`.
+
+    Impl:
+
+    Return:
+
+    """
+    n_components=config['n_components']
+    n_rotations=config['n_rotations']
+    movement_mode=config['movement_mode']
+    model_name=config['model_name']
+    output_layer=config['output_layer']
+    reduction_method=config['reduction_method']
+    x_min=config['x_min']
+    x_max=config['x_max']
+    y_min=config['y_min']
+    y_max=config['y_max']
+    multiplier=config['multiplier']
+    results_path = utils.return_results_path(config_version)
+
     # prepare coordinates for plotting heatmap
     if movement_mode == '1d':
         x_axis_coords = []
@@ -98,6 +105,68 @@ def plot_components(
     # plt.suptitle(title, y=1.05)
     plt.savefig(f'{results_path}/components.png')
 
+
+def plot_combined_components(
+        config_version, method
+    ):
+    """
+    Plot individual components of all rotation jointly,
+    subject to a combine `method`, in {'add', 'average', ...}.
+    Such combine is done per 2D location across all rotations.
+
+    Impl:
+
+    Return:
+
+    """
+    config = utils.load_config(config_version)
+    results_path = utils.return_results_path(config_version)
+    
+    # map components back onto 2D space
+    if config['movement_mode'] == '2d':
+        x_axis_coords = []
+        y_axis_coords = []
+        # same idea as generating the frames in Unity
+        # so we get decimal coords in between the grid points
+        for i in range(
+                config['x_min']*config['multiplier'], 
+                config['x_max']*config['multiplier']+1
+            ):
+            for j in range(
+                config['y_min']*config['multiplier'], 
+                config['y_max']*config['multiplier']+1
+            ):
+                x_axis_coords.append(i/config['multiplier'])
+                y_axis_coords.append(j/config['multiplier'])
+    
+    fig, ax = plt.subplots(
+        config['n_components'], 
+        figsize=(5, 3*int(config['n_components']))
+    )
+
+    for i in range(config['n_components']):
+        # each is a matrix of (n_components, n_locations, n_rotations)
+        component = np.load(f'{results_path}/components_{i+1}.npy')
+        # rotations of each component is combined by `method`
+        # to get a single component per location
+        if method == 'add':
+            component = np.sum(component, axis=-1)
+        elif method == 'average':
+            component = np.mean(component, axis=-1)
+
+        ax[i].scatter(
+            x_axis_coords, y_axis_coords, 
+            c=component, cmap='viridis',
+        )
+        ax[i].set_title(f'c{i+1}')
+        ax[i].set_xlim(config['x_min'], config['x_max'])
+        ax[i].set_ylim(config['y_min'], config['y_max'])
+    ax[config['n_components']//2].set_ylabel('Unity z axis')
+    ax[-1].set_xlabel('Unity x axis')
+
+    plt.tight_layout()
+    plt.savefig(f'{results_path}/components_combined_{method}.png')
+    
 
 def plot_variance_explained(
         movement_mode,
@@ -252,36 +321,8 @@ def plot_env_diff(
 
 if __name__ == "__main__":
     import utils 
-    config_version = "env33_r24_2d_vgg16_fc2_50_maxvar"
+    config_version = "env28_r24_2d_vgg16_fc2_9_pca"
     config = utils.load_config(config_version)
-    unity_env = config['unity_env']
-    model_name = config['model_name']
-    output_layer = config['output_layer']
-    n_components = config['n_components']
-    movement_mode = config['movement_mode']
-    reduction_method = config['reduction_method']
-    n_rotations = config['n_rotations']
-    x_min = config['x_min']
-    x_max = config['x_max']
-    y_min = config['y_min']
-    y_max = config['y_max']
-    multiplier = config['multiplier']
-    results_path = \
-        f'results/{unity_env}/{movement_mode}/' \
-        f'{model_name}/{output_layer}/{reduction_method}'
-    plot_components(
-        stats=None,
-        unity_env=unity_env,
-        n_components=n_components,
-        n_rotations=n_rotations,
-        movement_mode=movement_mode,
-        model_name=model_name,
-        output_layer=output_layer,
-        reduction_method=reduction_method,
-        results_path=results_path,
-        x_min=x_min,
-        x_max=x_max,
-        y_min=y_min,
-        y_max=y_max,
-        multiplier=multiplier,
-    )
+
+    # plot_components(stats=None, config=config)
+    plot_combined_components(config_version, method='add')
