@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import utils
 
 
-def plot_components(stats, config):
+def plot_components(stats, config_version):
     """
     Plot individual components of each rotation separately,
     up to the specified `n_components` and `n_rotations`.
@@ -15,6 +15,7 @@ def plot_components(stats, config):
     Return:
 
     """
+    config = utils.load_config(config_version)
     n_components=config['n_components']
     n_rotations=config['n_rotations']
     movement_mode=config['movement_mode']
