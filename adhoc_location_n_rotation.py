@@ -141,6 +141,7 @@ def fit(
         results_path,
         reduction_hparams,
         config,
+        sampling_rate,
         variance_explained_list,
         variance_explained_interval,
     ):
@@ -193,7 +194,7 @@ def fit(
             while accumulative_variance[n_components] < v:
                 n_components += 1
             print(
-                f'[Check] n_components: {n_components}, '\
+                f'[Check] n_components: {n_components+1}, '\
                 f'explained '\
                 f'{accumulative_variance[n_components]:.2f} variance.'
             )
@@ -207,6 +208,22 @@ def fit(
             LinearRegression_model = LinearRegression()
             LinearRegression_model.fit(X_train_proj, y_train)
             y_pred = LinearRegression_model.predict(X_test_proj)
+
+            # save each classifier's coefficients which to be
+            # plotted later (save for each sampling_rate&n_components)
+            coef_ = LinearRegression_model.coef_
+            intercept_ = LinearRegression_model.intercept_
+            np.save(
+                os.path.join(results_path, f'coef_{sampling_rate}_{v}.npy'),
+                coef_
+            )
+            np.save(
+                os.path.join(results_path, f'intercept_{sampling_rate}_{v}.npy'),
+                intercept_
+            )
+            print(
+                f'[Check] saved coef_ and intercept_ '
+            )
 
             # compute element-wise MSE and average and bootstrap CI
             # for location, we compute per location MSE of coordinates
@@ -504,6 +521,7 @@ def WITHIN_ENV__decoding_error_across_reps_n_components(
                             results_path=results_path,
                             reduction_hparams=reduction_hparams,
                             config=config,
+                            sampling_rate=sampling_rate,
                             variance_explained_list=variance_explained_list,
                             variance_explained_interval=variance_explained_interval
                         )
@@ -806,6 +824,65 @@ def ACROSS_ENVS__decoding_error_across_reps_n_components(
         plt.savefig(fpath)
        
 
+def WITHIN_ENVS__regression_weights_across_n_components(
+        config_version, 
+        variance_explained_list,
+        moving_trajectory,
+        sampling_rate_list,
+        reps=['dim_reduce'],
+    ):
+    """
+    Plot saved regression weights that are per sampling_rate&n_components,
+    created and saved by `WITHIN_ENV__decoding_error_across_reps_n_components`.
+
+    Specifically, this function plots the regression weights as 4 histograms each
+    corresponds to the coefficients (+bias) that map features to targets [x, y, rot].
+
+    This analysis is to see differences in distribution of regression weights to 
+    predicting x, y and rot as the regression weights correspond to the features 
+    which are PCs or units from our model.
+    """
+    config = utils.load_config(config_version)
+    results_path = utils.return_results_path(config_version)   
+    subtitles = ['x', 'y', 'rot']
+
+    for sampling_rate in sampling_rate_list[-2:]:
+        # top-level figure creation
+        # 1 figure per sampling rate across n_components
+        # at each variance explained (i.e. n_components) level
+        # we create a row of 6 subplots (x, y, rot for coef and bias)
+        fig, axes = plt.subplots(
+            len(variance_explained_list[-5:]), 6, figsize=(15, 15))
+        fig.suptitle(f'sampling rate: {sampling_rate}')
+
+        for row_idx, v in enumerate(variance_explained_list[::5]):
+            # load coef and intercept of a 
+            # sampling rate & n_components     
+            coef = np.load(
+                f'{results_path}/coef_{sampling_rate}_{v}.npy')
+            intercept = np.load(
+                f'{results_path}/intercept_{sampling_rate}_{v}.npy')
+
+            # plot each coef and intercept as histograom in a subplot
+            # 6 subplots in total in 1 row, 
+            # columns are x, y, rot for coef and bias
+            for col_idx, (c, i) in enumerate(zip(coef, intercept)):
+                ax = axes[row_idx, col_idx]
+                # ax.hist(c, bins=20)
+                ax.plot(c)
+                # ax.set_xlim(-0.7, 0.7)
+                ax = axes[row_idx, col_idx+3]
+                # ax.hist(i, bins=20)
+                ax.plot(i)
+                axes[0, col_idx].set_title(f'coef {subtitles[col_idx]}')
+                axes[0, col_idx+3].set_title(f'intercept {subtitles[col_idx]}')
+            axes[row_idx, 0].set_ylabel(f'v.explained: {v:.2f}')
+        
+        # save figure
+        fpath = f'{results_path}/regression_weights_{sampling_rate}.png'
+        plt.savefig(fpath)
+
+
 def multicuda_execute(
         target_func, 
         config_versions,
@@ -874,40 +951,48 @@ if __name__ == '__main__':
     import time
     start_time = time.time()
 
-    multiproc_execute(
-        WITHIN_ENV__decoding_error_across_reps_n_components,
-        config_versions=[
-            f'env28_r24_2d_vgg16_block3_pool_9_pca',
-            f'env33_r24_2d_vgg16_block3_pool_9_pca',
-        ],
+    # # multiproc_execute(
+    # multicuda_execute(
+    #     WITHIN_ENV__decoding_error_across_reps_n_components,
+    #     config_versions=[
+    #         f'env28_r24_2d_vgg16_fc2_9_pca',
+    #         # f'env33_r24_2d_vgg16_fc2_9_pca',
+    #     ],
+    #     variance_explained_list=np.linspace(0.5, 0.99, 21),
+    #     # variance_explained_list=None,
+    #     # variance_explained_interval=0.1,
+    #     variance_explained_interval=None,
+    #     moving_trajectory='uniform',
+    #     sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
+    #     cuda_id_list=[0, 1, 2, 3, 4],
+    #     # n_processes=40,
+    # )
+
+    # ACROSS_ENVS__decoding_error_across_reps_n_components(
+    #     envs2walls={
+    #         'env28': 4,
+    #         # 'env29': 3,
+    #         # 'env30': 2,
+    #         # 'env31': 2,
+    #         # 'env32': 1,
+    #         'env33': 0,
+    #     },
+    #     model_name='vgg16',
+    #     output_layer='block3_pool',
+    #     reduction_method='pca',
+    #     reps=['dim_reduce'],
+    #     sampling_rates=[0.01, 0.05, 0.1, 0.3, 0.5],
+    #     variance_explained_list=np.linspace(0.5, 0.99, 21),
+    #     # variance_explained_list=None,
+    #     # variance_explained_interval=0.1,
+    #     variance_explained_interval=None,
+    # )
+
+    WITHIN_ENVS__regression_weights_across_n_components(
+        config_version='env28_r24_2d_vgg16_fc2_9_pca',
         variance_explained_list=np.linspace(0.5, 0.99, 21),
-        # variance_explained_list=None,
-        # variance_explained_interval=0.1,
-        variance_explained_interval=None,
         moving_trajectory='uniform',
         sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
-        # cuda_id_list=[0, 1, 2, 3, 4],
-        n_processes=40,
-    )
-
-    ACROSS_ENVS__decoding_error_across_reps_n_components(
-        envs2walls={
-            'env28': 4,
-            # 'env29': 3,
-            # 'env30': 2,
-            # 'env31': 2,
-            # 'env32': 1,
-            'env33': 0,
-        },
-        model_name='vgg16',
-        output_layer='block3_pool',
-        reduction_method='pca',
-        reps=['dim_reduce'],
-        sampling_rates=[0.01, 0.05, 0.1, 0.3, 0.5],
-        variance_explained_list=np.linspace(0.5, 0.99, 21),
-        # variance_explained_list=None,
-        # variance_explained_interval=0.1,
-        variance_explained_interval=None,
     )
 
     end_time = time.time()
