@@ -142,7 +142,7 @@ def plot_combined_components(
     
     fig, ax = plt.subplots(
         config['n_components'], 
-        figsize=(5, 3*int(config['n_components']))
+        figsize=(3, 2*int(config['n_components']))
     )
 
     for i in range(config['n_components']):
@@ -157,7 +157,7 @@ def plot_combined_components(
 
         ax[i].scatter(
             x_axis_coords, y_axis_coords, 
-            c=component, cmap='viridis',
+            c=component, cmap='viridis', s=144
         )
         ax[i].set_title(f'c{i+1}')
         ax[i].set_xlim(config['x_min'], config['x_max'])
@@ -165,6 +165,8 @@ def plot_combined_components(
     ax[config['n_components']//2].set_ylabel('Unity z axis')
     ax[-1].set_xlabel('Unity x axis')
 
+    # title = f'{config["model_name"]}, {config["output_layer"]}, {method}'
+    # plt.suptitle(title, y=1.05)
     plt.tight_layout()
     plt.savefig(f'{results_path}/components_combined_{method}.png')
     
@@ -321,8 +323,8 @@ def plot_env_diff(
 
 
 if __name__ == "__main__":
-    import utils 
-    config_version = "env28_r24_2d_vgg16_fc2_9_pca"
+    import utils
+    config_version = "env28_r24_2d_vgg16_fc2_50_nmf"
     config = utils.load_config(config_version)
 
     # plot_components(stats=None, config=config)
