@@ -117,6 +117,11 @@ def plot_combined_components(
 
     Impl:
 
+    Each row of the subplot is a ranked PC and the first
+    column is the combined component over all rotations plotted
+    as 2D heatmap; the second column is the distribution (e.g. hist)
+    of these combined components.
+
     Return:
 
     """
@@ -141,8 +146,8 @@ def plot_combined_components(
                 y_axis_coords.append(j/config['multiplier'])
     
     fig, ax = plt.subplots(
-        config['n_components'], 
-        figsize=(3, 2*int(config['n_components']))
+        config['n_components'], 2,
+        figsize=(5, 2*int(config['n_components']))
     )
 
     for i in range(config['n_components']):
@@ -155,15 +160,21 @@ def plot_combined_components(
         elif method == 'average':
             component = np.mean(component, axis=-1)
 
-        ax[i].scatter(
+        # first column plots the combined component
+        ax[i, 0].scatter(
             x_axis_coords, y_axis_coords, 
-            c=component, cmap='viridis', s=144
+            c=component, cmap='viridis', s=99
         )
-        ax[i].set_title(f'c{i+1}')
-        ax[i].set_xlim(config['x_min'], config['x_max'])
-        ax[i].set_ylim(config['y_min'], config['y_max'])
-    ax[config['n_components']//2].set_ylabel('Unity z axis')
-    ax[-1].set_xlabel('Unity x axis')
+        ax[i, 0].set_title(f'c{i+1}')
+        ax[i, 0].set_xlim(config['x_min'], config['x_max'])
+        ax[i, 0].set_ylim(config['y_min'], config['y_max'])
+        
+        # second column plots the distribution of the combined component
+        ax[i, 1].hist(component, bins=20)
+        ax[i, 1].set_title(f'c{i+1} distribution')
+
+    ax[config['n_components']//2, 0].set_ylabel('Unity z axis')
+    ax[-1, 0].set_xlabel('Unity x axis')
 
     # title = f'{config["model_name"]}, {config["output_layer"]}, {method}'
     # plt.suptitle(title, y=1.05)
@@ -324,7 +335,7 @@ def plot_env_diff(
 
 if __name__ == "__main__":
     import utils
-    config_version = "env28_r24_2d_vgg16_fc2_50_nmf"
+    config_version = "env33_r24_2d_vgg16_fc2_50_maxvar"
     config = utils.load_config(config_version)
 
     # plot_components(stats=None, config=config)
