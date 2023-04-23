@@ -850,35 +850,42 @@ def WITHIN_ENVS__regression_weights_across_n_components(
         # top-level figure creation
         # 1 figure per sampling rate across n_components
         # at each variance explained (i.e. n_components) level
-        # we create a row of 6 subplots (x, y, rot for coef and bias)
+        # we create a row of 4 subplots (x, y, rot for coef + bias)
+        # notice, x_axis for coef subplots are different from bias subplots,
         fig, axes = plt.subplots(
-            len(variance_explained_list[-5:]), 6, figsize=(15, 15))
+            len(variance_explained_list[-5:]), 4, figsize=(15, 15))
         fig.suptitle(f'sampling rate: {sampling_rate}')
 
         for row_idx, v in enumerate(variance_explained_list[::5]):
             # load coef and intercept of a 
             # sampling rate & n_components     
             coef = np.load(
-                f'{results_path}/coef_{sampling_rate}_{v}.npy')
+                f'{results_path}/coef_{sampling_rate}_{v}.npy')       # (targets, features)
             intercept = np.load(
-                f'{results_path}/intercept_{sampling_rate}_{v}.npy')
+                f'{results_path}/intercept_{sampling_rate}_{v}.npy')  # (targets,)
+            
+            print(f'coef.shape: {coef.shape}')
+            print(f'intercept.shape: {intercept.shape}')
 
-            # plot each coef and intercept as histograom in a subplot
-            # 6 subplots in total in 1 row, 
+            # plot each column of coef and intercept as histograom in a subplot
+            # 6 subplots in total in 1 row,
             # columns are x, y, rot for coef and bias
-            for col_idx, (c, i) in enumerate(zip(coef, intercept)):
+            for col_idx in range(4):
                 ax = axes[row_idx, col_idx]
-                # ax.hist(c, bins=20)
-                ax.plot(c)
                 # ax.set_xlim(-0.7, 0.7)
-                ax = axes[row_idx, col_idx+3]
-                # ax.hist(i, bins=20)
-                ax.plot(i)
-                axes[0, col_idx].set_title(f'coef {subtitles[col_idx]}')
-                axes[0, col_idx+3].set_title(f'intercept {subtitles[col_idx]}')
-            axes[row_idx, 0].set_ylabel(f'v.explained: {v:.2f}')
+                if col_idx < 3:
+                    # ax.hist(coef[col_idx, :])
+                    ax.plot(coef[col_idx, :])
+                    axes[-1, col_idx].set_xlabel('PCs/units')
+                    axes[0, col_idx].set_title(f'coef {subtitles[col_idx]}')
+                else:
+                    # ax.hist(intercept)
+                    ax.plot(intercept)
+                    axes[-1, col_idx].set_xlabel('targets')
+            axes[row_idx, 0].set_ylabel(f'v. explained: {v:.2f}')
         
         # save figure
+        plt.tight_layout()
         fpath = f'{results_path}/regression_weights_{sampling_rate}.png'
         plt.savefig(fpath)
 
@@ -968,32 +975,32 @@ if __name__ == '__main__':
     #     # n_processes=40,
     # )
 
-    ACROSS_ENVS__decoding_error_across_reps_n_components(
-        envs2walls={
-            'env28': 4,
-            # 'env29': 3,
-            # 'env30': 2,
-            # 'env31': 2,
-            # 'env32': 1,
-            'env33': 0,
-        },
-        model_name='vgg16',
-        output_layer='fc2',
-        reduction_method='pca',
-        reps=['dim_reduce'],
-        sampling_rates=[0.01, 0.05, 0.1, 0.3, 0.5],
-        variance_explained_list=np.linspace(0.5, 0.99, 21),
-        # variance_explained_list=None,
-        # variance_explained_interval=0.1,
-        variance_explained_interval=None,
-    )
-
-    # WITHIN_ENVS__regression_weights_across_n_components(
-    #     config_version='env33_r24_2d_vgg16_fc2_9_pca',
+    # ACROSS_ENVS__decoding_error_across_reps_n_components(
+    #     envs2walls={
+    #         'env28': 4,
+    #         # 'env29': 3,
+    #         # 'env30': 2,
+    #         # 'env31': 2,
+    #         # 'env32': 1,
+    #         'env33': 0,
+    #     },
+    #     model_name='vgg16',
+    #     output_layer='fc2',
+    #     reduction_method='pca',
+    #     reps=['dim_reduce'],
+    #     sampling_rates=[0.01, 0.05, 0.1, 0.3, 0.5],
     #     variance_explained_list=np.linspace(0.5, 0.99, 21),
-    #     moving_trajectory='uniform',
-    #     sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
+    #     # variance_explained_list=None,
+    #     # variance_explained_interval=0.1,
+    #     variance_explained_interval=None,
     # )
+
+    WITHIN_ENVS__regression_weights_across_n_components(
+        config_version='env28_r24_2d_vgg16_fc2_9_pca',
+        variance_explained_list=np.linspace(0.5, 0.99, 21),
+        moving_trajectory='uniform',
+        sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
+    )
 
     end_time = time.time()
     time_elapsed = (end_time - start_time) / 3600
