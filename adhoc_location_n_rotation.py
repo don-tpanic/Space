@@ -874,14 +874,15 @@ def WITHIN_ENVS__regression_weights_across_n_components(
                 ax = axes[row_idx, col_idx]
                 # ax.set_xlim(-0.7, 0.7)
                 if col_idx < 3:
-                    # ax.hist(coef[col_idx, :])
+                    # ax.hist(coef[col_idx, :], bins=20)
                     ax.plot(coef[col_idx, :])
                     axes[-1, col_idx].set_xlabel('PCs/units')
                     axes[0, col_idx].set_title(f'coef {subtitles[col_idx]}')
                 else:
-                    # ax.hist(intercept)
+                    # ax.hist(intercept, bins=20)
                     ax.plot(intercept)
                     axes[-1, col_idx].set_xlabel('targets')
+                    axes[0, col_idx].set_title('intercept')
             axes[row_idx, 0].set_ylabel(f'v. explained: {v:.2f}')
         
         # save figure
@@ -996,7 +997,7 @@ if __name__ == '__main__':
     # )
 
     WITHIN_ENVS__regression_weights_across_n_components(
-        config_version='env28_r24_2d_vgg16_fc2_9_pca',
+        config_version='env33_r24_2d_vgg16_fc2_9_pca',
         variance_explained_list=np.linspace(0.5, 0.99, 21),
         moving_trajectory='uniform',
         sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
