@@ -951,49 +951,49 @@ if __name__ == '__main__':
     import time
     start_time = time.time()
 
-    # multiproc_execute(
-    multicuda_execute(
-        WITHIN_ENV__decoding_error_across_reps_n_components,
-        config_versions=[
-            # f'env28_r24_2d_vgg16_fc2_9_pca',
-            f'env33_r24_2d_vgg16_fc2_9_pca',
-        ],
-        variance_explained_list=np.linspace(0.5, 0.99, 21),
-        # variance_explained_list=None,
-        # variance_explained_interval=0.1,
-        variance_explained_interval=None,
-        moving_trajectory='uniform',
-        sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
-        cuda_id_list=[0, 1, 2, 3, 4],
-        # n_processes=40,
-    )
-
-    # ACROSS_ENVS__decoding_error_across_reps_n_components(
-    #     envs2walls={
-    #         'env28': 4,
-    #         # 'env29': 3,
-    #         # 'env30': 2,
-    #         # 'env31': 2,
-    #         # 'env32': 1,
-    #         'env33': 0,
-    #     },
-    #     model_name='vgg16',
-    #     output_layer='block3_pool',
-    #     reduction_method='pca',
-    #     reps=['dim_reduce'],
-    #     sampling_rates=[0.01, 0.05, 0.1, 0.3, 0.5],
+    # # multiproc_execute(
+    # multicuda_execute(
+    #     WITHIN_ENV__decoding_error_across_reps_n_components,
+    #     config_versions=[
+    #         # f'env28_r24_2d_vgg16_fc2_9_pca',
+    #         f'env33_r24_2d_vgg16_fc2_9_pca',
+    #     ],
     #     variance_explained_list=np.linspace(0.5, 0.99, 21),
     #     # variance_explained_list=None,
     #     # variance_explained_interval=0.1,
     #     variance_explained_interval=None,
+    #     moving_trajectory='uniform',
+    #     sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
+    #     cuda_id_list=[0, 1, 2, 3, 4],
+    #     # n_processes=40,
     # )
 
-    WITHIN_ENVS__regression_weights_across_n_components(
-        config_version='env33_r24_2d_vgg16_fc2_9_pca',
+    ACROSS_ENVS__decoding_error_across_reps_n_components(
+        envs2walls={
+            'env28': 4,
+            # 'env29': 3,
+            # 'env30': 2,
+            # 'env31': 2,
+            # 'env32': 1,
+            'env33': 0,
+        },
+        model_name='vgg16',
+        output_layer='fc2',
+        reduction_method='pca',
+        reps=['dim_reduce'],
+        sampling_rates=[0.01, 0.05, 0.1, 0.3, 0.5],
         variance_explained_list=np.linspace(0.5, 0.99, 21),
-        moving_trajectory='uniform',
-        sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
+        # variance_explained_list=None,
+        # variance_explained_interval=0.1,
+        variance_explained_interval=None,
     )
+
+    # WITHIN_ENVS__regression_weights_across_n_components(
+    #     config_version='env33_r24_2d_vgg16_fc2_9_pca',
+    #     variance_explained_list=np.linspace(0.5, 0.99, 21),
+    #     moving_trajectory='uniform',
+    #     sampling_rate_list=[0.01, 0.05, 0.1, 0.3, 0.5],
+    # )
 
     end_time = time.time()
     time_elapsed = (end_time - start_time) / 3600
