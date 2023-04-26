@@ -163,10 +163,10 @@ def multiproc_execute():
         pool.join()
 
 
-def multicuda_execute(target_func, cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7]):
-    envs = ['28_r24', '33_r24']
+def multicuda_execute(target_func, cuda_id_list=[0, 1, 2]):
+    envs = ['34_r24']
     movement_modes = ['2d']
-    dim_reductions = ['minvar']
+    dim_reductions = ['nmf', 'pca', 'maxvar']
     n_components_list = [50]
     model_types_n_reps = {'vgg16': 'fc2'}
 

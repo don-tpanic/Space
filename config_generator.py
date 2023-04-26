@@ -39,9 +39,9 @@ def generate_config(
 if __name__ == "__main__":
     generate_config(
         template_config='env28_r24_2d_vgg16_fc2_50_pca',
-        env_nums=['28', '33'],
+        env_nums=['34'],
         model_names=['vgg16'],
         output_layers=['fc2'],
-        reduction_methods=['minvar'],
+        reduction_methods=['nmf', 'pca', 'maxvar'],
         n_components=50,
     )

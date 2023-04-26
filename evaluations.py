@@ -335,7 +335,7 @@ def plot_env_diff(
 
 if __name__ == "__main__":
     import utils
-    config_version = "env33_r24_2d_vgg16_fc2_50_maxvar"
+    config_version = "env34_r24_2d_vgg16_fc2_50_maxvar"
     config = utils.load_config(config_version)
 
     # plot_components(stats=None, config=config)
