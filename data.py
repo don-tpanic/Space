@@ -47,7 +47,7 @@ def generate_random_data(
         img.save(f'{data_path}/{i}.png')
 
 
-def load_data(
+def load_preprocessed_data(
         data_path, 
         movement_mode,
         x_min,
@@ -99,7 +99,7 @@ def load_data(
     return batch_x
 
 
-def load_data_targets(
+def load_decoding_targets(
         movement_mode,
         x_min,
         x_max,
@@ -133,51 +133,3 @@ def load_data_targets(
 
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-
-    import utils
-    config_version = "env8_2d_none_raw_9_pca"
-    config = utils.load_config(config_version)
-    unity_env = config['unity_env']
-    model_name = config['model_name']
-    movement_mode = config['movement_mode']
-    n_rotations = config['n_rotations']
-    x_min = config['x_min']
-    x_max = config['x_max']
-    y_min = config['y_min']
-    y_max = config['y_max']
-    multiplier = config['multiplier']
-    data_path = f"data/unity/{unity_env}/{movement_mode}"
-
-    # generate_random_data(
-    #     data_path=data_path,
-    #     movement_mode=movement_mode,
-    #     x_min=x_min,
-    #     x_max=x_max,
-    #     y_min=y_min,
-    #     y_max=y_max,
-    #     multiplier=multiplier,
-    #     n_rotations=n_rotations,
-    #     random_seed=random_seed,
-    # )
-
-    # load_data(
-    #     data_path, 
-    #     movement_mode,
-    #     x_min,
-    #     x_max,
-    #     y_min,
-    #     y_max,
-    #     multiplier,
-    #     n_rotations,
-    #     preprocess_func=None
-    # )
-
-    load_data_targets(
-        movement_mode,
-        x_min,
-        x_max,
-        y_min,
-        y_max,
-        multiplier,
-        n_rotations
-    )
