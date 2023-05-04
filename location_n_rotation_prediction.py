@@ -525,6 +525,10 @@ def multiple_envs_decoding_error_across_sampling_rates(
     fig, axs = plt.subplots(1, len(error_types), figsize=(10, 5))
     for error_type_index, error_type in enumerate(error_types):
         ax = axs[error_type_index]
+        ax.set_title(f'{error_type} error')
+        ax.set_xlabel('sampling rate')
+        if error_type_index == 0:
+            ax.set_ylabel('mean squared error')
 
         for env_config_version in envs_dict:
             env_results_path = utils.load_results_path(env_config_version)
@@ -574,30 +578,59 @@ def multiple_envs_decoding_error_across_sampling_rates(
                 env_ci_low,
                 env_ci_high,
                 color='grey',
-                alpha=(1+env2_dict[env_config_version]['n_walls'])*0.2,
-                label=f'{env2_dict[env_config_version]["name"]}'
+                alpha=(1+envs_dict[env_config_version]['n_walls'])*0.2,
+                label=f'n_walls: {envs_dict[env_config_version]["n_walls"]}'
             )
 
-            # plot baseline results
-            ax.plot(
-                sampling_rates,
-                env_baseline_predict_mid_mse,
-                c='r',
-                label='baseline 1: predict mid',
-            )
+        ax.plot(
+            sampling_rates,
+            env_baseline_predict_mid_mse,
+            c='r',
+            label='baseline 1: predict mid'
+        )
 
-            ax.plot(
-                sampling_rates,
-                env_baseline_predict_random_mse,
-                c='b',
-                label='baseline 2: predict random',
-            )
+        ax.plot(
+            sampling_rates,
+            env_baseline_predict_random_mse,
+            c='b',
+            label='baseline 2: predict random'
+        )
 
+    plt.legend()
     # save multiple envs results into across_envs/ folder
     results_path = "results/across_envs"
     if not os.path.exists(results_path): 
         os.makedirs(results_path)
     plt.savefig(f'{results_path}/decoding_error_across_sampling_rates.png')
+
+
+def multicuda_execute(
+        target_func, 
+        config_versions,
+        moving_trajectory,
+        sampling_rates,
+        decoding_model_choice,
+        cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
+    ):
+    """
+    Launch multiple 
+        `single_env_decoding_error_across_sampling_rates`
+    to specified GPUs.
+    """
+    args_list = []
+    for config_version in config_versions:
+        single_entry = {}
+        single_entry['config_version'] = config_version
+        single_entry['moving_trajectory'] = moving_trajectory
+        single_entry['sampling_rates'] = sampling_rates
+        single_entry['decoding_model_choice'] = decoding_model_choice
+        args_list.append(single_entry)
+
+    print(args_list)
+    print(len(args_list))
+    utils.cuda_manager(
+        target_func, args_list, cuda_id_list
+    )
 
 
 if __name__ == '__main__':
@@ -609,30 +642,39 @@ if __name__ == '__main__':
     elif logging_level == 'debug':
         logging.basicConfig(level=logging.DEBUG)
 
-    single_env_decoding_error_across_sampling_rates(
-        config_version='env28_r24_2d_vgg16_fc2', 
-        moving_trajectory='uniform',
-        sampling_rates=[0.4, 0.6],
-        decoding_model_choice='linear_regression'
-    )
-
-    env2_dict = {
+    envs_dict = {
         'env28_r24_2d_vgg16_fc2': {
             'name': 'env28',
             'n_walls': 4
-        }
+        },
+        'env33_r24_2d_vgg16_fc2': {
+            'name': 'env33',
+            'n_walls': 0
+        },
     }
+    sampling_rates = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
+    moving_trajectory = 'uniform'
+    decoding_model_choice = 'ridge_regression'
+
+    multicuda_execute(
+        target_func=\
+            single_env_decoding_error_across_sampling_rates,
+        config_versions=list(envs_dict.keys()),
+        moving_trajectory=moving_trajectory,
+        sampling_rates=sampling_rates,
+        decoding_model_choice=decoding_model_choice,
+    )
 
     multiple_envs_decoding_error_across_sampling_rates(
-        envs_dict=env2_dict,
-        sampling_rates=[0.4, 0.6],
-        moving_trajectory='uniform',
+        envs_dict=envs_dict,
+        sampling_rates=sampling_rates,
+        moving_trajectory=moving_trajectory,
     )
 
-    single_env_regression_weights_across_sampling_rates(
-        config_version='env28_r24_2d_vgg16_fc2', 
-        sampling_rates=[0.4, 0.6],
-    )
+    # single_env_regression_weights_across_sampling_rates(
+    #     config_version='env28_r24_2d_vgg16_fc2', 
+    #     sampling_rates=sampling_rates,
+    # )
 
     # print time elapsed
     logging.info(f'Time elapsed: {time.time() - start_time:.2f}s')
