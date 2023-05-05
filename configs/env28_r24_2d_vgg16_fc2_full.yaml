@@ -1,4 +1,4 @@
-config_version: env28_r24_2d_vgg16_fc2
+config_version: env28_r24_2d_vgg16_fc2_full
 unity_env: env28_r24
 model_name: vgg16
 output_layer: fc2
