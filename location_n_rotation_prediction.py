@@ -399,49 +399,49 @@ def single_env_decoding_error_across_sampling_rates(
         baseline_predict_random_mse_rot_across_sampling_rates[sampling_rate] = \
             baseline_predict_random_mse_rot
     
-        np.save(
-            f'{results_path}/mse_loc_' \
-            f'{moving_trajectory}_{sampling_rates[0]}-{sampling_rates[-1]}.npy',
-            mse_loc_across_sampling_rates
-        )
-        np.save(
-            f'{results_path}/mse_rot_' \
-            f'{moving_trajectory}_{sampling_rates[0]}-{sampling_rates[-1]}.npy',
-            mse_rot_across_sampling_rates
-        )
-        np.save(
-            f'{results_path}/ci_loc_' \
-            f'{moving_trajectory}_{sampling_rates[0]}-{sampling_rates[-1]}.npy',
-            ci_loc_across_sampling_rates
-        )
-        np.save(
-            f'{results_path}/ci_rot_' \
-            f'{moving_trajectory}_{sampling_rates[0]}-{sampling_rates[-1]}.npy',
-            ci_rot_across_sampling_rates
-        )
-        
-        np.save(
-            f'{results_path}/baseline_predict_mid_mse_loc_' \
-            f'{moving_trajectory}_{sampling_rates[0]}-{sampling_rates[-1]}.npy',
-            baseline_predict_mid_mse_loc_across_sampling_rates
-        )
-        np.save(
-            f'{results_path}/baseline_predict_mid_mse_rot_' \
-            f'{moving_trajectory}_{sampling_rates[0]}-{sampling_rates[-1]}.npy',
-            baseline_predict_mid_mse_rot_across_sampling_rates
-        )
+    np.save(
+        f'{results_path}/mse_loc_' \
+        f'{moving_trajectory}_{sampling_rates[0]}-{sampling_rates[-1]}.npy',
+        mse_loc_across_sampling_rates
+    )
+    np.save(
+        f'{results_path}/mse_rot_' \
+        f'{moving_trajectory}_{sampling_rates[0]}-{sampling_rates[-1]}.npy',
+        mse_rot_across_sampling_rates
+    )
+    np.save(
+        f'{results_path}/ci_loc_' \
+        f'{moving_trajectory}_{sampling_rates[0]}-{sampling_rates[-1]}.npy',
+        ci_loc_across_sampling_rates
+    )
+    np.save(
+        f'{results_path}/ci_rot_' \
+        f'{moving_trajectory}_{sampling_rates[0]}-{sampling_rates[-1]}.npy',
+        ci_rot_across_sampling_rates
+    )
+    
+    np.save(
+        f'{results_path}/baseline_predict_mid_mse_loc_' \
+        f'{moving_trajectory}_{sampling_rates[0]}-{sampling_rates[-1]}.npy',
+        baseline_predict_mid_mse_loc_across_sampling_rates
+    )
+    np.save(
+        f'{results_path}/baseline_predict_mid_mse_rot_' \
+        f'{moving_trajectory}_{sampling_rates[0]}-{sampling_rates[-1]}.npy',
+        baseline_predict_mid_mse_rot_across_sampling_rates
+    )
 
-        np.save(
-            f'{results_path}/baseline_predict_random_mse_loc_' \
-            f'{moving_trajectory}_{sampling_rates[0]}-{sampling_rates[-1]}.npy',
-            baseline_predict_random_mse_loc_across_sampling_rates
-        )
-        np.save(
-            f'{results_path}/baseline_predict_random_mse_rot_' \
-            f'{moving_trajectory}_{sampling_rates[0]}-{sampling_rates[-1]}.npy',
-            baseline_predict_random_mse_rot_across_sampling_rates
-        )
-        print('[Check] saved results.')
+    np.save(
+        f'{results_path}/baseline_predict_random_mse_loc_' \
+        f'{moving_trajectory}_{sampling_rates[0]}-{sampling_rates[-1]}.npy',
+        baseline_predict_random_mse_loc_across_sampling_rates
+    )
+    np.save(
+        f'{results_path}/baseline_predict_random_mse_rot_' \
+        f'{moving_trajectory}_{sampling_rates[0]}-{sampling_rates[-1]}.npy',
+        baseline_predict_random_mse_rot_across_sampling_rates
+    )
+    print('[Check] saved results.')
 
 
 def single_env_regression_weights_across_sampling_rates(
@@ -560,13 +560,16 @@ def multiple_envs_decoding_error_across_sampling_rates(
                 [env_baseline_predict_mid_mse[sr] for sr in sampling_rates]
             env_baseline_predict_random_mse = \
                 [env_baseline_predict_random_mse[sr] for sr in sampling_rates]
-
+                    
             # plot results across sampling_rates
+            label = f"layer:{envs_dict[env_config_version]['output_layer']}, "\
+                    f"n_walls:{envs_dict[env_config_version]['n_walls']}"
             ax.plot(
                 sampling_rates,
                 env_mse, 
-                c='k',
-                alpha=0.1,
+                c=envs_dict[env_config_version]['color'],
+                alpha=1,
+                label=label
             )
 
             # plot confidence interval
@@ -578,8 +581,8 @@ def multiple_envs_decoding_error_across_sampling_rates(
                 env_ci_low,
                 env_ci_high,
                 color='grey',
-                alpha=(1+envs_dict[env_config_version]['n_walls'])*0.2,
-                label=f'n_walls: {envs_dict[env_config_version]["n_walls"]}'
+                alpha=0.05,
+                # label=label
             )
 
         ax.plot(
@@ -633,6 +636,36 @@ def multicuda_execute(
     )
 
 
+def multiproc_execute(
+        target_func, 
+        config_versions,
+        moving_trajectory,
+        sampling_rates,
+        decoding_model_choice,
+        n_processes=60,
+    ):
+    """
+    Launch multiple 
+        `WITHIN_ENV__decoding_error_across_n_components`
+    to CPUs
+    """
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+    with multiprocessing.Pool(processes=n_processes) as pool:
+        for config_version in config_versions:
+            results = pool.apply_async(
+                target_func,
+                args=(
+                    config_version,
+                    moving_trajectory,
+                    sampling_rates,
+                    decoding_model_choice
+                )
+            )
+        print(results.get())
+        pool.close()
+        pool.join()
+
+
 if __name__ == '__main__':
     import time
     start_time = time.time()
@@ -645,25 +678,41 @@ if __name__ == '__main__':
     envs_dict = {
         'env28_r24_2d_vgg16_fc2': {
             'name': 'env28',
-            'n_walls': 4
+            'n_walls': 4,
+            'output_layer': 'fc2',
+            'color': 'k',
         },
-        'env33_r24_2d_vgg16_fc2': {
-            'name': 'env33',
-            'n_walls': 0
+        'env28_r24_2d_vgg16_b5p': {
+            'name': 'env28',
+            'n_walls': 4,
+            'output_layer': 'block5_pool',
+            'color': 'y',
+        },
+        'env28_r24_2d_vgg16_b4p': {
+            'name': 'env28',
+            'n_walls': 4,
+            'output_layer': 'block4_pool',
+            'color': 'g',
+        },
+        'env28_r24_2d_vgg16_b2p': {
+            'name': 'env28',
+            'n_walls': 4,
+            'output_layer': 'block2_pool',
+            'color': 'cyan',
         },
     }
     sampling_rates = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
     moving_trajectory = 'uniform'
     decoding_model_choice = 'ridge_regression'
 
-    multicuda_execute(
-        target_func=\
-            single_env_decoding_error_across_sampling_rates,
-        config_versions=list(envs_dict.keys()),
-        moving_trajectory=moving_trajectory,
-        sampling_rates=sampling_rates,
-        decoding_model_choice=decoding_model_choice,
-    )
+    # multiproc_execute(
+    #     target_func=\
+    #         single_env_decoding_error_across_sampling_rates,
+    #     config_versions=list(envs_dict.keys()),
+    #     moving_trajectory=moving_trajectory,
+    #     sampling_rates=sampling_rates,
+    #     decoding_model_choice=decoding_model_choice,
+    # )
 
     multiple_envs_decoding_error_across_sampling_rates(
         envs_dict=envs_dict,
