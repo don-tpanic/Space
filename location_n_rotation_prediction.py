@@ -736,28 +736,28 @@ def multiple_envs_across_layers_decoding_error_across_sampling_rates(
     plt.savefig(f'{results_path}/{fname}.png')
 
 
-def load_envs_dict(model_name):
+def load_envs_dict(model_name, feature_selection):
     if model_name == 'vgg16':
         envs_dict = {
-            'env28_r24_2d_vgg16_fc2_full': {
+            f'env28_r24_2d_vgg16_fc2_{feature_selection}': {
                 'name': 'env28',
                 'n_walls': 4,
                 'output_layer': 'fc2',
                 'color': 'k',
             },
-            'env28_r24_2d_vgg16_b5p_full': {
+            f'env28_r24_2d_vgg16_b5p_{feature_selection}': {
                 'name': 'env28',
                 'n_walls': 4,
                 'output_layer': 'block5_pool',
                 'color': 'y',
             },
-            'env28_r24_2d_vgg16_b4p_full': {
+            f'env28_r24_2d_vgg16_b4p_{feature_selection}': {
                 'name': 'env28',
                 'n_walls': 4,
                 'output_layer': 'block4_pool',
                 'color': 'g',
             },
-            'env28_r24_2d_vgg16_b2p_full': {
+            f'env28_r24_2d_vgg16_b2p_{feature_selection}': {
                 'name': 'env28',
                 'n_walls': 4,
                 'output_layer': 'block2_pool',
@@ -767,28 +767,28 @@ def load_envs_dict(model_name):
     
     elif model_name == 'resnet50':
         envs_dict = {
-            'env28_r24_2d_resnet50_avg_pool_full': {
+            f'env28_r24_2d_resnet50_avg_pool_{feature_selection}': {
                 'name': 'env28',
                 'n_walls': 4,
                 'output_layer': 'avg_pool',
                 'color': 'k',
             },
-            'env28_r24_2d_resnet50_conv5_block2_out_full': {
+            f'env28_r24_2d_resnet50_conv5_block2_out_{feature_selection}': {
                 'name': 'env28',
                 'n_walls': 4,
                 'output_layer': 'conv5_block2_out',
                 'color': 'y',
             },
-            'env28_r24_2d_resnet50_conv4_block6_out_full': {
+            f'env28_r24_2d_resnet50_conv4_block6_out_{feature_selection}': {
                 'name': 'env28',
                 'n_walls': 4,
                 'output_layer': 'conv4_block6_out',
                 'color': 'g',
             },
-            'env28_r24_2d_resnet50_conv2_block3_out_full': {
+            f'env28_r24_2d_resnet50_conv2_block3_out_{feature_selection}': {
                 'name': 'env28',
                 'n_walls': 4,
-                'output_layer': 'conv2_block3_out_full',
+                'output_layer': 'conv2_block3_out',
                 'color': 'cyan',
             },
         }
@@ -861,7 +861,7 @@ def multiproc_execute(
 if __name__ == '__main__':
     import time
     start_time = time.time()
-    running_mode = 'plotting_results'
+    running_mode = 'producing_results'
     logging_level = 'info'
     if logging_level == 'info':
         logging.basicConfig(level=logging.INFO)
@@ -871,7 +871,9 @@ if __name__ == '__main__':
     sampling_rates = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
     moving_trajectory = 'uniform'
     decoding_model_choice = 'ridge_regression'
-    envs_dict = load_envs_dict(model_name='vgg16')
+    model_name = 'resnet50'
+    feature_selection = 'full'
+    envs_dict = load_envs_dict(model_name, feature_selection)
 
     if running_mode == 'producing_results':
         multiproc_execute(
