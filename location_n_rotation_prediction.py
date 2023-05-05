@@ -835,7 +835,7 @@ def multiproc_execute(
 if __name__ == '__main__':
     import time
     start_time = time.time()
-    running_mode = 'producing_results'
+    running_mode = 'plotting_results'
     logging_level = 'info'
     if logging_level == 'info':
         logging.basicConfig(level=logging.INFO)
