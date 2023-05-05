@@ -14,8 +14,8 @@ from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 
 import utils
-from models import load_model
-from data import load_preprocessed_data, load_decoding_targets
+import data
+import models
 
 """
 Experiment script
@@ -88,36 +88,10 @@ def load_train_test_data(
         moving_trajectory,
         sampling_rate,
     ):
-    unity_env = config['unity_env']
-    model_name = config['model_name']
-    output_layer = config['output_layer']
-    movement_mode = config['movement_mode']
-    feature_selection = config['feature_selection']
-    results_path = \
-        f'results/{unity_env}/{movement_mode}/'\
-        f'{model_name}/{output_layer}/{feature_selection}/'
-
-    if not os.path.exists(results_path):
-        os.makedirs(results_path)
-    
-    # use raw image input 
-    if model_name == 'none':
-        model_reps = preprocessed_data.reshape(preprocessed_data.shape[0], -1)
-        print(f'raw image input shape: {model_reps.shape}')
-    # use model output
-    else:
-        # (n, 4096)
-        model_reps = model.predict(preprocessed_data, verbose=1)
-
-        # NOTE: solution to OOM for early layers is to save batches to disk
-        # and merge on CPU and do whatever operations come below.
-        del model
-        K.clear_session()
-        if len(model_reps.shape) > 2:
-            # when not a fc layer, we need to flatten the output dim
-            # except the batch dim.
-            model_reps = model_reps.reshape(model_reps.shape[0], -1)
-        print(f'model_reps.shape: {model_reps.shape}')
+    model_reps, results_path = data.load_full_dataset_model_reps(
+        config=config, model=model, 
+        preprocessed_data=preprocessed_data,
+    )
 
     X_train, X_test, y_train, y_test = \
         determine_moving_trajectory(
@@ -326,10 +300,10 @@ def single_env_decoding_error_across_sampling_rates(
         model = None
         preprocess_func = None
     else:
-        model, preprocess_func = load_model(
+        model, preprocess_func = models.load_model(
             config['model_name'], config['output_layer'])
 
-    preprocessed_data = load_preprocessed_data(
+    preprocessed_data = data.load_preprocessed_data(
         data_path=f"data/unity/{config['unity_env']}/{config['movement_mode']}", 
         movement_mode=config['movement_mode'],
         x_min=config['env_x_min'],
@@ -341,7 +315,7 @@ def single_env_decoding_error_across_sampling_rates(
         preprocess_func=preprocess_func,
     )
 
-    targets_true = load_decoding_targets(
+    targets_true = data.load_decoding_targets(
         movement_mode=config['movement_mode'],
         x_min=config['env_x_min'],
         x_max=config['env_x_max'],

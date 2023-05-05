@@ -7,7 +7,9 @@ import matplotlib.pyplot as plt
 from PIL import Image
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow.keras.preprocessing.image import load_img, img_to_array
+from tensorflow.keras.preprocessing.image \
+    import load_img, img_to_array
+import utils
 
 
 def generate_random_data(
@@ -50,10 +52,10 @@ def generate_random_data(
 def load_preprocessed_data(
         data_path, 
         movement_mode,
-        x_min,
-        x_max,
-        y_min,
-        y_max,
+        env_x_min,
+        env_x_max,
+        env_y_min,
+        env_y_max,
         multiplier,
         n_rotations,
         preprocess_func=None,
@@ -65,12 +67,12 @@ def load_preprocessed_data(
         dtype=K.floatx(),
     ):
     if movement_mode == '1d':
-        n_stops_x = len( range(x_min*multiplier, x_max*multiplier+1) )
+        n_stops_x = len( range(env_x_min*multiplier, env_x_max*multiplier+1) )
         n_samples = n_stops_x
 
     elif movement_mode == '2d':
-        n_stops_x = len( range(x_min*multiplier, x_max*multiplier+1) )
-        n_stops_y = len( range(y_min*multiplier, y_max*multiplier+1) )
+        n_stops_x = len( range(env_x_min*multiplier, env_x_max*multiplier+1) )
+        n_stops_y = len( range(env_y_min*multiplier, env_y_max*multiplier+1) )
         n_samples = (n_stops_x * n_stops_y) * n_rotations
 
     print(f'[Check] data loader - n_samples: {n_samples}')
@@ -129,6 +131,41 @@ def load_decoding_targets(
                     targets_true.append([i/multiplier, j/multiplier, k])
     
     return np.array(targets_true)
+
+
+def load_full_dataset_model_reps(
+        config, model, preprocessed_data
+    ):
+    """
+    Generic function to produce model representations
+    for the full dataset (before train/test split)
+    """
+    model_name = config['model_name']
+    feature_selection = config['feature_selection']
+    results_path = utils.load_results_path(config['config_version'])
+
+    if not os.path.exists(results_path):
+        os.makedirs(results_path)
+    
+    # use raw image input 
+    if model_name == 'none':
+        model_reps = preprocessed_data.reshape(preprocessed_data.shape[0], -1)
+        print(f'raw image input shape: {model_reps.shape}')
+    # use model output
+    else:
+        # (n, 4096)
+        model_reps = model.predict(preprocessed_data, verbose=1)
+
+        # NOTE: solution to OOM for early layers is to save batches to disk
+        # and merge on CPU and do whatever operations come below.
+        del model
+        K.clear_session()
+        if len(model_reps.shape) > 2:
+            # when not a fc layer, we need to flatten the output dim
+            # except the batch dim.
+            model_reps = model_reps.reshape(model_reps.shape[0], -1)
+        print(f'model_reps.shape: {model_reps.shape}')
+    return model_reps, results_path
 
 
 if __name__ == "__main__":
