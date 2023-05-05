@@ -739,25 +739,25 @@ def multiple_envs_across_layers_decoding_error_across_sampling_rates(
 def load_envs_dict(model_name):
     if model_name == 'vgg16':
         envs_dict = {
-            'env28_r24_2d_vgg16_fc2': {
+            'env28_r24_2d_vgg16_fc2_full': {
                 'name': 'env28',
                 'n_walls': 4,
                 'output_layer': 'fc2',
                 'color': 'k',
             },
-            'env28_r24_2d_vgg16_b5p': {
+            'env28_r24_2d_vgg16_b5p_full': {
                 'name': 'env28',
                 'n_walls': 4,
                 'output_layer': 'block5_pool',
                 'color': 'y',
             },
-            'env28_r24_2d_vgg16_b4p': {
+            'env28_r24_2d_vgg16_b4p_full': {
                 'name': 'env28',
                 'n_walls': 4,
                 'output_layer': 'block4_pool',
                 'color': 'g',
             },
-            'env28_r24_2d_vgg16_b2p': {
+            'env28_r24_2d_vgg16_b2p_full': {
                 'name': 'env28',
                 'n_walls': 4,
                 'output_layer': 'block2_pool',
@@ -766,6 +766,34 @@ def load_envs_dict(model_name):
         }
     
     elif model_name == 'resnet50':
+        envs_dict = {
+            'env28_r24_2d_resnet50_avg_pool_full': {
+                'name': 'env28',
+                'n_walls': 4,
+                'output_layer': 'avg_pool',
+                'color': 'k',
+            },
+            'env28_r24_2d_resnet50_conv5_block2_out_full': {
+                'name': 'env28',
+                'n_walls': 4,
+                'output_layer': 'conv5_block2_out',
+                'color': 'y',
+            },
+            'env28_r24_2d_resnet50_conv4_block6_out_full': {
+                'name': 'env28',
+                'n_walls': 4,
+                'output_layer': 'conv4_block6_out',
+                'color': 'g',
+            },
+            'env28_r24_2d_resnet50_conv2_block3_out_full': {
+                'name': 'env28',
+                'n_walls': 4,
+                'output_layer': 'conv2_block3_out_full',
+                'color': 'cyan',
+            },
+        }
+    
+    elif model_name == 'simclr':
         raise NotImplementedError
 
     return envs_dict
