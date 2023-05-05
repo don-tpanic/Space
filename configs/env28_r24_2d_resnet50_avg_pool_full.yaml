@@ -1,0 +1,12 @@
+config_version: env28_r24_2d_resnet50_avg_pool_full
+unity_env: env28_r24
+model_name: resnet50
+output_layer: avg_pool
+movement_mode: 2d
+n_rotations: 24
+env_x_min: -4
+env_x_max: 4
+env_y_min: -4
+env_y_max: 4
+multiplier: 2
+feature_selection: full
