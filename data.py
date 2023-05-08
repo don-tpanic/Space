@@ -103,10 +103,10 @@ def load_preprocessed_data(
 
 def load_decoding_targets(
         movement_mode,
-        x_min,
-        x_max,
-        y_min,
-        y_max,
+        env_x_min,
+        env_x_max,
+        env_y_min,
+        env_y_max,
         multiplier,
         n_rotations
     ):
@@ -125,8 +125,8 @@ def load_decoding_targets(
     elif movement_mode == '2d':
         # same idea as generating the frames in Unity
         # so we get decimal coords in between the grid points
-        for i in range(x_min*multiplier, x_max*multiplier+1):
-            for j in range(y_min*multiplier, y_max*multiplier+1):
+        for i in range(env_x_min*multiplier, env_x_max*multiplier+1):
+            for j in range(env_y_min*multiplier, env_y_max*multiplier+1):
                 for k in range(n_rotations):
                     targets_true.append([i/multiplier, j/multiplier, k])
     
