@@ -40,12 +40,12 @@ if __name__ == "__main__":
         env_nums=['28'],
         n_rotations_list=[24],
         movement_modes=['2d'],
-        model_names=['resnet50'],
+        model_names=['simclrv2_r50_1x_sk0'],
         output_layers=[
-            'avg_pool', 
-            'conv5_block2_out', 
-            'conv4_block6_out', 
-            'conv2_block3_out'
+            'final_avg_pool', 
+            'block_group4', 
+            'block_group2', 
+            'block_group1'
         ],
         feature_selections=['full'],
     )
