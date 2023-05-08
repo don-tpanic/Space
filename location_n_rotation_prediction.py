@@ -306,10 +306,10 @@ def single_env_decoding_error_across_sampling_rates(
     preprocessed_data = data.load_preprocessed_data(
         data_path=f"data/unity/{config['unity_env']}/{config['movement_mode']}", 
         movement_mode=config['movement_mode'],
-        x_min=config['env_x_min'],
-        x_max=config['env_x_max'],
-        y_min=config['env_y_min'],
-        y_max=config['env_y_max'],
+        env_x_min=config['env_x_min'],
+        env_x_max=config['env_x_max'],
+        env_y_min=config['env_y_min'],
+        env_y_max=config['env_y_max'],
         multiplier=config['multiplier'],
         n_rotations=config['n_rotations'],
         preprocess_func=preprocess_func,
@@ -317,10 +317,10 @@ def single_env_decoding_error_across_sampling_rates(
 
     targets_true = data.load_decoding_targets(
         movement_mode=config['movement_mode'],
-        x_min=config['env_x_min'],
-        x_max=config['env_x_max'],
-        y_min=config['env_y_min'],
-        y_max=config['env_y_max'],
+        env_x_min=config['env_x_min'],
+        env_x_max=config['env_x_max'],
+        env_y_min=config['env_y_min'],
+        env_y_max=config['env_y_max'],
         multiplier=config['multiplier'],
         n_rotations=config['n_rotations'],
     )
@@ -767,8 +767,33 @@ def load_envs_dict(model_name, feature_selection):
             },
         }
     
-    elif model_name == 'simclr':
-        raise NotImplementedError
+    elif model_name == 'simclrv2_r50_1x_sk0':
+        envs_dict = {
+            f'env28_r24_2d_simclrv2_r50_1x_sk0_final_avg_pool_{feature_selection}': {
+                'name': 'env28',
+                'n_walls': 4,
+                'output_layer': 'final_avg_pool',
+                'color': 'k',
+            },
+            f'env28_r24_2d_simclrv2_r50_1x_sk0_block_group4_{feature_selection}': {
+                'name': 'env28',
+                'n_walls': 4,
+                'output_layer': 'block_group4',
+                'color': 'y',
+            },
+            f'env28_r24_2d_simclrv2_r50_1x_sk0_block_group2_{feature_selection}': {
+                'name': 'env28',
+                'n_walls': 4,
+                'output_layer': 'block_group2',
+                'color': 'g',
+            },
+            f'env28_r24_2d_simclrv2_r50_1x_sk0_block_group1_{feature_selection}': {
+                'name': 'env28',
+                'n_walls': 4,
+                'output_layer': 'block_group1',
+                'color': 'cyan',
+            },
+        }
 
     return envs_dict
 
@@ -835,7 +860,7 @@ def multiproc_execute(
 if __name__ == '__main__':
     import time
     start_time = time.time()
-    running_mode = 'plotting_results'
+    running_mode = 'producing_results'
     logging_level = 'info'
     if logging_level == 'info':
         logging.basicConfig(level=logging.INFO)
@@ -845,7 +870,7 @@ if __name__ == '__main__':
     sampling_rates = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
     moving_trajectory = 'uniform'
     decoding_model_choice = 'ridge_regression'
-    model_name = 'resnet50'
+    model_name = 'simclrv2_r50_1x_sk0'
     feature_selection = 'full'
     envs_dict = load_envs_dict(model_name, feature_selection)
 
