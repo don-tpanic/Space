@@ -1,5 +1,6 @@
-results/env1-env2
+# Customised
 data/
+model_zoo/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
