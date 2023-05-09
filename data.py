@@ -139,16 +139,9 @@ def load_full_dataset_model_reps(
     """
     Generic function to produce model representations
     for the full dataset (before train/test split)
-    """
-    model_name = config['model_name']
-    feature_selection = config['feature_selection']
-    results_path = utils.load_results_path(config['config_version'])
-
-    if not os.path.exists(results_path):
-        os.makedirs(results_path)
-    
+    """    
     # use raw image input 
-    if model_name == 'none':
+    if config['model_name'] == 'none':
         model_reps = preprocessed_data.reshape(preprocessed_data.shape[0], -1)
         print(f'raw image input shape: {model_reps.shape}')
     # use model output
@@ -165,8 +158,40 @@ def load_full_dataset_model_reps(
             # except the batch dim.
             model_reps = model_reps.reshape(model_reps.shape[0], -1)
         print(f'model_reps.shape: {model_reps.shape}')
-    return model_reps, results_path
+    return model_reps
 
+
+def load_model_layers(model_name):
+    """
+    Given `model_name`, return the main
+    layers of the model that are of interest
+    for analysis.
+    """
+    models_and_layers = {
+        'simclrv2_r50_1x_sk0':
+            [
+                'final_avg_pool',
+                'block_group4',
+                'block_group2',
+                'block_group1'
+            ],
+        'vgg16':
+            [   
+                'fc2',
+                'block5_pool',
+                'block4_pool',
+                'block2_pool',
+            ],
+        'resnet50':
+            [
+                'avg_pool',
+                'conv5_block2_out',
+                'conv4_block6_out',
+                'conv2_block3_out',
+            ],
+    }
+    return models_and_layers[model_name]
+    
 
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
