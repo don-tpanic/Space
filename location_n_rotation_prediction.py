@@ -77,6 +77,7 @@ def determine_moving_trajectory(
             # based on current sampling_rate
             np.save(f'{results_path}/X_train_{sampling_rate}.npy', X_train)
 
+    del model_reps
     return X_train, X_test, y_train, y_test
 
 
@@ -87,8 +88,9 @@ def load_train_test_data(
         targets_true,
         moving_trajectory,
         sampling_rate,
+        results_path,
     ):
-    model_reps, results_path = data.load_full_dataset_model_reps(
+    model_reps = data.load_full_dataset_model_reps(
         config=config, model=model, 
         preprocessed_data=preprocessed_data,
     )
@@ -108,7 +110,7 @@ def load_train_test_data(
         )
     print(f'X_train.shape: {X_train.shape}')
     print(f'X_test.shape: {X_test.shape}')
-    return X_train, X_test, y_train, y_test, results_path
+    return X_train, X_test, y_train, y_test
 
 
 def compute_per_loc_mse_rot_samples(
@@ -176,10 +178,16 @@ def fit_decoding_model(
     # TODO: if there is feature selection (e.g. place-cell score)
     # Apply to train here.
 
-    if decoding_model_choice == 'linear_regression':
+    if decoding_model_choice['name'] == 'linear_regression':
         decoding_model = linear_model.LinearRegression()
-    elif decoding_model_choice == 'ridge_regression':
-        decoding_model = linear_model.Ridge()
+    elif decoding_model_choice['name'] == 'ridge_regression':
+        decoding_model = linear_model.Ridge(
+            alpha=decoding_model_choice['hparams'],
+        )
+    elif decoding_model_choice['name'] == 'lasso_regression':
+        decoding_model = linear_model.Lasso(
+            alpha=decoding_model_choice['hparams'],
+        )
     decoding_model.fit(X_train, y_train)
     y_pred = decoding_model.predict(X_test)
 
@@ -187,6 +195,7 @@ def fit_decoding_model(
     # plotted later (save for each sampling_rate&n_components)
     coef_ = decoding_model.coef_
     intercept_ = decoding_model.intercept_
+    del decoding_model, X_train, X_test, y_train
     np.save(
         os.path.join(results_path, f'coef_{sampling_rate}.npy'),
         coef_
@@ -282,20 +291,25 @@ def fit_decoding_model(
     print('[Check] baseline 2 done')
     return mse_loc, mse_rot, ci_loc, ci_rot, \
                 baseline_predict_mid_mse_loc, baseline_predict_mid_mse_rot, \
-                    baseline_predict_random_mse_loc, baseline_predict_random_mse_rot, \
-                        results_path
+                    baseline_predict_random_mse_loc, baseline_predict_random_mse_rot
 
 
 def single_env_decoding_error_across_sampling_rates(
         config_version, 
         moving_trajectory,
         sampling_rates,
-        decoding_model_choice
+        decoding_model_choice,
+        experiment
     ):
-    os.environ["TF_NUM_INTRAOP_THREADS"] = "1"
+    os.environ["TF_NUM_INTRAOP_THREADS"] = "5"
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
     print(f'[Check] config_version: {config_version}')
     config = utils.load_config(config_version)
+    results_path = utils.load_results_path(
+        config_version=config_version, 
+        experiment=experiment, 
+        decoding_model_choice=decoding_model_choice)
+    
     if config['model_name'] == 'none':
         model = None
         preprocess_func = None
@@ -335,28 +349,29 @@ def single_env_decoding_error_across_sampling_rates(
     baseline_predict_random_mse_rot_across_sampling_rates = defaultdict()
 
     for sampling_rate in sampling_rates:
-        X_train, X_test, y_train, y_test, \
-            results_path = load_train_test_data(
+        X_train, X_test, y_train, y_test = \
+            load_train_test_data(
                 model=model,
                 config=config,
                 preprocessed_data=preprocessed_data,
                 targets_true=targets_true,
                 moving_trajectory=moving_trajectory,
                 sampling_rate=sampling_rate,
+                results_path=results_path,
             )
         
         mse_loc, mse_rot, ci_loc, ci_rot, \
             baseline_predict_mid_mse_loc, baseline_predict_mid_mse_rot, \
-                baseline_predict_random_mse_loc, baseline_predict_random_mse_rot, \
-                    results_path = fit_decoding_model(
-                        X_train,
-                        X_test,
-                        y_train,
-                        y_test,
-                        results_path,
-                        config,
-                        sampling_rate,
-                        decoding_model_choice
+                baseline_predict_random_mse_loc, baseline_predict_random_mse_rot = \
+                    fit_decoding_model(
+                        X_train=X_train,
+                        X_test=X_test,
+                        y_train=y_train,
+                        y_test=y_test,
+                        results_path=results_path,
+                        config=config,
+                        sampling_rate=sampling_rate,
+                        decoding_model_choice=decoding_model_choice,
                     )
 
         mse_loc_across_sampling_rates[sampling_rate] = mse_loc
@@ -422,7 +437,8 @@ def single_env_regression_weights_across_sampling_rates(
         config_version, 
         moving_trajectory,
         sampling_rates,
-        decoding_model_choice
+        decoding_model_choice,
+        experiment,
     ):
     """
     Plot saved regression weights that are per sampling_rates,
@@ -435,7 +451,11 @@ def single_env_regression_weights_across_sampling_rates(
         predicting x, y and rot as the regression weights correspond to the features 
         which are units from our model.
     """
-    results_path = utils.load_results_path(config_version)   
+    results_path = utils.load_results_path(
+        config_version=config_version, 
+        experiment=experiment,
+        decoding_model_choice=decoding_model_choice,
+    )   
     subtitles = [('x', 'b'), ('y', 'r'), ('rot', 'k')]
 
     # top-level figure creation
@@ -493,6 +513,8 @@ def multiple_envs_across_decorations_decoding_error_across_sampling_rates(
         sampling_rates=[0.01, 0.05],
         error_types=['loc', 'rot'],
         moving_trajectory='uniform',
+        decoding_model_choice='ridge_regression',
+        experiment='loc_n_rot',
     ):
     """
     NOTE: We might soon drop this just because amount of decorations is not really
@@ -518,7 +540,11 @@ def multiple_envs_across_decorations_decoding_error_across_sampling_rates(
             ax.set_ylabel('mean squared error')
 
         for env_config_version in envs_dict:
-            env_results_path = utils.load_results_path(env_config_version)
+            env_results_path = utils.load_results_path(
+                env_config_version=env_config_version, 
+                experiment=experiment,
+                decoding_model_choice=decoding_model_choice,
+            )
 
             # load env results
             env_mse = np.load(
@@ -588,7 +614,7 @@ def multiple_envs_across_decorations_decoding_error_across_sampling_rates(
 
     plt.legend()
     # save multiple envs results into across_envs/ folder
-    results_path = "results/across_envs"
+    results_path = f"results/across_envs/{experiment}"
     if not os.path.exists(results_path): 
         os.makedirs(results_path)
     plt.savefig(f'{results_path}/decoding_error_across_sampling_rates.png')
@@ -603,6 +629,8 @@ def multiple_envs_across_layers_decoding_error_across_sampling_rates(
         sampling_rates=[0.01, 0.05],
         error_types=['loc', 'rot'],
         moving_trajectory='uniform',
+        decoding_model_choice='ridge_regression',
+        experiment='loc_n_rot',
     ):
     """
     NOTE: `multiple_envs_across_decorations_decoding_error_across_sampling_rates` is 
@@ -624,7 +652,11 @@ def multiple_envs_across_layers_decoding_error_across_sampling_rates(
             ax.set_ylabel('mean squared error')
 
         for env_config_version in envs_dict:
-            env_results_path = utils.load_results_path(env_config_version)
+            env_results_path = utils.load_results_path(
+                config_version=env_config_version, 
+                experiment=experiment,
+                decoding_model_choice=decoding_model_choice,
+            )
 
             # load env results
             env_mse = np.load(
@@ -798,41 +830,13 @@ def load_envs_dict(model_name, feature_selection):
     return envs_dict
 
 
-def multicuda_execute(
-        target_func, 
-        config_versions,
-        moving_trajectory,
-        sampling_rates,
-        decoding_model_choice,
-        cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
-    ):
-    """
-    Launch multiple 
-        `single_env_decoding_error_across_sampling_rates`
-    to specified GPUs.
-    """
-    args_list = []
-    for config_version in config_versions:
-        single_entry = {}
-        single_entry['config_version'] = config_version
-        single_entry['moving_trajectory'] = moving_trajectory
-        single_entry['sampling_rates'] = sampling_rates
-        single_entry['decoding_model_choice'] = decoding_model_choice
-        args_list.append(single_entry)
-
-    print(args_list)
-    print(len(args_list))
-    utils.cuda_manager(
-        target_func, args_list, cuda_id_list
-    )
-
-
 def multiproc_execute(
         target_func, 
-        config_versions,
+        model_names,
         moving_trajectory,
         sampling_rates,
         decoding_model_choice,
+        experiment,
         n_processes=60,
     ):
     """
@@ -842,16 +846,20 @@ def multiproc_execute(
     """
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     with multiprocessing.Pool(processes=n_processes) as pool:
-        for config_version in config_versions:
-            results = pool.apply_async(
-                target_func,
-                args=(
-                    config_version,
-                    moving_trajectory,
-                    sampling_rates,
-                    decoding_model_choice
+        for model_name in model_names:
+            envs_dict = load_envs_dict(model_name, feature_selection)
+            config_versions=list(envs_dict.keys())
+            for config_version in config_versions:
+                results = pool.apply_async(
+                    target_func,
+                    args=(
+                        config_version,
+                        moving_trajectory,
+                        sampling_rates,
+                        decoding_model_choice,
+                        experiment,
+                    )
                 )
-            )
         print(results.get())
         pool.close()
         pool.join()
@@ -860,45 +868,53 @@ def multiproc_execute(
 if __name__ == '__main__':
     import time
     start_time = time.time()
-    running_mode = 'plotting_results'
     logging_level = 'info'
     if logging_level == 'info':
         logging.basicConfig(level=logging.INFO)
     elif logging_level == 'debug':
         logging.basicConfig(level=logging.DEBUG)
 
+    # =================================================================== #
+    experiment = 'loc_n_rot'
+    producing_results = True
     sampling_rates = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
+    model_names = ['simclrv2_r50_1x_sk0', 'resnet50', 'vgg16']
     moving_trajectory = 'uniform'
-    decoding_model_choice = 'ridge_regression'
-    model_name = 'simclrv2_r50_1x_sk0'
+    decoding_model_choice = {'name': 'ridge_regression', 'hparams': 1.0}
+    # decoding_model_choice = {'name': 'lasso', 'hparams': 0.1}
     feature_selection = 'full'
-    envs_dict = load_envs_dict(model_name, feature_selection)
+    # =================================================================== #
 
-    if running_mode == 'producing_results':
+    if producing_results:
         multiproc_execute(
             target_func=\
                 single_env_decoding_error_across_sampling_rates,
-            config_versions=list(envs_dict.keys()),
+            model_names=model_names,
             moving_trajectory=moving_trajectory,
             sampling_rates=sampling_rates,
             decoding_model_choice=decoding_model_choice,
+            experiment=experiment,
         )
 
-    elif running_mode == 'plotting_results':
+    for model_name in model_names:
+        envs_dict = load_envs_dict(model_name, feature_selection)
         multiple_envs_across_layers_decoding_error_across_sampling_rates(
             envs_dict=envs_dict,
             sampling_rates=sampling_rates,
             moving_trajectory=moving_trajectory,
-        )
-        
-        multiproc_execute(
-            target_func=\
-                single_env_regression_weights_across_sampling_rates,
-            config_versions=list(envs_dict.keys()),
-            moving_trajectory=moving_trajectory,
-            sampling_rates=sampling_rates,
             decoding_model_choice=decoding_model_choice,
+            experiment=experiment,
         )
+    
+    multiproc_execute(
+        target_func=\
+            single_env_regression_weights_across_sampling_rates,
+        model_names=model_names,
+        moving_trajectory=moving_trajectory,
+        sampling_rates=sampling_rates,
+        decoding_model_choice=decoding_model_choice,
+        experiment=experiment,
+    )
 
     # print time elapsed
     logging.info(f'Time elapsed: {time.time() - start_time:.2f}s')
