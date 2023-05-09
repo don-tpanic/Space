@@ -2,6 +2,7 @@ import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = "3"
 
+import time
 import logging
 import multiprocessing
 import numpy as np
@@ -298,17 +299,20 @@ def single_env_decoding_error_across_sampling_rates(
         config_version, 
         moving_trajectory,
         sampling_rates,
+        experiment,
+        feature_selection,
         decoding_model_choice,
-        experiment
     ):
-    os.environ["TF_NUM_INTRAOP_THREADS"] = "5"
+    os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
     print(f'[Check] config_version: {config_version}')
     config = utils.load_config(config_version)
     results_path = utils.load_results_path(
         config_version=config_version, 
-        experiment=experiment, 
-        decoding_model_choice=decoding_model_choice)
+        experiment=experiment,
+        feature_selection=feature_selection,
+        decoding_model_choice=decoding_model_choice
+    )
     
     if config['model_name'] == 'none':
         model = None
@@ -437,8 +441,9 @@ def single_env_regression_weights_across_sampling_rates(
         config_version, 
         moving_trajectory,
         sampling_rates,
-        decoding_model_choice,
         experiment,
+        feature_selection,
+        decoding_model_choice,
     ):
     """
     Plot saved regression weights that are per sampling_rates,
@@ -454,6 +459,7 @@ def single_env_regression_weights_across_sampling_rates(
     results_path = utils.load_results_path(
         config_version=config_version, 
         experiment=experiment,
+        feature_selection=feature_selection,
         decoding_model_choice=decoding_model_choice,
     )   
     subtitles = [('x', 'b'), ('y', 'r'), ('rot', 'k')]
@@ -513,8 +519,9 @@ def multiple_envs_across_decorations_decoding_error_across_sampling_rates(
         sampling_rates=[0.01, 0.05],
         error_types=['loc', 'rot'],
         moving_trajectory='uniform',
-        decoding_model_choice='ridge_regression',
         experiment='loc_n_rot',
+        feature_selection='l2',
+        decoding_model_choice='ridge_regression',
     ):
     """
     NOTE: We might soon drop this just because amount of decorations is not really
@@ -629,8 +636,11 @@ def multiple_envs_across_layers_decoding_error_across_sampling_rates(
         sampling_rates=[0.01, 0.05],
         error_types=['loc', 'rot'],
         moving_trajectory='uniform',
-        decoding_model_choice='ridge_regression',
         experiment='loc_n_rot',
+        feature_selection='l2',
+        decoding_model_choice=\
+            {'name': 'ridge_regression',
+             'hparams': 1.0},
     ):
     """
     NOTE: `multiple_envs_across_decorations_decoding_error_across_sampling_rates` is 
@@ -655,6 +665,7 @@ def multiple_envs_across_layers_decoding_error_across_sampling_rates(
             env_results_path = utils.load_results_path(
                 config_version=env_config_version, 
                 experiment=experiment,
+                feature_selection=feature_selection,
                 decoding_model_choice=decoding_model_choice,
             )
 
@@ -734,109 +745,52 @@ def multiple_envs_across_layers_decoding_error_across_sampling_rates(
     unity_env = config['unity_env']
     model_name = config['model_name']
     movement_mode = config['movement_mode']
-    feature_selection = config['feature_selection']
-    results_path = f'results/{unity_env}/{movement_mode}/{model_name}/'
-    fname = f'decoding_error_loc+rot_across_sampling_rates_{feature_selection}'
-    plt.suptitle(f'model: {model_name}, feature: {feature_selection}')
+    decoding_model_name = decoding_model_choice['name']
+    decoding_model_hparams = decoding_model_choice['hparams']
+    results_path = \
+        f'results/{unity_env}/{movement_mode}/{model_name}/'\
+        f'{experiment}/{feature_selection}/{decoding_model_name}'\
+        f'_{decoding_model_hparams}'
+    fname = f'decoding_error_loc+rot_across_sampling_rates'
+    plt.suptitle(
+        f'model: {model_name}, feature: {feature_selection}, '
+        f'decoding model: {decoding_model_name}({decoding_model_hparams})'
+    )
     plt.legend()
     plt.savefig(f'{results_path}/{fname}.png')
 
 
-def load_envs_dict(model_name, feature_selection):
-    if model_name == 'vgg16':
-        envs_dict = {
-            f'env28_r24_2d_vgg16_fc2_{feature_selection}': {
-                'name': 'env28',
-                'n_walls': 4,
-                'output_layer': 'fc2',
-                'color': 'k',
-            },
-            f'env28_r24_2d_vgg16_b5p_{feature_selection}': {
-                'name': 'env28',
-                'n_walls': 4,
-                'output_layer': 'block5_pool',
-                'color': 'y',
-            },
-            f'env28_r24_2d_vgg16_b4p_{feature_selection}': {
-                'name': 'env28',
-                'n_walls': 4,
-                'output_layer': 'block4_pool',
-                'color': 'g',
-            },
-            f'env28_r24_2d_vgg16_b2p_{feature_selection}': {
-                'name': 'env28',
-                'n_walls': 4,
-                'output_layer': 'block2_pool',
-                'color': 'cyan',
-            },
-        }
-    
-    elif model_name == 'resnet50':
-        envs_dict = {
-            f'env28_r24_2d_resnet50_avg_pool_{feature_selection}': {
-                'name': 'env28',
-                'n_walls': 4,
-                'output_layer': 'avg_pool',
-                'color': 'k',
-            },
-            f'env28_r24_2d_resnet50_conv5_block2_out_{feature_selection}': {
-                'name': 'env28',
-                'n_walls': 4,
-                'output_layer': 'conv5_block2_out',
-                'color': 'y',
-            },
-            f'env28_r24_2d_resnet50_conv4_block6_out_{feature_selection}': {
-                'name': 'env28',
-                'n_walls': 4,
-                'output_layer': 'conv4_block6_out',
-                'color': 'g',
-            },
-            f'env28_r24_2d_resnet50_conv2_block3_out_{feature_selection}': {
-                'name': 'env28',
-                'n_walls': 4,
-                'output_layer': 'conv2_block3_out',
-                'color': 'cyan',
-            },
-        }
-    
-    elif model_name == 'simclrv2_r50_1x_sk0':
-        envs_dict = {
-            f'env28_r24_2d_simclrv2_r50_1x_sk0_final_avg_pool_{feature_selection}': {
-                'name': 'env28',
-                'n_walls': 4,
-                'output_layer': 'final_avg_pool',
-                'color': 'k',
-            },
-            f'env28_r24_2d_simclrv2_r50_1x_sk0_block_group4_{feature_selection}': {
-                'name': 'env28',
-                'n_walls': 4,
-                'output_layer': 'block_group4',
-                'color': 'y',
-            },
-            f'env28_r24_2d_simclrv2_r50_1x_sk0_block_group2_{feature_selection}': {
-                'name': 'env28',
-                'n_walls': 4,
-                'output_layer': 'block_group2',
-                'color': 'g',
-            },
-            f'env28_r24_2d_simclrv2_r50_1x_sk0_block_group1_{feature_selection}': {
-                'name': 'env28',
-                'n_walls': 4,
-                'output_layer': 'block_group1',
-                'color': 'cyan',
-            },
-        }
+def load_envs_dict(model_name, envs):
+    model_layers = data.load_model_layers(model_name)
+    colors = ['k', 'y', 'g', 'cyan']
+    if len(envs) == 1:
+        prefix = envs[0]
+    else:
+        raise NotImplementedError
+        # TODO: 
+        # 1. env28 is not flexible.
+        # 2. cannot work with across different envs (e.g. decorations.)
 
+    envs_dict = {}
+    for output_layer in model_layers:
+        envs_dict[f'{prefix}_{model_name}_{output_layer}'] = {
+            'name': 'env28',
+            'n_walls': 4,
+            'output_layer': output_layer,
+            'color': colors.pop(0),
+        }
     return envs_dict
 
 
-def multiproc_execute(
-        target_func, 
+def multiCPU_execute(
+        target_func,
+        envs,
         model_names,
         moving_trajectory,
         sampling_rates,
-        decoding_model_choice,
         experiment,
+        feature_selection,
+        decoding_model_choice,
         n_processes=60,
     ):
     """
@@ -847,7 +801,7 @@ def multiproc_execute(
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     with multiprocessing.Pool(processes=n_processes) as pool:
         for model_name in model_names:
-            envs_dict = load_envs_dict(model_name, feature_selection)
+            envs_dict = load_envs_dict(model_name, envs)
             config_versions=list(envs_dict.keys())
             for config_version in config_versions:
                 results = pool.apply_async(
@@ -856,8 +810,9 @@ def multiproc_execute(
                         config_version,
                         moving_trajectory,
                         sampling_rates,
-                        decoding_model_choice,
                         experiment,
+                        feature_selection,
+                        decoding_model_choice,
                     )
                 )
         print(results.get())
@@ -865,8 +820,44 @@ def multiproc_execute(
         pool.join()
 
 
+def multiGPU_execute(
+        target_func,
+        envs,
+        model_names,
+        moving_trajectory,
+        sampling_rates,
+        experiment,
+        feature_selection,
+        decoding_model_choice,
+        cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
+    ):
+    """
+    Launch multiple 
+        `single_env_decoding_error_across_sampling_rates`
+    to specified GPUs.
+    """
+    for model_name in model_names:
+        envs_dict = load_envs_dict(model_name, envs)
+        config_versions=list(envs_dict.keys())
+        args_list = []
+        for config_version in config_versions:
+            single_entry = {}
+            single_entry['config_version'] = config_version
+            single_entry['moving_trajectory'] = moving_trajectory
+            single_entry['sampling_rates'] = sampling_rates
+            single_entry['experiment'] = experiment
+            single_entry['feature_selection'] = feature_selection
+            single_entry['decoding_model_choice'] = decoding_model_choice
+            args_list.append(single_entry)
+
+    print(args_list)
+    print(len(args_list))
+    utils.cuda_manager(
+        target_func, args_list, cuda_id_list
+    )
+
+
 if __name__ == '__main__':
-    import time
     start_time = time.time()
     logging_level = 'info'
     if logging_level == 'info':
@@ -875,45 +866,55 @@ if __name__ == '__main__':
         logging.basicConfig(level=logging.DEBUG)
 
     # =================================================================== #
+    TF_NUM_INTRAOP_THREADS = 10
+    envs = ['env28_r24_2d']
     experiment = 'loc_n_rot'
     producing_results = True
     sampling_rates = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
     model_names = ['simclrv2_r50_1x_sk0', 'resnet50', 'vgg16']
     moving_trajectory = 'uniform'
     decoding_model_choice = {'name': 'ridge_regression', 'hparams': 1.0}
-    # decoding_model_choice = {'name': 'lasso', 'hparams': 0.1}
-    feature_selection = 'full'
+    feature_selection = 'l2'
+    if ('l2' in feature_selection and 'ridge' not in decoding_model_choice['name']) or \
+        ('l1' in feature_selection and 'lasso' not in decoding_model_choice['name']):
+        raise ValueError('feature_selection and decoding_model_choice do not match.')
     # =================================================================== #
 
     if producing_results:
-        multiproc_execute(
+        # multiGPU_execute(
+        multiCPU_execute(
             target_func=\
                 single_env_decoding_error_across_sampling_rates,
+            envs=envs,
             model_names=model_names,
             moving_trajectory=moving_trajectory,
             sampling_rates=sampling_rates,
-            decoding_model_choice=decoding_model_choice,
             experiment=experiment,
+            feature_selection=feature_selection,
+            decoding_model_choice=decoding_model_choice,
         )
 
     for model_name in model_names:
-        envs_dict = load_envs_dict(model_name, feature_selection)
+        envs_dict = load_envs_dict(model_name, envs)
         multiple_envs_across_layers_decoding_error_across_sampling_rates(
             envs_dict=envs_dict,
             sampling_rates=sampling_rates,
             moving_trajectory=moving_trajectory,
-            decoding_model_choice=decoding_model_choice,
             experiment=experiment,
+            feature_selection=feature_selection,
+            decoding_model_choice=decoding_model_choice,
         )
     
-    multiproc_execute(
+    multiCPU_execute(
         target_func=\
             single_env_regression_weights_across_sampling_rates,
+        envs=envs,
         model_names=model_names,
         moving_trajectory=moving_trajectory,
         sampling_rates=sampling_rates,
-        decoding_model_choice=decoding_model_choice,
         experiment=experiment,
+        feature_selection=feature_selection,
+        decoding_model_choice=decoding_model_choice,
     )
 
     # print time elapsed
