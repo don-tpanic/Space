@@ -1,4 +1,4 @@
-config_version: env28_r24_2d_resnet50_conv2_block3_out_full
+config_version: env28_r24_2d_resnet50_conv2_block3_out
 unity_env: env28_r24
 model_name: resnet50
 output_layer: conv2_block3_out
@@ -9,4 +9,3 @@ env_x_max: 4
 env_y_min: -4
 env_y_max: 4
 multiplier: 2
-feature_selection: full

@@ -1,4 +1,4 @@
-config_version: env28_r24_2d_vgg16_b4p_full
+config_version: env28_r24_2d_vgg16_block4_pool
 unity_env: env28_r24
 model_name: vgg16
 output_layer: block4_pool
@@ -9,4 +9,3 @@ env_x_max: 4
 env_y_min: -4
 env_y_max: 4
 multiplier: 2
-feature_selection: full

@@ -1,7 +1,7 @@
-config_version: env28_r24_2d_vgg16_b2p_full
+config_version: env28_r24_2d_vgg16_fc2
 unity_env: env28_r24
 model_name: vgg16
-output_layer: block2_pool
+output_layer: fc2
 movement_mode: 2d
 n_rotations: 24
 env_x_min: -4
@@ -9,4 +9,3 @@ env_x_max: 4
 env_y_min: -4
 env_y_max: 4
 multiplier: 2
-feature_selection: full
