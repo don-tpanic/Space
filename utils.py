@@ -9,16 +9,28 @@ def load_config(config_version):
     return config
 
 
-def load_results_path(config_version):
+def load_results_path(
+        config_version, 
+        experiment, 
+        feature_selection, 
+        decoding_model_choice
+    ):
     config = load_config(config_version)
     unity_env = config['unity_env']
     model_name = config['model_name']
     output_layer = config['output_layer']
     movement_mode = config['movement_mode']
-    feature_selection = config['feature_selection']
+    decoding_model_name = decoding_model_choice['name']
+    decoding_model_hparams = decoding_model_choice['hparams']
+    
     results_path = \
         f'results/{unity_env}/{movement_mode}/'\
-        f'{model_name}/{output_layer}/{feature_selection}'
+        f'{model_name}/{experiment}/{feature_selection}/'\
+        f'{decoding_model_name}_{decoding_model_hparams}/{output_layer}'
+
+    if not os.path.exists(results_path):
+        os.makedirs(results_path)
+
     return results_path
 
 
