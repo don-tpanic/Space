@@ -23,10 +23,17 @@ def load_results_path(
     decoding_model_name = decoding_model_choice['name']
     decoding_model_hparams = decoding_model_choice['hparams']
     
-    results_path = \
-        f'results/{unity_env}/{movement_mode}/'\
-        f'{model_name}/{experiment}/{feature_selection}/'\
-        f'{decoding_model_name}_{decoding_model_hparams}/{output_layer}'
+    if experiment == 'loc_n_rot' or \
+        (experiment =='viz' and feature_selection in ['l1', 'l2']):
+        results_path = \
+            f'results/{unity_env}/{movement_mode}/'\
+            f'{model_name}/{experiment}/{feature_selection}/'\
+            f'{decoding_model_name}_{decoding_model_hparams}/{output_layer}'
+        
+    elif experiment == 'viz' and feature_selection not in ['l1', 'l2']:
+        results_path = \
+            f'results/{unity_env}/{movement_mode}/'\
+            f'{model_name}/{experiment}/{feature_selection}/{output_layer}'
 
     if not os.path.exists(results_path):
         os.makedirs(results_path)
