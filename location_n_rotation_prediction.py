@@ -866,15 +866,17 @@ if __name__ == '__main__':
         logging.basicConfig(level=logging.DEBUG)
 
     # =================================================================== #
-    TF_NUM_INTRAOP_THREADS = 10
+    TF_NUM_INTRAOP_THREADS = 1
     envs = ['env28_r24_2d']
     experiment = 'loc_n_rot'
     producing_results = True
     sampling_rates = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
     model_names = ['simclrv2_r50_1x_sk0', 'resnet50', 'vgg16']
     moving_trajectory = 'uniform'
-    decoding_model_choice = {'name': 'ridge_regression', 'hparams': 1.0}
-    feature_selection = 'l2'
+    # decoding_model_choice = {'name': 'ridge_regression', 'hparams': 1.0}
+    decoding_model_choice = {'name': 'lasso_regression', 'hparams': 1.0}
+    # feature_selection = 'l2'
+    feature_selection = 'l1'
     if ('l2' in feature_selection and 'ridge' not in decoding_model_choice['name']) or \
         ('l1' in feature_selection and 'lasso' not in decoding_model_choice['name']):
         raise ValueError('feature_selection and decoding_model_choice do not match.')
