@@ -577,7 +577,7 @@ def cross_dimension_analysis(
 
         # collect results across dimensions
         # from base-case results.
-        results_collector = defaultdict()
+        results_collector = defaultdict(lambda: defaultdict())
         for sampling_rate in sampling_rates:
             results_path = \
                 f'results/{env}/{movement_mode}/{moving_trajectory}/'\
@@ -588,16 +588,16 @@ def cross_dimension_analysis(
                 np.load(
                 f'{results_path}/res.npy', allow_pickle=True).item()
             for weights_name in tracked_regression_weights:
-                results_collector[weights_name] = results[weights_name]
+                results_collector[sampling_rate][weights_name] = results[weights_name]
         
         # plot collected results.
-        fig = plt.figure(figsize=(15, 15))
+        fig = plt.figure(figsize=(20, 20))
         gs = fig.add_gridspec(len(sampling_rates), 4)
         subtitles = [('x', 'b'), ('y', 'r'), ('rot', 'k')]
         for row_idx, sampling_rate in enumerate(sampling_rates):
             # load coef and intercept of a sampling rate  
-            coef = results_collector['coef']                # (targets, features)
-            intercept = results_collector['intercept']      # (targets,)
+            coef = results_collector[sampling_rate]['coef']            # (targets, features)
+            intercept = results_collector[sampling_rate]['intercept']  # (targets,)
             logging.info(f'coef.shape: {coef.shape}')
             logging.info(f'intercept.shape: {intercept.shape}')
 
@@ -638,6 +638,7 @@ def cross_dimension_analysis(
                         f'{decoding_model_name}_{decoding_model_hparams}/'\
                         f'{output_layer}'
         plt.legend()
+        plt.tight_layout()
         plt.suptitle(sup_title)
         plt.savefig(f'{fig_save_path}/regression_weights_across_sampling_rates.png')
         plt.close()
@@ -702,7 +703,7 @@ if __name__ == '__main__':
     )
 
     cross_dimension_analysis(
-        analysis='decoding_across_sampling_rates_n_layers',
+        analysis='regression_weights_across_sampling_rates',
         envs=envs,
         movement_modes=movement_modes,
         model_names=model_names,
