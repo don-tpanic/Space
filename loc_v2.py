@@ -480,12 +480,14 @@ def cross_dimension_analysis(
         moving_trajectory = moving_trajectories[0]
         feature_selection = feature_selections[0]
         movement_mode = movement_modes[0]
-        output_layers = data.load_model_layers(model_name)
-        decoding_model_name = decoding_model_choice['name']
-        decoding_model_hparams = decoding_model_choice['hparams']
 
         for model_name in model_names:
+            output_layers = data.load_model_layers(model_name)
+
             for decoding_model_choice in decoding_model_choices:
+                decoding_model_name = decoding_model_choice['name']
+                decoding_model_hparams = decoding_model_choice['hparams']
+
                 # collect results across dimensions
                 # from base-case results.
                 results_collector = \
@@ -494,6 +496,7 @@ def cross_dimension_analysis(
                             lambda: defaultdict(list)
                         )
                     )
+                
                 for error_type in error_types:
                     for output_layer in output_layers:
                         for sampling_rate in sampling_rates:
