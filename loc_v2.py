@@ -509,127 +509,131 @@ def cross_dimension_analysis(
 
         env = envs[0]
         moving_trajectory = moving_trajectories[0]
-        feature_selection = feature_selections[0]
+        # feature_selection = feature_selections[0]
         movement_mode = movement_modes[0]
 
         for model_name in model_names:
             output_layers = data.load_model_layers(model_name)
 
-            for decoding_model_choice in decoding_model_choices:
-                decoding_model_name = decoding_model_choice['name']
-                decoding_model_hparams = decoding_model_choice['hparams']
+            for feature_selection in feature_selections:
 
-                # collect results across dimensions
-                # from base-case results.
-                results_collector = \
-                    defaultdict(
-                        lambda: defaultdict(
-                            lambda: defaultdict(list)
+                for decoding_model_choice in decoding_model_choices:
+                    decoding_model_name = decoding_model_choice['name']
+                    decoding_model_hparams = decoding_model_choice['hparams']
+
+                    if \
+                        (
+                            'l1' in feature_selection and \
+                            decoding_model_choice['name'] != 'lasso_regression'
+                        ) \
+                        or \
+                        (
+                            'l2' in feature_selection and \
+                            decoding_model_choice['name'] != 'ridge_regression'
+                        ):
+                        # logging.info(
+                        #     '[Skip] feature_selection and decoding_model_choice mismatch'
+                        # )
+                        continue
+
+                    # collect results across dimensions
+                    # from base-case results.
+                    results_collector = \
+                        defaultdict(
+                            lambda: defaultdict(
+                                lambda: defaultdict(list)
+                            )
                         )
-                    )
-                
-                for error_type in error_types:
-                    for output_layer in output_layers:
-                        for sampling_rate in sampling_rates:
-                            # sampling rate would be the base dimension where 
-                            # we accumulate results in a list to plot at once.
-                            to_average_over_seeds = defaultdict(list)
-                            for random_seed in random_seeds:
+                    
+                    for error_type in error_types:
+                        for output_layer in output_layers:
+                            for sampling_rate in sampling_rates:
+                                # sampling rate would be the base dimension where 
+                                # we accumulate results in a list to plot at once.
+                                to_average_over_seeds = defaultdict(list)
+                                for random_seed in random_seeds:
                                 
-                                if \
-                                    (
-                                        'l1' in feature_selection and \
-                                        decoding_model_choice['name'] != 'lasso_regression'
-                                    ) \
-                                    or \
-                                    (
-                                        'l2' in feature_selection and \
-                                        decoding_model_choice['name'] != 'ridge_regression'
-                                    ):
-                                    logging.info(
-                                        '[Skip] feature_selection and decoding_model_choice mismatch'
-                                    )
-                                    return
-    
-                                results_path = \
-                                    f'results/{env}/{movement_mode}/{moving_trajectory}/'\
-                                    f'{model_name}/{experiment}/{feature_selection}/'\
-                                    f'{decoding_model_name}_{decoding_model_hparams}/'\
-                                    f'{output_layer}/sr{sampling_rate}/seed{random_seed}'
-                                results = np.load(f'{results_path}/res.npy', allow_pickle=True).item()[error_type]
+                                    results_path = \
+                                        f'results/{env}/{movement_mode}/{moving_trajectory}/'\
+                                        f'{model_name}/{experiment}/{feature_selection}/'\
+                                        f'{decoding_model_name}_{decoding_model_hparams}/'\
+                                        f'{output_layer}/sr{sampling_rate}/seed{random_seed}'
+                                    results = np.load(f'{results_path}/res.npy', allow_pickle=True).item()[error_type]
+                                    
+                                    for metric in tracked_metrics:
+                                        to_average_over_seeds[metric].append(results[metric])
+                                
+                                # per metric per output layer 
+                                # across sampling rates averaged over seeds
                                 for metric in tracked_metrics:
-                                    to_average_over_seeds[metric].append(results[metric])
-                            
-                            # per metric per output layer 
-                            # across sampling rates averaged over seeds
-                            for metric in tracked_metrics:
-                                # a special case is when metric=='ci' where 
-                                # ..res[metric] is a list of 2 elements
-                                # so we need to average wrt each element across seeds
-                                # and save them back as 2 elements for later plotting.
-                                if metric == 'ci':
-                                    ci_low_avg = np.mean(
-                                        [ci[0] for ci in to_average_over_seeds[metric]])
-                                    ci_high_avg = np.mean(
-                                        [ci[1] for ci in to_average_over_seeds[metric]])
-                                    avg_res = [ci_low_avg, ci_high_avg]
-                                else:
-                                    avg_res = np.mean(to_average_over_seeds[metric])
-                                results_collector[error_type][output_layer][metric].append(avg_res)
-                
-                # plot collected results.
-                fig, axes = plt.subplots(1, 2, figsize=(10, 5))
-                for i, error_type in enumerate(error_types):
-                    for output_layer in output_layers:
-                        for metric in tracked_metrics:
-                            # when metric is about confidence interval, 
-                            # instead of plot, we fill_between
-                            if metric == 'ci':
-                                ci_low = np.array(
-                                    results_collector[error_type][output_layer][metric])[:, 0]
-                                ci_high = np.array(
-                                    results_collector[error_type][output_layer][metric])[:, 1]
-                                axes[i].fill_between(
-                                    sampling_rates,
-                                    ci_low,
-                                    ci_high,
-                                    alpha=0.2,
-                                    color='grey',
-                                )
-                            else:
-                                if 'baseline' in metric:
-                                    if output_layer == output_layers[-1]:
-                                        label = metric
+                                    # a special case is when metric=='ci' where 
+                                    # ..res[metric] is a list of 2 elements
+                                    # so we need to average wrt each element across seeds
+                                    # and save them back as 2 elements for later plotting.
+                                    if metric == 'ci':
+                                        ci_low_avg = np.mean(
+                                            [ci[0] for ci in to_average_over_seeds[metric]])
+                                        ci_high_avg = np.mean(
+                                            [ci[1] for ci in to_average_over_seeds[metric]])
+                                        avg_res = [ci_low_avg, ci_high_avg]
                                     else:
-                                        label = None  # no need to label baseline for each layer
-                                    if 'mid' in metric: 
-                                        color = 'cyan'
-                                    else: 
-                                        color = 'blue'
+                                        avg_res = np.mean(to_average_over_seeds[metric])
+                                    results_collector[error_type][output_layer][metric].append(avg_res)
+                    
+                    # plot collected results.
+                    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+                    for i, error_type in enumerate(error_types):
+                        for output_layer in output_layers:
+                            for metric in tracked_metrics:
+                                # when metric is about confidence interval, 
+                                # instead of plot, we fill_between
+                                if metric == 'ci':
+                                    ci_low = np.array(
+                                        results_collector[error_type][output_layer][metric])[:, 0]
+                                    ci_high = np.array(
+                                        results_collector[error_type][output_layer][metric])[:, 1]
+                                    axes[i].fill_between(
+                                        sampling_rates,
+                                        ci_low,
+                                        ci_high,
+                                        alpha=0.2,
+                                        color='grey',
+                                    )
                                 else:
-                                    label = output_layer
-                                    color = load_envs_dict(model_name, envs)[
-                                        f'{envs[0]}_{movement_mode}_{model_name}_{output_layer}']['color']
-                                axes[i].plot(
-                                    sampling_rates,
-                                    results_collector[error_type][output_layer][metric],
-                                    label=label,
-                                    color=color,
-                                )
-                    axes[i].set_xlabel('sampling rates')
-                    axes[i].set_title(error_type)
-                sup_title = f'{envs[0]},{movement_mode},'\
-                            f'{model_name},{feature_selection},'\
-                            f'{decoding_model_name}({decoding_model_hparams})'
-                # for across layers and sampling rates, 
-                # we save the plot at the same level as layers.
-                fig_save_path = f'results/{env}/{movement_mode}/{moving_trajectory}/'\
-                                f'{model_name}/{experiment}/{feature_selection}/'\
-                                f'{decoding_model_name}_{decoding_model_hparams}/'
-                plt.legend()
-                plt.suptitle(sup_title)
-                plt.savefig(f'{fig_save_path}/decoding_across_sampling_rates_n_layers.png')
-                plt.close()
+                                    if 'baseline' in metric:
+                                        if output_layer == output_layers[-1]:
+                                            label = metric
+                                        else:
+                                            label = None  # no need to label baseline for each layer
+                                        if 'mid' in metric: 
+                                            color = 'cyan'
+                                        else: 
+                                            color = 'blue'
+                                    else:
+                                        label = output_layer
+                                        color = load_envs_dict(model_name, envs)[
+                                            f'{envs[0]}_{movement_mode}_{model_name}_{output_layer}']['color']
+                                    axes[i].plot(
+                                        sampling_rates,
+                                        results_collector[error_type][output_layer][metric],
+                                        label=label,
+                                        color=color,
+                                    )
+                        axes[i].set_xlabel('sampling rates')
+                        axes[i].set_title(error_type)
+                    sup_title = f'{envs[0]},{movement_mode},'\
+                                f'{model_name},{feature_selection},'\
+                                f'{decoding_model_name}({decoding_model_hparams})'
+                    # for across layers and sampling rates, 
+                    # we save the plot at the same level as layers.
+                    fig_save_path = f'results/{env}/{movement_mode}/{moving_trajectory}/'\
+                                    f'{model_name}/{experiment}/{feature_selection}/'\
+                                    f'{decoding_model_name}_{decoding_model_hparams}'
+                    plt.legend()
+                    plt.suptitle(sup_title)
+                    plt.savefig(f'{fig_save_path}/decoding_across_sampling_rates_n_layers.png')
+                    plt.close()
+                    logging.info(f'[Saved] {fig_save_path}/decoding_across_sampling_rates_n_layers.png')
 
     elif analysis == 'regression_weights_across_sampling_rates':
 
