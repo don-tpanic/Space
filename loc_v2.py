@@ -404,6 +404,7 @@ def _single_env_decoding_error(
 
 
 def multi_envs_across_dimensions_CPU(
+        target_func,
         envs,
         model_names,
         experiment,
@@ -427,7 +428,7 @@ def multi_envs_across_dimensions_CPU(
                             for decoding_model_choice in decoding_model_choices:
                                 for random_seed in random_seeds:
                                     res = pool.apply_async(
-                                        _single_env_decoding_error,
+                                        target_func,
                                         args=(
                                             config_version, 
                                             moving_trajectory,
@@ -751,6 +752,7 @@ if __name__ == '__main__':
     # =================================================================== #
 
     multi_envs_across_dimensions_CPU(
+        target_func=_single_env_decoding_error,
         envs=envs,
         experiment=experiment,
         sampling_rates=sampling_rates,
