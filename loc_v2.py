@@ -535,6 +535,22 @@ def cross_dimension_analysis(
                             # we accumulate results in a list to plot at once.
                             to_average_over_seeds = defaultdict(list)
                             for random_seed in random_seeds:
+                                
+                                if \
+                                    (
+                                        'l1' in feature_selection and \
+                                        decoding_model_choice['name'] != 'lasso_regression'
+                                    ) \
+                                    or \
+                                    (
+                                        'l2' in feature_selection and \
+                                        decoding_model_choice['name'] != 'ridge_regression'
+                                    ):
+                                    logging.info(
+                                        '[Skip] feature_selection and decoding_model_choice mismatch'
+                                    )
+                                    return
+    
                                 results_path = \
                                     f'results/{env}/{movement_mode}/{moving_trajectory}/'\
                                     f'{model_name}/{experiment}/{feature_selection}/'\
@@ -735,7 +751,7 @@ if __name__ == '__main__':
     # =================================================================== #
     TF_NUM_INTRAOP_THREADS = 8
     CPU_NUM_PROCESSES = 10
-    experiment = ['loc_n_rot']
+    experiment = 'loc_n_rot'
     envs = ['env28_r24']
     movement_modes = ['2d']
     sampling_rates = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
