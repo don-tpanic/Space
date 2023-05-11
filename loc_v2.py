@@ -713,11 +713,11 @@ if __name__ == '__main__':
     moving_trajectories = ['uniform']
     decoding_model_choices = [
         {'name': 'ridge_regression', 'hparams': 1.0},
-        # {'name': 'ridge_regression', 'hparams': 0.1},
-        # {'name': 'lasso_regression', 'hparams': 1.0},
-        # {'name': 'lasso_regression', 'hparams': 0.1},
+        {'name': 'ridge_regression', 'hparams': 0.1},
+        {'name': 'lasso_regression', 'hparams': 1.0},
+        {'name': 'lasso_regression', 'hparams': 0.1},
     ]
-    feature_selections = ['l2']
+    feature_selections = ['l2', 'l1']
     # =================================================================== #
 
     multi_envs_across_dimensions_CPU(
