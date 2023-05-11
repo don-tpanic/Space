@@ -10,7 +10,7 @@ def load_config(config_version):
 
 
 def load_results_path(
-        config_version, 
+        config, 
         experiment, 
         feature_selection, 
         decoding_model_choice,
@@ -18,28 +18,44 @@ def load_results_path(
         moving_trajectory,
         random_seed,
     ):
-    config = load_config(config_version)
     unity_env = config['unity_env']
     model_name = config['model_name']
     output_layer = config['output_layer']
     movement_mode = config['movement_mode']
     decoding_model_name = decoding_model_choice['name']
     decoding_model_hparams = decoding_model_choice['hparams']
-    
+
     if experiment == 'loc_n_rot' or \
         (experiment =='viz' and feature_selection in ['l1', 'l2']):
         results_path = \
             f'results/{unity_env}/{movement_mode}/{moving_trajectory}/'\
             f'{model_name}/{experiment}/{feature_selection}/'\
-            f'{decoding_model_name}_{decoding_model_hparams}/{output_layer}/sr{sampling_rate}/seed{random_seed}'
+            f'{decoding_model_name}_{decoding_model_hparams}/'\
+            f'{output_layer}/sr{sampling_rate}/seed{random_seed}'
         
     elif experiment == 'viz' and feature_selection not in ['l1', 'l2']:
         results_path = \
             f'results/{unity_env}/{movement_mode}/{moving_trajectory}'\
-            f'{model_name}/{experiment}/{feature_selection}/{output_layer}/sr{sampling_rate}/seed{random_seed}'
-
+            f'{model_name}/{experiment}/{feature_selection}/{output_layer}/'\
+            f'sr{sampling_rate}/seed{random_seed}'
+        
     if not os.path.exists(results_path):
-        os.makedirs(results_path)
+        if \
+        (
+            'l1' in feature_selection and \
+            decoding_model_choice['name'] != 'lasso_regression'
+        ) \
+        or \
+        (
+            'l2' in feature_selection and \
+            decoding_model_choice['name'] != 'ridge_regression'
+        ):  
+            # do not create dir if mismatch between 
+            # feature selection and decoding model
+            pass
+        
+        else:
+            os.makedirs(results_path)
 
     return results_path
 
