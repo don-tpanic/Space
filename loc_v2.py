@@ -4,6 +4,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = "3"
 
 import time
 import logging
+import itertools
 import multiprocessing
 import numpy as np
 from scipy import stats
@@ -277,7 +278,7 @@ def _fit_decoding_model(
                     baseline_predict_random_mse_loc, baseline_predict_random_mse_rot
 
 
-def single_env_decoding_error(
+def _single_env_decoding_error(
         config_version, 
         moving_trajectory,
         sampling_rate,
@@ -289,16 +290,7 @@ def single_env_decoding_error(
     os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
     logging.info(f'[Check] config_version: {config_version}')
-    config = utils_v2.load_config(config_version)
-    results_path = utils_v2.load_results_path(
-        config_version=config_version, 
-        experiment=experiment,
-        feature_selection=feature_selection,
-        decoding_model_choice=decoding_model_choice,
-        sampling_rate=sampling_rate,
-        moving_trajectory=moving_trajectory,
-        random_seed=random_seed
-    )
+
     # check if feature_selection and decoding_model_choice match
     # specifically, we make sure if l1 is included in feature_selection,
     # decoding model must be lasso;
@@ -320,6 +312,17 @@ def single_env_decoding_error(
         )
         return
 
+    config = utils_v2.load_config(config_version)
+    results_path = utils_v2.load_results_path(
+        config=config,
+        experiment=experiment,
+        feature_selection=feature_selection,
+        decoding_model_choice=decoding_model_choice,
+        sampling_rate=sampling_rate,
+        moving_trajectory=moving_trajectory,
+        random_seed=random_seed
+    )
+    
     # check if this base-case result exists, 
     # if so skip
     if os.path.exists(f'{results_path}/res.npy'):
@@ -403,12 +406,15 @@ def single_env_decoding_error(
 def multi_envs_across_dimensions_CPU(
         envs,
         model_names,
+        experiment,
         moving_trajectories,
         sampling_rates,
         feature_selections,
         decoding_model_choices,
         random_seeds,
     ):
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     with multiprocessing.Pool(processes=CPU_NUM_PROCESSES) as pool:
         for model_name in model_names:
@@ -421,7 +427,7 @@ def multi_envs_across_dimensions_CPU(
                             for decoding_model_choice in decoding_model_choices:
                                 for random_seed in random_seeds:
                                     res = pool.apply_async(
-                                        single_env_decoding_error,
+                                        _single_env_decoding_error,
                                         args=(
                                             config_version, 
                                             moving_trajectory,
@@ -435,6 +441,30 @@ def multi_envs_across_dimensions_CPU(
         logging.info(res.get())
         pool.close()
         pool.join()
+
+    # analysis_dimensions = {
+    #     'experiment': experiment,
+    #     'moving_trajectory': moving_trajectories,
+    #     'sampling_rate': sampling_rates,
+    #     'feature_selection': feature_selections,
+    #     'decoding_model_choice': decoding_model_choices,
+    #     'random_seed': random_seeds,
+    # }
+    
+    # with multiprocessing.Pool(processes=CPU_NUM_PROCESSES) as pool:
+    #     for model_name in model_names:
+    #         for config_version in \
+    #             list(load_envs_dict(model_name, envs).keys()):
+    #             for dimension_combination in \
+    #                 itertools.product(*analysis_dimensions.values()):
+    #                 res = pool.apply_async(
+    #                     _single_env_decoding_error, 
+    #                     args=(config_version, dimension_combination,)
+    #                 )
+
+    #     logging.info(res.get())
+    #     pool.close()
+    #     pool.join()
 
 
 def cross_dimension_analysis(
@@ -704,7 +734,7 @@ if __name__ == '__main__':
     # =================================================================== #
     TF_NUM_INTRAOP_THREADS = 8
     CPU_NUM_PROCESSES = 10
-    experiment = 'loc_n_rot'
+    experiment = ['loc_n_rot']
     envs = ['env28_r24']
     movement_modes = ['2d']
     sampling_rates = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
@@ -722,6 +752,7 @@ if __name__ == '__main__':
 
     multi_envs_across_dimensions_CPU(
         envs=envs,
+        experiment=experiment,
         sampling_rates=sampling_rates,
         model_names=model_names,
         moving_trajectories=moving_trajectories,
