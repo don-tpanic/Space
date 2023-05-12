@@ -169,9 +169,7 @@ def _fit_decoding_model(
         X_test,
         y_train,
         y_test,
-        results_path,
         config,
-        sampling_rate,
         decoding_model_choice,
         random_seed
     ):
