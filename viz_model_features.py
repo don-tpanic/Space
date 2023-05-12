@@ -151,7 +151,7 @@ def _single_env_viz_units(
                         f"({decoding_model_choice['hparams']})"
             
             logging.info('Saving units heatmaps...')
-            results_path = utils.load_results_path(
+            figs_path = utils.load_figs_path(
                 config=config,
                 experiment=experiment,
                 feature_selection=feature_selection,
@@ -162,10 +162,10 @@ def _single_env_viz_units(
             )
             plt.tight_layout()
             plt.suptitle(sup_title)
-            plt.savefig(f'{results_path}/units_heatmaps_{targets[target_index]}.png')
+            plt.savefig(f'{figs_path}/units_heatmaps_{targets[target_index]}.png')
             plt.close()
             logging.info(f'[Saved] units heatmaps {targets[target_index]}'\
-                         f' to {results_path}')
+                         f' to {figs_path}')
 
             # TODO: integrate into above or keep just this one.
             ### plot summed over rotation heatmap
@@ -199,7 +199,7 @@ def _single_env_viz_units(
                         f"({decoding_model_choice['hparams']})"
             
             logging.info('Saving units heatmaps (summed)...')
-            results_path = utils.load_results_path(
+            figs_path = utils.load_figs_path(
                 config=config,
                 experiment=experiment,
                 feature_selection=feature_selection,
@@ -211,11 +211,11 @@ def _single_env_viz_units(
             plt.tight_layout()
             plt.suptitle(sup_title)
             plt.savefig(
-                f'{results_path}/units_heatmaps_{targets[target_index]}_summed.png')
+                f'{figs_path}/units_heatmaps_{targets[target_index]}_summed.png')
             plt.close()
             logging.info(
                 f'[Saved] units heatmaps {targets[target_index]} '\
-                f'(summed) to {results_path}')
+                f'(summed) to {figs_path}')
 
     else:
         # TODO: metric-based feature selection.

@@ -60,6 +60,57 @@ def load_results_path(
     return results_path
 
 
+def load_figs_path(
+        config, 
+        experiment, 
+        feature_selection, 
+        decoding_model_choice,
+        sampling_rate,
+        moving_trajectory,
+        random_seed,
+    ):
+    unity_env = config['unity_env']
+    model_name = config['model_name']
+    output_layer = config['output_layer']
+    movement_mode = config['movement_mode']
+    decoding_model_name = decoding_model_choice['name']
+    decoding_model_hparams = decoding_model_choice['hparams']
+
+    if experiment == 'loc_n_rot' or \
+        (experiment =='viz' and feature_selection in ['l1', 'l2']):
+        figs_path = \
+            f'figs/{unity_env}/{movement_mode}/{moving_trajectory}/'\
+            f'{model_name}/{experiment}/{feature_selection}/'\
+            f'{decoding_model_name}_{decoding_model_hparams}/'\
+            f'{output_layer}/sr{sampling_rate}/seed{random_seed}'
+        
+    elif experiment == 'viz' and feature_selection not in ['l1', 'l2']:
+        figs_path = \
+            f'figs/{unity_env}/{movement_mode}/{moving_trajectory}'\
+            f'{model_name}/{experiment}/{feature_selection}/{output_layer}/'\
+            f'sr{sampling_rate}/seed{random_seed}'
+        
+    if not os.path.exists(figs_path):
+        if \
+        (
+            'l1' in feature_selection and \
+            decoding_model_choice['name'] != 'lasso_regression'
+        ) \
+        or \
+        (
+            'l2' in feature_selection and \
+            decoding_model_choice['name'] != 'ridge_regression'
+        ):  
+            # do not create dir if mismatch between 
+            # feature selection and decoding model
+            figs_path = None
+        
+        else:
+            os.makedirs(figs_path)
+
+    return figs_path
+
+
 def cuda_manager(target, args_list, cuda_id_list, n_concurrent=None):
     """Create CUDA manager.
     Arguments:
