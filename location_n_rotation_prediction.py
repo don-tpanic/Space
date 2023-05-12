@@ -600,16 +600,16 @@ def cross_dimension_analysis(
                                 f'{decoding_model_name}({decoding_model_hparams})'
                     # for across layers and sampling rates, 
                     # we save the plot at the same level as layers.
-                    fig_save_path = f'figs/{env}/{movement_mode}/{moving_trajectory}/'\
+                    figs_path = f'figs/{env}/{movement_mode}/{moving_trajectory}/'\
                                     f'{model_name}/{experiment}/{feature_selection}/'\
                                     f'{decoding_model_name}_{decoding_model_hparams}'
-                    if not os.path.exists(fig_save_path):
-                        os.makedirs(fig_save_path)
+                    if not os.path.exists(figs_path):
+                        os.makedirs(figs_path)
                     plt.legend()
                     plt.suptitle(sup_title)
-                    plt.savefig(f'{fig_save_path}/decoding_across_sampling_rates_n_layers.png')
+                    plt.savefig(f'{figs_path}/decoding_across_sampling_rates_n_layers.png')
                     plt.close()
-                    logging.info(f'[Saved] {fig_save_path}/decoding_across_sampling_rates_n_layers.png')
+                    logging.info(f'[Saved] {figs_path}/decoding_across_sampling_rates_n_layers.png')
 
     elif analysis == 'regression_weights_across_sampling_rates':
 
@@ -698,22 +698,22 @@ def cross_dimension_analysis(
                                         f'seed{random_seed})'
                             # for coef and intercept distribution across sampling rates, 
                             # we save the plot at the same as output layer.
-                            fig_save_path = f'figs/{env}/{movement_mode}/{moving_trajectory}/'\
+                            figs_path = f'figs/{env}/{movement_mode}/{moving_trajectory}/'\
                                             f'{model_name}/{experiment}/{feature_selection}/'\
                                             f'{decoding_model_name}_{decoding_model_hparams}/'\
                                             f'{output_layer}'
-                            if not os.path.exists(fig_save_path):
-                                os.makedirs(fig_save_path)
+                            if not os.path.exists(figs_path):
+                                os.makedirs(figs_path)
                             plt.legend()
                             plt.tight_layout()
                             plt.suptitle(sup_title)
                             plt.savefig(
-                                f'{fig_save_path}/'
+                                f'{figs_path}/'
                                 f'regression_weights_across_sampling_rates_seed{random_seed}.png'
                             )
                             plt.close()
                             logging.info(
-                                f'[Saved] {fig_save_path}/'
+                                f'[Saved] {figs_path}/'
                                 f'regression_weights_across_sampling_rates_seed{random_seed}.png'
                             )
 
