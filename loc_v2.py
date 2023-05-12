@@ -600,9 +600,11 @@ def cross_dimension_analysis(
                                 f'{decoding_model_name}({decoding_model_hparams})'
                     # for across layers and sampling rates, 
                     # we save the plot at the same level as layers.
-                    fig_save_path = f'results/{env}/{movement_mode}/{moving_trajectory}/'\
+                    fig_save_path = f'figs/{env}/{movement_mode}/{moving_trajectory}/'\
                                     f'{model_name}/{experiment}/{feature_selection}/'\
                                     f'{decoding_model_name}_{decoding_model_hparams}'
+                    if not os.path.exists(fig_save_path):
+                        os.makedirs(fig_save_path)
                     plt.legend()
                     plt.suptitle(sup_title)
                     plt.savefig(f'{fig_save_path}/decoding_across_sampling_rates_n_layers.png')
@@ -682,10 +684,12 @@ def cross_dimension_analysis(
                     f'seed{random_seed})'
         # for coef and intercept distribution across sampling rates, 
         # we save the plot at the same as output layer.
-        fig_save_path = f'results/{env}/{movement_mode}/{moving_trajectory}/'\
+        fig_save_path = f'figs/{env}/{movement_mode}/{moving_trajectory}/'\
                         f'{model_name}/{experiment}/{feature_selection}/'\
                         f'{decoding_model_name}_{decoding_model_hparams}/'\
                         f'{output_layer}'
+        if not os.path.exists(fig_save_path):
+            os.makedirs(fig_save_path)
         plt.legend()
         plt.tight_layout()
         plt.suptitle(sup_title)
