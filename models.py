@@ -29,7 +29,7 @@ def load_model(model_name, output_layer=None, input_shape=(224, 224, 3)):
         if output_layer is None:
             output_layer = model.layers[-1].name
         model = Model(inputs=model.input, outputs=model.get_layer(output_layer).output)
-        model.summary()
+        # model.summary()
 
     else:
         if model_name == 'simclrv2_r50_1x_sk0':
