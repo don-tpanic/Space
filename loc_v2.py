@@ -616,85 +616,106 @@ def cross_dimension_analysis(
         # TODO: think about how to unify interface later.
 
         env = envs[0]
-        model_name = model_names[0]
-        output_layer = data.load_model_layers(model_name)[0]
         moving_trajectory = moving_trajectories[0]
-        feature_selection = feature_selections[0]
-        decoding_model_choice = decoding_model_choices[0]
         movement_mode = movement_modes[0]
-        random_seed = random_seeds[0]
-        decoding_model_name = decoding_model_choice['name']
-        decoding_model_hparams = decoding_model_choice['hparams']
 
-        # collect results across dimensions
-        # from base-case results.
-        results_collector = defaultdict(lambda: defaultdict())
-        for sampling_rate in sampling_rates:
-            results_path = \
-                f'results/{env}/{movement_mode}/{moving_trajectory}/'\
-                f'{model_name}/{experiment}/{feature_selection}/'\
-                f'{decoding_model_name}_{decoding_model_hparams}/'\
-                f'{output_layer}/sr{sampling_rate}/seed{random_seed}'
-            results = \
-                np.load(
-                f'{results_path}/res.npy', allow_pickle=True).item()
-            for weights_name in tracked_regression_weights:
-                results_collector[sampling_rate][weights_name] = results[weights_name]
-        
-        # plot collected results.
-        fig = plt.figure(figsize=(20, 20))
-        gs = fig.add_gridspec(len(sampling_rates), 4)
-        subtitles = [('x', 'b'), ('y', 'r'), ('rot', 'k')]
-        for row_idx, sampling_rate in enumerate(sampling_rates):
-            # load coef and intercept of a sampling rate  
-            coef = results_collector[sampling_rate]['coef']            # (targets, features)
-            intercept = results_collector[sampling_rate]['intercept']  # (targets,)
-            logging.info(f'coef.shape: {coef.shape}')
-            logging.info(f'intercept.shape: {intercept.shape}')
+        for model_name in model_names:
+            output_layers = data.load_model_layers(model_name)
+            for output_layer in output_layers:
+                for feature_selection in feature_selections:
+                    for decoding_model_choice in decoding_model_choices:
+                        decoding_model_name = decoding_model_choice['name']
+                        decoding_model_hparams = decoding_model_choice['hparams']
+                        for random_seed in random_seeds:
+                            if \
+                                (
+                                    'l1' in feature_selection and \
+                                    decoding_model_choice['name'] != 'lasso_regression'
+                                ) \
+                                or \
+                                (
+                                    'l2' in feature_selection and \
+                                    decoding_model_choice['name'] != 'ridge_regression'
+                                ):
+                                # logging.info(
+                                #     '[Skip] feature_selection and decoding_model_choice mismatch'
+                                # )
+                                continue
 
-            # add a subplot spans 3 columns for coef
-            ax_coef = fig.add_subplot(gs[row_idx, :-1])
-            for coef_index in range(len(subtitles)):
-                ax_coef.plot(
-                    coef[coef_index, :], alpha=0.2, 
-                    label=subtitles[coef_index][0],
-                    color=subtitles[coef_index][1]
-                )
+                            # collect results across dimensions
+                            # from base-case results.
+                            results_collector = defaultdict(lambda: defaultdict())
+                            for sampling_rate in sampling_rates:
+                                results_path = \
+                                    f'results/{env}/{movement_mode}/{moving_trajectory}/'\
+                                    f'{model_name}/{experiment}/{feature_selection}/'\
+                                    f'{decoding_model_name}_{decoding_model_hparams}/'\
+                                    f'{output_layer}/sr{sampling_rate}/seed{random_seed}'
+                                results = \
+                                    np.load(
+                                    f'{results_path}/res.npy', allow_pickle=True).item()
+                                for weights_name in tracked_regression_weights:
+                                    results_collector[sampling_rate][weights_name] = results[weights_name]
+                            
+                            # plot collected results.
+                            fig = plt.figure(figsize=(20, 20))
+                            gs = fig.add_gridspec(len(sampling_rates), 4)
+                            subtitles = [('x', 'b'), ('y', 'r'), ('rot', 'k')]
+                            for row_idx, sampling_rate in enumerate(sampling_rates):
+                                # load coef and intercept of a sampling rate  
+                                coef = results_collector[sampling_rate]['coef']            # (targets, features)
+                                intercept = results_collector[sampling_rate]['intercept']  # (targets,)
 
-            # add a subplot of 1 column for intercept
-            ax_intercept = fig.add_subplot(gs[row_idx, -1])
-            ax_intercept.plot(intercept, label='intercept')
-            # remove redundant xticks except last row
-            if row_idx < len(sampling_rates)-1:
-                ax_coef.set_xticks([])
-                ax_intercept.set_xticks([])
-            else:
-                ax_coef.set_xlabel('units')
-                ax_intercept.set_xlabel('intercepts')
+                                # add a subplot spans 3 columns for coef
+                                ax_coef = fig.add_subplot(gs[row_idx, :-1])
+                                for coef_index in range(len(subtitles)):
+                                    ax_coef.plot(
+                                        coef[coef_index, :], alpha=0.2, 
+                                        label=subtitles[coef_index][0],
+                                        color=subtitles[coef_index][1]
+                                    )
 
-            # add sampling rate as title
-            ax_coef.set_title(f'sampling rate: {sampling_rate}')
+                                # add a subplot of 1 column for intercept
+                                ax_intercept = fig.add_subplot(gs[row_idx, -1])
+                                ax_intercept.plot(intercept, label='intercept')
+                                # remove redundant xticks except last row
+                                if row_idx < len(sampling_rates)-1:
+                                    ax_coef.set_xticks([])
+                                    ax_intercept.set_xticks([])
+                                else:
+                                    ax_coef.set_xlabel('units')
+                                    ax_intercept.set_xlabel('intercepts')
 
-        ax_coef.legend()
-        ax_intercept.legend()
-        plt.tight_layout()
-        sup_title = f'{envs[0]},{movement_mode},'\
-                    f'{model_name},{feature_selection},'\
-                    f'{decoding_model_name}({decoding_model_hparams},'\
-                    f'seed{random_seed})'
-        # for coef and intercept distribution across sampling rates, 
-        # we save the plot at the same as output layer.
-        fig_save_path = f'figs/{env}/{movement_mode}/{moving_trajectory}/'\
-                        f'{model_name}/{experiment}/{feature_selection}/'\
-                        f'{decoding_model_name}_{decoding_model_hparams}/'\
-                        f'{output_layer}'
-        if not os.path.exists(fig_save_path):
-            os.makedirs(fig_save_path)
-        plt.legend()
-        plt.tight_layout()
-        plt.suptitle(sup_title)
-        plt.savefig(f'{fig_save_path}/regression_weights_across_sampling_rates.png')
-        plt.close()
+                                # add sampling rate as title
+                                ax_coef.set_title(f'sampling rate: {sampling_rate}')
+
+                            ax_coef.legend()
+                            ax_intercept.legend()
+                            plt.tight_layout()
+                            sup_title = f'{envs[0]},{movement_mode},'\
+                                        f'{model_name},{feature_selection},'\
+                                        f'{decoding_model_name}({decoding_model_hparams},'\
+                                        f'seed{random_seed})'
+                            # for coef and intercept distribution across sampling rates, 
+                            # we save the plot at the same as output layer.
+                            fig_save_path = f'figs/{env}/{movement_mode}/{moving_trajectory}/'\
+                                            f'{model_name}/{experiment}/{feature_selection}/'\
+                                            f'{decoding_model_name}_{decoding_model_hparams}/'\
+                                            f'{output_layer}'
+                            if not os.path.exists(fig_save_path):
+                                os.makedirs(fig_save_path)
+                            plt.legend()
+                            plt.tight_layout()
+                            plt.suptitle(sup_title)
+                            plt.savefig(
+                                f'{fig_save_path}/'
+                                f'regression_weights_across_sampling_rates_seed{random_seed}.png'
+                            )
+                            plt.close()
+                            logging.info(
+                                f'[Saved] {fig_save_path}/'
+                                f'regression_weights_across_sampling_rates_seed{random_seed}.png'
+                            )
 
 
 def load_envs_dict(model_name, envs):
@@ -762,7 +783,7 @@ if __name__ == '__main__':
     )
 
     cross_dimension_analysis(
-        analysis='decoding_across_sampling_rates_n_layers',
+        analysis='regression_weights_across_sampling_rates',
         envs=envs,
         movement_modes=movement_modes,
         model_names=model_names,
