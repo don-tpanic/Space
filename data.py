@@ -9,7 +9,6 @@ import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.preprocessing.image \
     import load_img, img_to_array
-import utils
 
 
 def generate_random_data(
