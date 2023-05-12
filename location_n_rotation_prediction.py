@@ -16,7 +16,7 @@ from sklearn import linear_model
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 
-import utils_v2
+import utils
 import data
 import models
 
@@ -310,8 +310,8 @@ def _single_env_decoding_error(
         )
         return
 
-    config = utils_v2.load_config(config_version)
-    results_path = utils_v2.load_results_path(
+    config = utils.load_config(config_version)
+    results_path = utils.load_results_path(
         config=config,
         experiment=experiment,
         feature_selection=feature_selection,
