@@ -52,7 +52,7 @@ def load_results_path(
         ):  
             # do not create dir if mismatch between 
             # feature selection and decoding model
-            pass
+            results_path = None
         
         else:
             os.makedirs(results_path)
