@@ -258,7 +258,7 @@ def multi_envs_viz_units_CPU(
         feature_selections,
         decoding_model_choices,
         random_seeds,
-        top_n_units,
+        filterings,
     ):
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     with multiprocessing.Pool(processes=CPU_NUM_PROCESSES) as pool:
@@ -271,18 +271,22 @@ def multi_envs_viz_units_CPU(
                         for feature_selection in feature_selections:
                             for decoding_model_choice in decoding_model_choices:
                                 for random_seed in random_seeds:
-                                    res = pool.apply_async(
-                                        target_func,
-                                        args=(
-                                            config_version, 
-                                            experiment,
-                                            feature_selection, 
-                                            decoding_model_choice,
-                                            sampling_rate,
-                                            moving_trajectory,
-                                            random_seed,
-                                            top_n_units,
-                                        )
+                                    for filtering in filterings:
+                                        n_units_filtering = filtering['n_units_filtering']
+                                        filtering_order = filtering['filtering_order']
+                                        res = pool.apply_async(
+                                            target_func,
+                                            args=(
+                                                config_version, 
+                                                experiment,
+                                                feature_selection, 
+                                                decoding_model_choice,
+                                                sampling_rate,
+                                                moving_trajectory,
+                                                random_seed,
+                                                n_units_filtering,
+                                                filtering_order,
+                                            )
                                     )
         logging.info(res.get())
         pool.close()
@@ -367,13 +371,12 @@ if __name__ == '__main__':
         logging.basicConfig(level=logging.DEBUG)
 
     # ======================================== #
-    TF_NUM_INTRAOP_THREADS = 20
-    CPU_NUM_PROCESSES = 1
+    TF_NUM_INTRAOP_THREADS = 2
+    CPU_NUM_PROCESSES = 30
     experiment = 'viz'
     envs = ['env28_r24']
     movement_modes = ['2d']
-    # sampling_rates = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
-    sampling_rates = [0.1]
+    sampling_rates = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
     random_seeds = [42, 1234, 999]
     # model_names = ['simclrv2_r50_1x_sk0', 'resnet50', 'vgg16']
     model_names = ['vgg16']
@@ -392,7 +395,8 @@ if __name__ == '__main__':
     ]
     # ======================================== #
     
-    multi_envs_viz_units_GPU(
+    # multi_envs_viz_units_GPU(
+    multi_envs_viz_units_CPU(
         target_func=_single_env_viz_units,
         envs=envs,
         model_names=model_names,
@@ -403,5 +407,8 @@ if __name__ == '__main__':
         decoding_model_choices=decoding_model_choices,
         random_seeds=random_seeds,
         filterings=filterings,
-        cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
+        # cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
     )
+
+    # print time elapsed
+    logging.info(f'Time elapsed: {time.time() - start_time:.2f}s')
