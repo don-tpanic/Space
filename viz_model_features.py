@@ -10,7 +10,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-import utils_v2
+import utils
 import data
 import models
 
@@ -35,7 +35,7 @@ def _single_env_viz_units(
     os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
 
-    config = utils_v2.load_config(config_version)
+    config = utils.load_config(config_version)
     n_rotations=config['n_rotations']
     movement_mode=config['movement_mode']
     env_x_min=config['env_x_min']
@@ -43,7 +43,7 @@ def _single_env_viz_units(
     env_y_min=config['env_y_min']
     env_y_max=config['env_y_max']
     multiplier=config['multiplier']
-    results_path = utils_v2.load_results_path(
+    results_path = utils.load_results_path(
         config=config,
         experiment='loc_n_rot',  # Dirty but coef is saved in loc_n_rot
         feature_selection=feature_selection,
@@ -151,7 +151,7 @@ def _single_env_viz_units(
                         f"({decoding_model_choice['hparams']})"
             
             logging.info('Saving units heatmaps...')
-            results_path = utils_v2.load_results_path(
+            results_path = utils.load_results_path(
                 config=config,
                 experiment=experiment,
                 feature_selection=feature_selection,
@@ -199,7 +199,7 @@ def _single_env_viz_units(
                         f"({decoding_model_choice['hparams']})"
             
             logging.info('Saving units heatmaps (summed)...')
-            results_path = utils_v2.load_results_path(
+            results_path = utils.load_results_path(
                 config=config,
                 experiment=experiment,
                 feature_selection=feature_selection,
@@ -299,7 +299,7 @@ def multi_envs_viz_units_GPU(
 
         logging.info(f'args_list = {args_list}')
         logging.info(f'args_list len = {len(args_list)}')
-        utils_v2.cuda_manager(
+        utils.cuda_manager(
             target_func, args_list, cuda_id_list
         )
         # TODO: is this indent correct?
