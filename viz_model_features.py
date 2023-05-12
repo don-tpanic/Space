@@ -52,8 +52,10 @@ def _single_env_viz_units(
         moving_trajectory=moving_trajectory,
         random_seed=random_seed,
     )
-
     logging.info(f'Loading results (for coef) from {results_path}')
+    if results_path is None:
+        logging.info(f'Mismatch between feature selection and decoding model, skip.')
+        return
 
     # load model outputs
     if config['model_name'] == 'none':
