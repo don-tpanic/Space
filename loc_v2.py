@@ -441,30 +441,6 @@ def multi_envs_across_dimensions_CPU(
         pool.close()
         pool.join()
 
-    # analysis_dimensions = {
-    #     'experiment': experiment,
-    #     'moving_trajectory': moving_trajectories,
-    #     'sampling_rate': sampling_rates,
-    #     'feature_selection': feature_selections,
-    #     'decoding_model_choice': decoding_model_choices,
-    #     'random_seed': random_seeds,
-    # }
-    
-    # with multiprocessing.Pool(processes=CPU_NUM_PROCESSES) as pool:
-    #     for model_name in model_names:
-    #         for config_version in \
-    #             list(load_envs_dict(model_name, envs).keys()):
-    #             for dimension_combination in \
-    #                 itertools.product(*analysis_dimensions.values()):
-    #                 res = pool.apply_async(
-    #                     _single_env_decoding_error, 
-    #                     args=(config_version, dimension_combination,)
-    #                 )
-
-    #     logging.info(res.get())
-    #     pool.close()
-    #     pool.join()
-
 
 def cross_dimension_analysis(
         analysis='across_sampling_rates_n_layers',
