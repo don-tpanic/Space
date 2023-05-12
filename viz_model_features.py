@@ -167,15 +167,15 @@ def _single_env_viz_units(
             logging.info(f'[Saved] units heatmaps {targets[target_index]}'\
                          f' to {figs_path}')
 
-            # TODO: integrate into above or keep just this one.
-            ### plot summed over rotation heatmap
-            # model_reps_filtered = model_reps[:, :, top_n_units_indices]
+
+            # plot summed over rotation heatmap and distribution of loc-wise
+            # activation intensities.
             model_reps_filtered = np.sum(
                 model_reps_filtered, axis=1, keepdims=True)
 
             fig, axes = plt.subplots(
                 nrows=model_reps_filtered.shape[2], 
-                ncols=model_reps_filtered.shape[1], 
+                ncols=2,  # 1 for heatmap, 1 for distribution
                 figsize=(25, 25),
             )
 
@@ -187,12 +187,20 @@ def _single_env_viz_units(
                             (env_x_max*multiplier-env_x_min*multiplier+1, 
                             env_y_max*multiplier-env_y_min*multiplier+1)
                         )
-                        # plot heatmap
-                        axes[unit_index].imshow(heatmap)
-                        axes[-1].set_xlabel('Unity x-axis')
-                        axes[unit_index].set_ylabel('Unity z-axis')
-                        axes[unit_index].set_title(
+
+                        # plot heatmap on the left column.
+                        axes[unit_index, 0].imshow(heatmap)
+                        axes[-1, 0].set_xlabel('Unity x-axis')
+                        axes[unit_index, 0].set_ylabel('Unity z-axis')
+                        axes[unit_index, 0].set_title(
                             f'u{top_n_units_indices[unit_index]}')
+                        
+                        # plot distribution on the right column.
+                        axes[unit_index, 1].hist(
+                            model_reps_filtered[:, rotation, unit_index],
+                            bins=10,
+                        )
+                        axes[-1, 1].set_xlabel('Activation intensity')
 
             sup_title = f"{targets[target_index]} - {config['unity_env']},{movement_mode},"\
                         f"{config['model_name']},{feature_selection}"\
