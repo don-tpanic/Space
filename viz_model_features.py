@@ -157,7 +157,8 @@ def _single_env_viz_units(
                 sup_title = f"{filtering_order},{targets[target_index]}, "\
                             f"{config['unity_env']},{movement_mode},"\
                             f"{config['model_name']},{feature_selection}"\
-                            f"({decoding_model_choice['hparams']})"
+                            f"({decoding_model_choice['hparams']}),"\
+                            f"sr{sampling_rate},seed{random_seed}"
                 
                 figs_path = utils.load_figs_path(
                     config=config,
@@ -220,7 +221,8 @@ def _single_env_viz_units(
                 sup_title = f"{filtering_order},{targets[target_index]},"\
                             f"{config['unity_env']},{movement_mode},"\
                             f"{config['model_name']},{feature_selection}"\
-                            f"({decoding_model_choice['hparams']})"
+                            f"({decoding_model_choice['hparams']}),"\
+                            f"sr{sampling_rate},seed{random_seed}"
                 
                 figs_path = utils.load_figs_path(
                     config=config,
