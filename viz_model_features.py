@@ -27,8 +27,7 @@ def _single_env_viz_units(
         sampling_rate,
         moving_trajectory,
         random_seed,
-        n_units_filtering,
-        filtering_order,        
+        filterings,    
     ):
     """
     Plot individual model units of each rotation independently.
@@ -123,125 +122,124 @@ def _single_env_viz_units(
             # filter columns of `model_reps` 
             # based on each coef of each target
             # based on `n_units_filtering` and `filtering_order`
-            if filtering_order == 'top_n':
-                filtered_n_units_indices = np.argsort(coef[target_index, :])[::-1][:n_units_filtering]
-                model_reps_filtered = model_reps[:, :, filtered_n_units_indices]
-            elif filtering_order == 'bottom_n':
-                filtered_n_units_indices = np.argsort(coef[target_index, :])[:n_units_filtering]
-                model_reps_filtered = model_reps[:, :, filtered_n_units_indices]
-            coef_filtered = coef[target_index, filtered_n_units_indices]
+            for filtering in filterings:
+                n_units_filtering = filtering['n_units_filtering']
+                filtering_order = filtering['filtering_order']
+                if filtering_order == 'top_n':
+                    filtered_n_units_indices = np.argsort(coef[target_index, :])[::-1][:n_units_filtering]
+                    model_reps_filtered = model_reps[:, :, filtered_n_units_indices]
+                elif filtering_order == 'bottom_n':
+                    filtered_n_units_indices = np.argsort(coef[target_index, :])[:n_units_filtering]
+                    model_reps_filtered = model_reps[:, :, filtered_n_units_indices]
+                coef_filtered = coef[target_index, filtered_n_units_indices]
 
-            fig, axes = plt.subplots(
-                nrows=model_reps_filtered.shape[2], 
-                ncols=model_reps_filtered.shape[1], 
-                figsize=(25, 25),
-            )
+                fig, axes = plt.subplots(
+                    nrows=model_reps_filtered.shape[2], 
+                    ncols=model_reps_filtered.shape[1], 
+                    figsize=(25, 25))
+                for unit_index in range(model_reps_filtered.shape[2]):
+                    for rotation in range(model_reps_filtered.shape[1]):
+                        if movement_mode == '2d':
+                            # reshape to (n_locations, n_rotations, n_features)
+                            heatmap = model_reps_filtered[:, rotation, unit_index].reshape(
+                                (env_x_max*multiplier-env_x_min*multiplier+1, 
+                                env_y_max*multiplier-env_y_min*multiplier+1)
+                            )
+                            # plot heatmap
+                            axes[unit_index, rotation].imshow(heatmap)
+                            axes[-1, rotation].set_xlabel('Unity x-axis')
+                            axes[unit_index, 0].set_ylabel('Unity z-axis')
+                            axes[unit_index, rotation].set_xticks([])
+                            axes[unit_index, rotation].set_yticks([])
+                            axes[unit_index, rotation].set_title(
+                                f'u{filtered_n_units_indices[unit_index]},r{rotation}')
 
-            for unit_index in range(model_reps_filtered.shape[2]):
-                for rotation in range(model_reps_filtered.shape[1]):
-                    if movement_mode == '2d':
-                        # reshape to (n_locations, n_rotations, n_features)
-                        heatmap = model_reps_filtered[:, rotation, unit_index].reshape(
-                            (env_x_max*multiplier-env_x_min*multiplier+1, 
-                            env_y_max*multiplier-env_y_min*multiplier+1)
-                        )
-                        # plot heatmap
-                        axes[unit_index, rotation].imshow(heatmap)
-                        axes[-1, rotation].set_xlabel('Unity x-axis')
-                        axes[unit_index, 0].set_ylabel('Unity z-axis')
-                        axes[unit_index, rotation].set_xticks([])
-                        axes[unit_index, rotation].set_yticks([])
-                        axes[unit_index, rotation].set_title(
-                            f'u{filtered_n_units_indices[unit_index]},r{rotation}')
-
-            sup_title = f"{filtering_order},{targets[target_index]}, "\
-                        f"{config['unity_env']},{movement_mode},"\
-                        f"{config['model_name']},{feature_selection}"\
-                        f"({decoding_model_choice['hparams']})"
-            
-            figs_path = utils.load_figs_path(
-                config=config,
-                experiment=experiment,
-                feature_selection=feature_selection,
-                decoding_model_choice=decoding_model_choice,
-                sampling_rate=sampling_rate,
-                moving_trajectory=moving_trajectory,
-                random_seed=random_seed,
-            )
-            fig.tight_layout(rect=[0, 0.03, 1, 0.98])
-            plt.suptitle(sup_title)
-            # plt.tight_layout()
-            plt.savefig(
-                f'{figs_path}/units_heatmaps_{targets[target_index]}'\
-                f'_{filtering_order}.png')
-            plt.close()
-            logging.info(
-                f'[Saved] units heatmaps {targets[target_index]} {filtering_order}'\
-                f' to {figs_path}')
+                sup_title = f"{filtering_order},{targets[target_index]}, "\
+                            f"{config['unity_env']},{movement_mode},"\
+                            f"{config['model_name']},{feature_selection}"\
+                            f"({decoding_model_choice['hparams']})"
+                
+                figs_path = utils.load_figs_path(
+                    config=config,
+                    experiment=experiment,
+                    feature_selection=feature_selection,
+                    decoding_model_choice=decoding_model_choice,
+                    sampling_rate=sampling_rate,
+                    moving_trajectory=moving_trajectory,
+                    random_seed=random_seed,
+                )
+                # fix suptitle overlap.
+                fig.tight_layout(rect=[0, 0.03, 1, 0.98])
+                plt.suptitle(sup_title)
+                plt.savefig(
+                    f'{figs_path}/units_heatmaps_{targets[target_index]}'\
+                    f'_{filtering_order}.png')
+                plt.close()
+                logging.info(
+                    f'[Saved] units heatmaps {targets[target_index]} {filtering_order}'\
+                    f' to {figs_path}')
 
 
-            # plot summed over rotation heatmap and distribution of loc-wise
-            # activation intensities.
-            model_reps_filtered = np.sum(
-                model_reps_filtered, axis=1, keepdims=True)
+                # plot summed over rotation heatmap and distribution of loc-wise
+                # activation intensities.
+                model_reps_filtered = np.sum(
+                    model_reps_filtered, axis=1, keepdims=True)
 
-            fig, axes = plt.subplots(
-                nrows=model_reps_filtered.shape[2], 
-                ncols=2,  # 1 for heatmap, 1 for distribution
-                figsize=(5, 25),
-            )
+                # 1 for heatmap, 1 for distribution
+                fig, axes = plt.subplots(
+                    nrows=model_reps_filtered.shape[2], 
+                    ncols=2,
+                    figsize=(5, 25))
+                for unit_index in range(model_reps_filtered.shape[2]):
+                    for rotation in range(model_reps_filtered.shape[1]):
+                        if movement_mode == '2d':
+                            # reshape to (n_locations, n_rotations, n_features)
+                            heatmap = model_reps_filtered[:, rotation, unit_index].reshape(
+                                (env_x_max*multiplier-env_x_min*multiplier+1, 
+                                env_y_max*multiplier-env_y_min*multiplier+1)
+                            )
 
-            for unit_index in range(model_reps_filtered.shape[2]):
-                for rotation in range(model_reps_filtered.shape[1]):
-                    if movement_mode == '2d':
-                        # reshape to (n_locations, n_rotations, n_features)
-                        heatmap = model_reps_filtered[:, rotation, unit_index].reshape(
-                            (env_x_max*multiplier-env_x_min*multiplier+1, 
-                            env_y_max*multiplier-env_y_min*multiplier+1)
-                        )
+                            # plot heatmap on the left column.
+                            axes[unit_index, 0].imshow(heatmap)
+                            axes[-1, 0].set_xlabel('Unity x-axis')
+                            axes[-1, 0].set_ylabel('Unity z-axis')
+                            axes[unit_index, 0].set_xticks([])
+                            axes[unit_index, 0].set_yticks([])
+                            axes[unit_index, 0].set_title(
+                                f'u{filtered_n_units_indices[unit_index]},'\
+                                f'coef{coef_filtered[unit_index]:.2f}'
+                            )
+                            
+                            # plot distribution on the right column.
+                            axes[unit_index, 1].hist(
+                                model_reps_filtered[:, rotation, unit_index],
+                                bins=10,
+                            )
+                            axes[-1, 1].set_xlabel('Activation intensity')
 
-                        # plot heatmap on the left column.
-                        axes[unit_index, 0].imshow(heatmap)
-                        axes[-1, 0].set_xlabel('Unity x-axis')
-                        axes[-1, 0].set_ylabel('Unity z-axis')
-                        axes[unit_index, 0].set_xticks([])
-                        axes[unit_index, 0].set_yticks([])
-                        axes[unit_index, 0].set_title(
-                            f'u{filtered_n_units_indices[unit_index]},'\
-                            f'coef{coef_filtered[unit_index]:.2f}'
-                        )
-                        
-                        # plot distribution on the right column.
-                        axes[unit_index, 1].hist(
-                            model_reps_filtered[:, rotation, unit_index],
-                            bins=10,
-                        )
-                        axes[-1, 1].set_xlabel('Activation intensity')
-
-            sup_title = f"{filtering_order},{targets[target_index]},"\
-                        f"{config['unity_env']},{movement_mode},"\
-                        f"{config['model_name']},{feature_selection}"\
-                        f"({decoding_model_choice['hparams']})"
-            
-            figs_path = utils.load_figs_path(
-                config=config,
-                experiment=experiment,
-                feature_selection=feature_selection,
-                decoding_model_choice=decoding_model_choice,
-                sampling_rate=sampling_rate,
-                moving_trajectory=moving_trajectory,
-                random_seed=random_seed,
-            )
-            fig.tight_layout(rect=[0, 0.03, 1, 0.95])
-            plt.suptitle(sup_title)
-            # plt.tight_layout()
-            plt.savefig(
-                f'{figs_path}/units_heatmaps_{targets[target_index]}_'\
-                f'{filtering_order}_summed.png')
-            plt.close()
-            logging.info(
-                f'[Saved] units heatmaps {targets[target_index]} {filtering_order} '\
-                f'(summed) to {figs_path}')
+                sup_title = f"{filtering_order},{targets[target_index]},"\
+                            f"{config['unity_env']},{movement_mode},"\
+                            f"{config['model_name']},{feature_selection}"\
+                            f"({decoding_model_choice['hparams']})"
+                
+                figs_path = utils.load_figs_path(
+                    config=config,
+                    experiment=experiment,
+                    feature_selection=feature_selection,
+                    decoding_model_choice=decoding_model_choice,
+                    sampling_rate=sampling_rate,
+                    moving_trajectory=moving_trajectory,
+                    random_seed=random_seed,
+                )
+                fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+                plt.suptitle(sup_title)
+                plt.savefig(
+                    f'{figs_path}/units_heatmaps_{targets[target_index]}_'\
+                    f'{filtering_order}_summed.png')
+                plt.close()
+                logging.info(
+                    f'[Saved] units heatmaps {targets[target_index]} {filtering_order} '\
+                    f'(summed) to {figs_path}')
 
     else:
         # TODO: metric-based feature selection.
@@ -271,22 +269,18 @@ def multi_envs_viz_units_CPU(
                         for feature_selection in feature_selections:
                             for decoding_model_choice in decoding_model_choices:
                                 for random_seed in random_seeds:
-                                    for filtering in filterings:
-                                        n_units_filtering = filtering['n_units_filtering']
-                                        filtering_order = filtering['filtering_order']
-                                        res = pool.apply_async(
-                                            target_func,
-                                            args=(
-                                                config_version, 
-                                                experiment,
-                                                feature_selection, 
-                                                decoding_model_choice,
-                                                sampling_rate,
-                                                moving_trajectory,
-                                                random_seed,
-                                                n_units_filtering,
-                                                filtering_order,
-                                            )
+                                    res = pool.apply_async(
+                                        target_func,
+                                        args=(
+                                            config_version, 
+                                            experiment,
+                                            feature_selection, 
+                                            decoding_model_choice,
+                                            sampling_rate,
+                                            moving_trajectory,
+                                            random_seed,
+                                            filterings,
+                                        )
                                     )
         logging.info(res.get())
         pool.close()
@@ -316,18 +310,16 @@ def multi_envs_viz_units_GPU(
                     for feature_selection in feature_selections:
                         for decoding_model_choice in decoding_model_choices:
                             for random_seed in random_seeds:
-                                for filtering in filterings:
-                                    single_entry = {}
-                                    single_entry['config_version'] = config_version
-                                    single_entry['moving_trajectory'] = moving_trajectory
-                                    single_entry['sampling_rate'] = sampling_rate
-                                    single_entry['experiment'] = experiment
-                                    single_entry['feature_selection'] = feature_selection
-                                    single_entry['decoding_model_choice'] = decoding_model_choice
-                                    single_entry['random_seed'] = random_seed
-                                    single_entry['n_units_filtering'] = filtering['n_units_filtering']
-                                    single_entry['filtering_order'] = filtering['filtering_order']
-                                    args_list.append(single_entry)
+                                single_entry = {}
+                                single_entry['config_version'] = config_version
+                                single_entry['moving_trajectory'] = moving_trajectory
+                                single_entry['sampling_rate'] = sampling_rate
+                                single_entry['experiment'] = experiment
+                                single_entry['feature_selection'] = feature_selection
+                                single_entry['decoding_model_choice'] = decoding_model_choice
+                                single_entry['random_seed'] = random_seed
+                                single_entry['filterings'] = filterings
+                                args_list.append(single_entry)
 
         logging.info(f'args_list = {args_list}')
         logging.info(f'args_list len = {len(args_list)}')
@@ -372,7 +364,7 @@ if __name__ == '__main__':
 
     # ======================================== #
     TF_NUM_INTRAOP_THREADS = 2
-    CPU_NUM_PROCESSES = 30
+    CPU_NUM_PROCESSES = 30         
     experiment = 'viz'
     envs = ['env28_r24']
     movement_modes = ['2d']
@@ -407,8 +399,10 @@ if __name__ == '__main__':
         decoding_model_choices=decoding_model_choices,
         random_seeds=random_seeds,
         filterings=filterings,
-        # cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
+        # cuda_id_list=[0],
     )
 
     # print time elapsed
     logging.info(f'Time elapsed: {time.time() - start_time:.2f}s')
+
+    # 5269.65s for one model across seeds and sampling rates
