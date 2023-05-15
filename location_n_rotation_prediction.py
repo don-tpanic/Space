@@ -477,18 +477,13 @@ def cross_dimension_analysis(
 
     if analysis == 'decoding_across_sampling_rates_n_layers':
 
-        # TODO: need add loops for models, feature selections, etc.
-
         env = envs[0]
         moving_trajectory = moving_trajectories[0]
-        # feature_selection = feature_selections[0]
         movement_mode = movement_modes[0]
 
         for model_name in model_names:
             output_layers = data.load_model_layers(model_name)
-
             for feature_selection in feature_selections:
-
                 for decoding_model_choice in decoding_model_choices:
                     decoding_model_name = decoding_model_choice['name']
                     decoding_model_hparams = decoding_model_choice['hparams']
@@ -503,17 +498,14 @@ def cross_dimension_analysis(
                             'l2' in feature_selection and \
                             decoding_model_choice['name'] != 'ridge_regression'
                         ):
-                        # logging.info(
-                        #     '[Skip] feature_selection and decoding_model_choice mismatch'
-                        # )
                         continue
 
                     # collect results across dimensions
                     # from base-case results.
                     results_collector = \
-                        defaultdict(
-                            lambda: defaultdict(
-                                lambda: defaultdict(list)
+                        defaultdict(                            # key - error_type
+                            lambda: defaultdict(                # key - output_layer
+                                lambda: defaultdict(list)       # key - metric
                             )
                         )
                     
@@ -524,14 +516,12 @@ def cross_dimension_analysis(
                                 # we accumulate results in a list to plot at once.
                                 to_average_over_seeds = defaultdict(list)
                                 for random_seed in random_seeds:
-                                
                                     results_path = \
                                         f'results/{env}/{movement_mode}/{moving_trajectory}/'\
                                         f'{model_name}/{experiment}/{feature_selection}/'\
                                         f'{decoding_model_name}_{decoding_model_hparams}/'\
                                         f'{output_layer}/sr{sampling_rate}/seed{random_seed}'
                                     results = np.load(f'{results_path}/res.npy', allow_pickle=True).item()[error_type]
-                                    
                                     for metric in tracked_metrics:
                                         to_average_over_seeds[metric].append(results[metric])
                                 
@@ -553,6 +543,8 @@ def cross_dimension_analysis(
                                     results_collector[error_type][output_layer][metric].append(avg_res)
                     
                     # plot collected results.
+                    # left subplot for loc error, right subplot for rot error.
+                    # x-axis is sampling rate, y-axis is decoding error.
                     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
                     for i, error_type in enumerate(error_types):
                         for output_layer in output_layers:
@@ -573,18 +565,26 @@ def cross_dimension_analysis(
                                     )
                                 else:
                                     if 'baseline' in metric:
+                                        # no need to label baseline for each layer
+                                        # we only going to label baseline when we plot
+                                        # the last layer.
                                         if output_layer == output_layers[-1]:
                                             label = metric
                                         else:
-                                            label = None  # no need to label baseline for each layer
+                                            label = None  
                                         if 'mid' in metric: 
                                             color = 'cyan'
                                         else: 
                                             color = 'blue'
                                     else:
+                                        # for non-baseline layer performance,
+                                        # we label each layer and use layer-specific color.
                                         label = output_layer
                                         color = load_envs_dict(model_name, envs)[
                                             f'{envs[0]}_{movement_mode}_{model_name}_{output_layer}']['color']
+                                    
+                                    # either baseline or non-baseline layer performance,
+                                    # we always plot them.
                                     axes[i].plot(
                                         sampling_rates,
                                         results_collector[error_type][output_layer][metric],
