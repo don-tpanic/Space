@@ -72,9 +72,28 @@ def _find_clusters(heatmap, pixel_min_threshold, pixel_max_threshold):
     max_value_in_clusters = []
     for label in np.unique(filtered_labels):
         if label != 0:
-            max_value_in_clusters.append(np.max(heatmap[filtered_labels == label]))
+            max_value_in_clusters.append(
+                np.around(
+                    np.max(heatmap[filtered_labels == label]), 1
+                )
+            )
 
-    return num_clusters, num_pixels_in_clusters, max_value_in_clusters
+    # TODO: do we actually need this?
+    # # Draw contours of each cluster over the heatmap
+    # # ref: https://stackoverflow.com/questions/8830619/difference-between-cv-retr-list-cv-retr-tree-cv-retr-external
+    # for label in np.unique(filtered_labels):
+    #     if label != 0:
+    #         # find the contour of each cluster
+    #         # contour \in (n_points, 1, 2)
+    #         contour = cv2.findContours(
+    #             (filtered_labels == label).astype(np.uint8), 
+    #             cv2.RETR_CCOMP, 
+    #             cv2.CHAIN_APPROX_SIMPLE
+    #         )[0][0]
+    #         # draw the contour on the heatmap
+    #         cv2.drawContours(heatmap, [contour], -1, (255), 1)
+
+    return num_clusters, num_pixels_in_clusters, max_value_in_clusters, filtered_labels
 
 
 def _single_env_metric_units(
@@ -182,12 +201,12 @@ def _single_env_metric_units(
                     (env_x_max*multiplier-env_x_min*multiplier+1, 
                     env_y_max*multiplier-env_y_min*multiplier+1)
                 )
-
+                # plot the original heatmap from model_reps
                 axes[unit_index, 0].imshow(heatmap)
 
                 # count number of clusters and size of each cluster
-                num_clusters, num_pixels_in_clusters, max_value_in_clusters = \
-                    _find_clusters(
+                num_clusters, num_pixels_in_clusters, max_value_in_clusters, \
+                    heatmap_with_contours =  _find_clusters(
                         heatmap,
                         pixel_min_threshold=10,
                         pixel_max_threshold=\
@@ -195,7 +214,7 @@ def _single_env_metric_units(
                 )
 
                 # plot on the mid column.
-                axes[unit_index, 1].imshow(heatmap, interpolation='none')
+                axes[unit_index, 1].imshow(heatmap_with_contours)
                 
                 # write number of clusters and size of each cluster on each subplot
                 axes[unit_index, 1].set_title(
