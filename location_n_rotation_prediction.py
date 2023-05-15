@@ -609,6 +609,136 @@ def cross_dimension_analysis(
                     plt.close()
                     logging.info(f'[Saved] {figs_path}/decoding_across_sampling_rates_n_layers.png')
 
+    elif analysis == 'decoding_across_sampling_rates_n_layers_per_seed':
+
+        env = envs[0]
+        moving_trajectory = moving_trajectories[0]
+        movement_mode = movement_modes[0]
+
+        for random_seed in random_seeds:
+            for model_name in model_names:
+                output_layers = data.load_model_layers(model_name)
+                for feature_selection in feature_selections:
+                    for decoding_model_choice in decoding_model_choices:
+                        decoding_model_name = decoding_model_choice['name']
+                        decoding_model_hparams = decoding_model_choice['hparams']
+
+                        if \
+                            (
+                                'l1' in feature_selection and \
+                                decoding_model_choice['name'] != 'lasso_regression'
+                            ) \
+                            or \
+                            (
+                                'l2' in feature_selection and \
+                                decoding_model_choice['name'] != 'ridge_regression'
+                            ):
+                            continue
+
+                        # collect results across dimensions
+                        # from base-case results.
+                        results_collector = \
+                            defaultdict(                            # key - error_type
+                                lambda: defaultdict(                # key - output_layer
+                                    lambda: defaultdict(list)       # key - metric
+                                )
+                            )
+                        
+                        for error_type in error_types:
+                            for output_layer in output_layers:
+                                # we accumulate results across sampling rates in the base-list
+                                # of the nested defaultdict.
+                                for sampling_rate in sampling_rates:
+                                    results_path = \
+                                        f'results/{env}/{movement_mode}/{moving_trajectory}/'\
+                                        f'{model_name}/{experiment}/{feature_selection}/'\
+                                        f'{decoding_model_name}_{decoding_model_hparams}/'\
+                                        f'{output_layer}/sr{sampling_rate}/seed{random_seed}'
+                                    results = np.load(f'{results_path}/res.npy', allow_pickle=True).item()[error_type]
+                            
+                                    for metric in tracked_metrics:
+                                        res = results[metric]
+                                        if metric == 'ci':
+                                            ci_low = res[0]
+                                            ci_high = res[1]
+                                            res = [ci_low, ci_high]
+                                        results_collector[error_type][output_layer][metric].append(res)
+                        
+                        # plot collected results.
+                        # left subplot for loc error, right subplot for rot error.
+                        # x-axis is sampling rate, y-axis is decoding error.
+                        fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+                        for i, error_type in enumerate(error_types):
+                            for output_layer in output_layers:
+                                for metric in tracked_metrics:
+                                    # when metric is about confidence interval, 
+                                    # instead of plot, we fill_between
+                                    if metric == 'ci':
+                                        ci_low = np.array(
+                                            results_collector[error_type][output_layer][metric])[:, 0]
+                                        ci_high = np.array(
+                                            results_collector[error_type][output_layer][metric])[:, 1]
+                                        axes[i].fill_between(
+                                            sampling_rates,
+                                            ci_low,
+                                            ci_high,
+                                            alpha=0.2,
+                                            color='grey',
+                                        )
+                                    else:
+                                        if 'baseline' in metric:
+                                            # no need to label baseline for each layer
+                                            # we only going to label baseline when we plot
+                                            # the last layer.
+                                            if output_layer == output_layers[-1]:
+                                                label = metric
+                                            else:
+                                                label = None  
+                                            if 'mid' in metric: 
+                                                color = 'cyan'
+                                            else: 
+                                                color = 'blue'
+                                        else:
+                                            # for non-baseline layer performance,
+                                            # we label each layer and use layer-specific color.
+                                            label = output_layer
+                                            color = load_envs_dict(model_name, envs)[
+                                                f'{envs[0]}_{movement_mode}_{model_name}_{output_layer}']['color']
+                                        
+                                        # either baseline or non-baseline layer performance,
+                                        # we always plot them.
+                                        axes[i].plot(
+                                            sampling_rates,
+                                            results_collector[error_type][output_layer][metric],
+                                            label=label,
+                                            color=color,
+                                        )
+                            axes[i].set_xlabel('sampling rates')
+                            axes[i].set_title(error_type)
+
+                        sup_title = f'{envs[0]},{movement_mode},'\
+                                    f'{model_name},{feature_selection},'\
+                                    f'{decoding_model_name}'\
+                                    f'({decoding_model_hparams}),seed{random_seed}'
+                        
+                        # for across layers and sampling rates, 
+                        # we save the plot at the same level as layers.
+                        figs_path = f'figs/{env}/{movement_mode}/{moving_trajectory}/'\
+                                    f'{model_name}/{experiment}/{feature_selection}/'\
+                                    f'{decoding_model_name}_{decoding_model_hparams}'
+            
+                        if not os.path.exists(figs_path):
+                            os.makedirs(figs_path)
+                        plt.legend()
+                        plt.suptitle(sup_title)
+                        plt.savefig(
+                            f'{figs_path}/'\
+                            f'decoding_across_sampling_rates_n_layers_seed{random_seed}.png')
+                        plt.close()
+                        logging.info(
+                            f'[Saved] {figs_path}/'
+                            f'decoding_across_sampling_rates_n_layers_seed{random_seed}.png')
+
     elif analysis == 'regression_weights_across_sampling_rates':
 
         # TODO: think about how to unify interface later.
@@ -757,13 +887,14 @@ if __name__ == '__main__':
     movement_modes = ['2d']
     sampling_rates = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
     random_seeds = [42, 1234, 999]
-    model_names = ['simclrv2_r50_1x_sk0', 'resnet50', 'vgg16']
+    # model_names = ['simclrv2_r50_1x_sk0', 'resnet50', 'vgg16']
+    model_names = ['vgg16']
     moving_trajectories = ['uniform']
     decoding_model_choices = [
         {'name': 'ridge_regression', 'hparams': 1.0},
         {'name': 'ridge_regression', 'hparams': 0.1},
-        {'name': 'lasso_regression', 'hparams': 1.0},
-        {'name': 'lasso_regression', 'hparams': 0.1},
+        # {'name': 'lasso_regression', 'hparams': 1.0},
+        # {'name': 'lasso_regression', 'hparams': 0.1},
     ]
     feature_selections = ['l2', 'l1']
     # =================================================================== #
@@ -781,7 +912,7 @@ if __name__ == '__main__':
     )
 
     cross_dimension_analysis(
-        analysis='regression_weights_across_sampling_rates',
+        analysis='decoding_across_sampling_rates_n_layers_per_seed',
         envs=envs,
         movement_modes=movement_modes,
         model_names=model_names,
