@@ -413,8 +413,6 @@ def multi_envs_across_dimensions_CPU(
         random_seeds,
     ):
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-
-    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     with multiprocessing.Pool(processes=CPU_NUM_PROCESSES) as pool:
         for model_name in model_names:
             envs_dict = load_envs_dict(model_name, envs)
