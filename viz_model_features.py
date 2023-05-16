@@ -19,14 +19,7 @@ Visualize individual model units see
 if there are any patterns (e.g., place cells.)
 """
 
-def _single_model_reps(
-        config, 
-        feature_selection, 
-        decoding_model_choice,
-        sampling_rate,
-        moving_trajectory,
-        random_seed,
-    ):
+def _single_model_reps(config):
     """
     Produce model_reps either directly computing if the first time,
     or load from disk if already computed.
