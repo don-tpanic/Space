@@ -127,17 +127,6 @@ def _single_env_viz_units(
         moving_trajectory,
         random_seed,
     )
-
-    # prepare coordinates for plotting heatmap
-    if movement_mode == '2d':
-        x_axis_coords = []
-        y_axis_coords = []
-        # same idea as generating the frames in Unity
-        # so we get decimal coords in between the grid points
-        for i in range(env_x_min*multiplier, env_x_max*multiplier+1):
-            for j in range(env_y_min*multiplier, env_y_max*multiplier+1):
-                x_axis_coords.append(i/multiplier)
-                y_axis_coords.append(j/multiplier)
     
     # TODO: feature selection based on rob metric or l1/l2
     # notice, one complexity is coef is x, y, rot
