@@ -19,6 +19,62 @@ Visualize individual model units see
 if there are any patterns (e.g., place cells.)
 """
 
+def _single_model_reps(
+        config, 
+        feature_selection, 
+        decoding_model_choice,
+        sampling_rate,
+        moving_trajectory,
+        random_seed,
+    ):
+    """
+    Produce model_reps either directly computing if the first time,
+    or load from disk if already computed.
+
+    return:
+        model_reps: \in (n_locations, n_rotations, n_features)
+    """
+    os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
+    os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+
+    # load model outputs
+    if config['model_name'] == 'none':
+        model = None
+        preprocess_func = None
+    else:
+        model, preprocess_func = models.load_model(
+            config['model_name'], config['output_layer'])
+
+    preprocessed_data = data.load_preprocessed_data(
+        data_path=\
+            f"data/unity/"\
+            f"{config['unity_env']}/"\
+            f"{config['movement_mode']}", 
+        movement_mode=config['movement_mode'],
+        env_x_min=config['env_x_min'],
+        env_x_max=config['env_x_max'],
+        env_y_min=config['env_y_min'],
+        env_y_max=config['env_y_max'],
+        multiplier=config['multiplier'],
+        n_rotations=config['n_rotations'],
+        preprocess_func=preprocess_func,
+    )    
+    
+    # (n_locations*n_rotations, n_features)
+    model_reps = data.load_full_dataset_model_reps(
+        config, model, preprocessed_data
+    )
+
+    # reshape to (n_locations, n_rotations, n_features)
+    model_reps = model_reps.reshape(
+        (model_reps.shape[0] // config['n_rotations'],  # n_locations
+        config['n_rotations'],                          # n_rotations
+        model_reps.shape[1])                            # all units
+    )
+    logging.info(f'model_reps.shape: {model_reps.shape}')
+    return model_reps
+
+
 def _single_env_viz_units(
         config_version, 
         experiment,
@@ -36,13 +92,6 @@ def _single_env_viz_units(
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
 
     config = utils.load_config(config_version)
-    n_rotations=config['n_rotations']
-    movement_mode=config['movement_mode']
-    env_x_min=config['env_x_min']
-    env_x_max=config['env_x_max']
-    env_y_min=config['env_y_min']
-    env_y_max=config['env_y_max']
-    multiplier=config['multiplier']
     results_path = utils.load_results_path(
         config=config,
         experiment='loc_n_rot',  # Dirty but coef is saved in loc_n_rot
@@ -52,46 +101,32 @@ def _single_env_viz_units(
         moving_trajectory=moving_trajectory,
         random_seed=random_seed,
     )
-    logging.info(f'Loading results (for coef) from {results_path}')
+    logging.info(
+        f'Loading results (for coef) from {results_path}'
+    )
     if results_path is None:
-        logging.info(f'Mismatch between feature selection and decoding model, skip.')
+        logging.info(
+            f'Mismatch between feature '\
+            f'selection and decoding model, skip.'
+        )
         return
 
-    # load model outputs
-    if config['model_name'] == 'none':
-        model = None
-        preprocess_func = None
-    else:
-        model, preprocess_func = models.load_model(
-            config['model_name'], config['output_layer'])
-
-    preprocessed_data = data.load_preprocessed_data(
-        data_path=\
-            f"data/unity/"\
-            f"{config['unity_env']}/"\
-            f"{movement_mode}", 
-        movement_mode=movement_mode,
-        env_x_min=env_x_min,
-        env_x_max=env_x_max,
-        env_y_min=env_y_min,
-        env_y_max=env_y_max,
-        multiplier=multiplier,
-        n_rotations=n_rotations,
-        preprocess_func=preprocess_func,
-    )    
+    movement_mode=config['movement_mode']
+    env_x_min=config['env_x_min']
+    env_x_max=config['env_x_max']
+    env_y_min=config['env_y_min']
+    env_y_max=config['env_y_max']
+    multiplier=config['multiplier']
     
-    # (n_locations*n_rotations, n_features)
-    model_reps = data.load_full_dataset_model_reps(
-        config, model, preprocessed_data
+    # load model outputs
+    model_reps = _single_model_reps(
+        config,
+        feature_selection,
+        decoding_model_choice,
+        sampling_rate,
+        moving_trajectory,
+        random_seed,
     )
-
-    # reshape to (n_locations, n_rotations, n_features)
-    model_reps = model_reps.reshape(
-        (model_reps.shape[0] // n_rotations,  # n_locations
-        n_rotations,                          # n_rotations
-        model_reps.shape[1])                            # all units
-    )
-    print(f'model_reps.shape: {model_reps.shape}')
 
     # prepare coordinates for plotting heatmap
     if movement_mode == '2d':
@@ -136,7 +171,8 @@ def _single_env_viz_units(
                 fig, axes = plt.subplots(
                     nrows=model_reps_filtered.shape[2], 
                     ncols=model_reps_filtered.shape[1], 
-                    figsize=(25, 25))
+                    figsize=(25, 25)
+                )
                 for unit_index in range(model_reps_filtered.shape[2]):
                     for rotation in range(model_reps_filtered.shape[1]):
                         if movement_mode == '2d':
@@ -174,12 +210,13 @@ def _single_env_viz_units(
                 plt.suptitle(sup_title)
                 plt.savefig(
                     f'{figs_path}/units_heatmaps_{targets[target_index]}'\
-                    f'_{filtering_order}.png')
+                    f'_{filtering_order}.png'
+                )
                 plt.close()
                 logging.info(
-                    f'[Saved] units heatmaps {targets[target_index]} {filtering_order}'\
-                    f' to {figs_path}')
-
+                    f'[Saved] units heatmaps {targets[target_index]}'\
+                    f'{filtering_order} to {figs_path}'
+                )
 
                 # plot summed over rotation heatmap and distribution of loc-wise
                 # activation intensities.
@@ -190,7 +227,8 @@ def _single_env_viz_units(
                 fig, axes = plt.subplots(
                     nrows=model_reps_filtered.shape[2], 
                     ncols=2,
-                    figsize=(5, 25))
+                    figsize=(5, 25)
+                )
                 for unit_index in range(model_reps_filtered.shape[2]):
                     for rotation in range(model_reps_filtered.shape[1]):
                         if movement_mode == '2d':
@@ -202,6 +240,13 @@ def _single_env_viz_units(
 
                             # plot heatmap on the left column.
                             axes[unit_index, 0].imshow(heatmap)
+
+                            # plot heatmap on the left column.
+                            axes[unit_index, 0].scatter(
+                                x_axis_coords, y_axis_coords,
+                                c=model_reps_filtered[:, rotation, unit_index],
+                            )
+
                             axes[-1, 0].set_xlabel('Unity x-axis')
                             axes[-1, 0].set_ylabel('Unity z-axis')
                             axes[unit_index, 0].set_xticks([])
@@ -370,9 +415,12 @@ if __name__ == '__main__':
     experiment = 'viz'
     envs = ['env28_r24']
     movement_modes = ['2d']
-    sampling_rates = [0.01, 0.1, 0.5]
-    random_seeds = [42, 1234, 999]
-    model_names = ['simclrv2_r50_1x_sk0', 'resnet50', 'vgg16']
+    # sampling_rates = [0.01, 0.1, 0.5]
+    sampling_rates = [0.1]
+    # random_seeds = [42, 1234, 999]
+    random_seeds = [42]
+    # model_names = ['simclrv2_r50_1x_sk0', 'resnet50', 'vgg16']
+    model_names = ['vgg16']
     moving_trajectories = ['uniform']
     decoding_model_choices = [
         {'name': 'ridge_regression', 'hparams': 1.0},
@@ -384,12 +432,12 @@ if __name__ == '__main__':
     feature_selections = ['l2']
     filterings = [
         {'filtering_order': 'top_n', 'n_units_filtering': 20},
-        {'filtering_order': 'bottom_n', 'n_units_filtering': 20},
+        # {'filtering_order': 'bottom_n', 'n_units_filtering': 20},
     ]
     # ======================================== #
     
-    # multi_envs_viz_units_GPU(
-    multi_envs_viz_units_CPU(
+    multi_envs_viz_units_GPU(
+    # multi_envs_viz_units_CPU(
         target_func=_single_env_viz_units,
         envs=envs,
         model_names=model_names,
@@ -400,7 +448,7 @@ if __name__ == '__main__':
         decoding_model_choices=decoding_model_choices,
         random_seeds=random_seeds,
         filterings=filterings,
-        # cuda_id_list=[0],
+        cuda_id_list=[0],
     )
 
     # print time elapsed
