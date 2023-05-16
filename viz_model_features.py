@@ -181,6 +181,11 @@ def _single_env_viz_units(
                                 (env_x_max*multiplier-env_x_min*multiplier+1, 
                                 env_y_max*multiplier-env_y_min*multiplier+1)
                             )
+
+                            # rotate heatmap to match Unity coordinate system
+                            # ref: tests/testReshape_forHeatMap.py
+                            heatmap = np.rot90(heatmap, k=1, axes=(0, 1))
+
                             # plot heatmap
                             axes[unit_index, rotation].imshow(heatmap)
                             axes[-1, rotation].set_xlabel('Unity x-axis')
@@ -238,15 +243,12 @@ def _single_env_viz_units(
                                 env_y_max*multiplier-env_y_min*multiplier+1)
                             )
 
+                            # rotate heatmap to match Unity coordinate system
+                            # ref: tests/testReshape_forHeatMap.py
+                            heatmap = np.rot90(heatmap, k=1, axes=(0, 1))
+
                             # plot heatmap on the left column.
                             axes[unit_index, 0].imshow(heatmap)
-
-                            # plot heatmap on the left column.
-                            axes[unit_index, 0].scatter(
-                                x_axis_coords, y_axis_coords,
-                                c=model_reps_filtered[:, rotation, unit_index],
-                            )
-
                             axes[-1, 0].set_xlabel('Unity x-axis')
                             axes[-1, 0].set_ylabel('Unity z-axis')
                             axes[unit_index, 0].set_xticks([])
