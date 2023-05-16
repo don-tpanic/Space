@@ -380,9 +380,7 @@ def _single_env_decoding_error(
                         X_test=X_test,
                         y_train=y_train,
                         y_test=y_test,
-                        results_path=results_path,
                         config=config,
-                        sampling_rate=sampling_rate,
                         decoding_model_choice=decoding_model_choice,
                         random_seed=random_seed,
                     )
@@ -1154,16 +1152,19 @@ if __name__ == '__main__':
     experiment = 'loc_n_rot'
     envs = ['env28_r24']
     movement_modes = ['2d']
-    sampling_rates = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
+    sampling_rates = [0.01, 0.1, 0.5]
     random_seeds = [42, 1234, 999]
-    # model_names = ['simclrv2_r50_1x_sk0', 'resnet50', 'vgg16']
-    model_names = ['vgg16']
+    model_names = ['simclrv2_r50_1x_sk0', 'resnet50', 'vgg16']
     moving_trajectories = ['uniform']
     decoding_model_choices = [
-        {'name': 'ridge_regression', 'hparams': 1.0},
-        {'name': 'ridge_regression', 'hparams': 0.1},
-        # {'name': 'lasso_regression', 'hparams': 1.0},
+        # {'name': 'ridge_regression', 'hparams': 0.1},
+        {'name': 'ridge_regression', 'hparams': 0.5},
+        # {'name': 'ridge_regression', 'hparams': 1.0},
+        {'name': 'ridge_regression', 'hparams': 2.0},
         # {'name': 'lasso_regression', 'hparams': 0.1},
+        {'name': 'lasso_regression', 'hparams': 0.5},
+        # {'name': 'lasso_regression', 'hparams': 1.0},
+        {'name': 'lasso_regression', 'hparams': 2.0},
     ]
     feature_selections = ['l2', 'l1']
     # =================================================================== #
