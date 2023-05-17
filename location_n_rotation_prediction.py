@@ -1178,13 +1178,13 @@ if __name__ == '__main__':
     model_names = ['simclrv2_r50_1x_sk0', 'resnet50', 'vgg16']
     moving_trajectories = ['uniform']
     decoding_model_choices = [
-        # {'name': 'ridge_regression', 'hparams': 0.1},
+        {'name': 'ridge_regression', 'hparams': 0.1},
         {'name': 'ridge_regression', 'hparams': 0.5},
-        # {'name': 'ridge_regression', 'hparams': 1.0},
+        {'name': 'ridge_regression', 'hparams': 1.0},
         {'name': 'ridge_regression', 'hparams': 2.0},
-        # {'name': 'lasso_regression', 'hparams': 0.1},
+        {'name': 'lasso_regression', 'hparams': 0.1},
         {'name': 'lasso_regression', 'hparams': 0.5},
-        # {'name': 'lasso_regression', 'hparams': 1.0},
+        {'name': 'lasso_regression', 'hparams': 1.0},
         {'name': 'lasso_regression', 'hparams': 2.0},
     ]
     feature_selections = ['l2', 'l1']
