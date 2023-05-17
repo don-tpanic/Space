@@ -206,14 +206,15 @@ def _fit_decoding_model(
     )
     per_loc_mse_rot_samples = _compute_per_loc_mse_rot_samples(
         y_test[:, 2:], y_pred[:, 2:], config['n_rotations'])
-    
+
     logging.info(
-        '[Check] per_loc_mse_loc_samples.shape=', 
-        per_loc_mse_loc_samples.shape
+        f'[Check] per_loc_mse_loc_samples.shape='\
+        f'{per_loc_mse_loc_samples.shape}'
     )
+
     logging.info(
-        '[Check] per_loc_mse_rot_samples.shape=', 
-        per_loc_mse_rot_samples.shape
+        f'[Check] per_loc_mse_rot_samples.shape='\
+        f'{per_loc_mse_rot_samples.shape}'
     )
 
     mse_loc = np.mean(per_loc_mse_loc_samples)
@@ -869,31 +870,50 @@ def cross_dimension_analysis(
                     logging.info(f'[Saved] {figs_path}/decoding_across_sampling_rates_n_layers.png')
 
     elif analysis == 'decoding_across_reg_strengths_n_layers':
-        # fixed sampling rate, for now use 0.3;
+        # fixed sampling rate, for now use 0.5;
         # averaged over seeds.
         env = envs[0]
         moving_trajectory = moving_trajectories[0]
         movement_mode = movement_modes[0]
-        sampling_rate = 0.3
-        reg_strengths = [decoding_model_choice['hparams'] \
-            for decoding_model_choice in decoding_model_choices]
+        sampling_rate = 0.5
+
+        # only keep the unique decoding_model names 
+        # otherwise, the same name will be iterated multiple times
+        # which does absolutely nothing wrong because `reg_strengths`,
+        # are looped over anyway. it is just annoying that if 
+        # there are multiple decoding models with the same name 
+        # (different hparams), the same operation (loop thru `reg_strengths`)
+        # will be run as many times as there are decoding models with the same name.
+        # in the future, we should change the data structure of `decoding_model_choices`
+        # so that the keys are unique decoding model names.
+        unique_reg_strengths = sorted(list(set(
+            [decoding_model_choice['hparams'] \
+                for decoding_model_choice in decoding_model_choices]
+            )
+        ))
+        unique_decoding_model_names = list(set(
+            [decoding_model_choice['name'] \
+                for decoding_model_choice in decoding_model_choices]
+            )
+        )
 
         for model_name in model_names:
             output_layers = data.load_model_layers(model_name)
             for feature_selection in feature_selections:
-                for decoding_model_choice in decoding_model_choices:
-                    decoding_model_name = decoding_model_choice['name']
+                for decoding_model_name in unique_decoding_model_names:
+                # for decoding_model_choice in decoding_model_choices:
+                    # decoding_model_name = decoding_model_choice['name']
                     # decoding_model_hparams = decoding_model_choice['hparams']
 
                     if \
                         (
                             'l1' in feature_selection and \
-                            decoding_model_choice['name'] != 'lasso_regression'
+                            decoding_model_name != 'lasso_regression'
                         ) \
                         or \
                         (
                             'l2' in feature_selection and \
-                            decoding_model_choice['name'] != 'ridge_regression'
+                            decoding_model_name != 'ridge_regression'
                         ):
                         continue
 
@@ -908,7 +928,7 @@ def cross_dimension_analysis(
                     
                     for error_type in error_types:
                         for output_layer in output_layers:
-                            for reg_strength in reg_strengths:
+                            for reg_strength in unique_reg_strengths:
                                 # reg strengths would be the base dimension where 
                                 # we accumulate results in a list to plot at once.
                                 to_average_over_seeds = defaultdict(list)
@@ -954,7 +974,7 @@ def cross_dimension_analysis(
                                     ci_high = np.array(
                                         results_collector[error_type][output_layer][metric])[:, 1]
                                     axes[i].fill_between(
-                                        reg_strengths,
+                                        unique_reg_strengths,
                                         ci_low,
                                         ci_high,
                                         alpha=0.2,
@@ -983,12 +1003,13 @@ def cross_dimension_analysis(
                                     # either baseline or non-baseline layer performance,
                                     # we always plot them.
                                     axes[i].plot(
-                                        reg_strengths,
+                                        unique_reg_strengths,
                                         results_collector[error_type][output_layer][metric],
                                         label=label,
                                         color=color,
                                     )
                         axes[i].set_xlabel('reg strengths')
+                        axes[i].set_xticks(unique_reg_strengths)
                         axes[i].set_title(error_type)
                     sup_title = f'{envs[0]},{movement_mode},'\
                                 f'{model_name},{feature_selection},'\
