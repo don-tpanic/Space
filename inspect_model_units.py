@@ -181,7 +181,7 @@ def _single_env_viz_units(
                 figs_path = utils.load_figs_path(
                     config=config,
                     experiment=experiment,
-                    reference_experiment='loc_n_rot',
+                    reference_experiment=reference_experiment,
                     feature_selection=feature_selection,
                     decoding_model_choice=decoding_model_choice,
                     sampling_rate=sampling_rate,
@@ -252,7 +252,7 @@ def _single_env_viz_units(
                 figs_path = utils.load_figs_path(
                     config=config,
                     experiment=experiment,
-                    reference_experiment='loc_n_rot',
+                    reference_experiment=reference_experiment,
                     feature_selection=feature_selection,
                     decoding_model_choice=decoding_model_choice,
                     sampling_rate=sampling_rate,
