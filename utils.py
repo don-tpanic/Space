@@ -17,7 +17,15 @@ def load_results_path(
         sampling_rate,
         moving_trajectory,
         random_seed,
+        reference_experiment=None,
     ):
+    """
+    reference_experiment:
+        only need to be provided if we are inspecting units
+        as inspecting units depends on whether the units are
+        selected from the loc_n_rot experiment or the border
+        experiment.
+    """
     unity_env = config['unity_env']
     model_name = config['model_name']
     output_layer = config['output_layer']
@@ -25,19 +33,20 @@ def load_results_path(
     decoding_model_name = decoding_model_choice['name']
     decoding_model_hparams = decoding_model_choice['hparams']
 
-    if experiment == 'loc_n_rot' or \
-        (experiment =='viz' and feature_selection in ['l1', 'l2']):
+    if experiment == 'loc_n_rot':
         results_path = \
             f'results/{unity_env}/{movement_mode}/{moving_trajectory}/'\
             f'{model_name}/{experiment}/{feature_selection}/'\
             f'{decoding_model_name}_{decoding_model_hparams}/'\
             f'{output_layer}/sr{sampling_rate}/seed{random_seed}'
         
-    elif experiment == 'viz' and feature_selection not in ['l1', 'l2']:
+    elif experiment in ['viz', 'fields_info'] \
+            and reference_experiment == 'loc_n_rot':
         results_path = \
-            f'results/{unity_env}/{movement_mode}/{moving_trajectory}'\
-            f'{model_name}/{experiment}/{feature_selection}/{output_layer}/'\
-            f'sr{sampling_rate}/seed{random_seed}'
+            f'results/{unity_env}/{movement_mode}/{moving_trajectory}/'\
+            f'{model_name}/inspect_units/{reference_experiment}/{experiment}/{feature_selection}/'\
+            f'{decoding_model_name}_{decoding_model_hparams}/'\
+            f'{output_layer}/sr{sampling_rate}/seed{random_seed}'
         
     if not os.path.exists(results_path):
         if \
@@ -68,7 +77,15 @@ def load_figs_path(
         sampling_rate,
         moving_trajectory,
         random_seed,
+        reference_experiment=None,
     ):
+    """
+    reference_experiment:
+        only need to be provided if we are inspecting units
+        as inspecting units depends on whether the units are
+        selected from the loc_n_rot experiment or the border
+        experiment.
+    """
     unity_env = config['unity_env']
     model_name = config['model_name']
     output_layer = config['output_layer']
@@ -76,19 +93,20 @@ def load_figs_path(
     decoding_model_name = decoding_model_choice['name']
     decoding_model_hparams = decoding_model_choice['hparams']
 
-    if experiment == 'loc_n_rot' or \
-        (experiment =='viz' and feature_selection in ['l1', 'l2']):
+    if experiment == 'loc_n_rot':
         figs_path = \
             f'figs/{unity_env}/{movement_mode}/{moving_trajectory}/'\
             f'{model_name}/{experiment}/{feature_selection}/'\
             f'{decoding_model_name}_{decoding_model_hparams}/'\
             f'{output_layer}/sr{sampling_rate}/seed{random_seed}'
         
-    elif experiment == 'viz' and feature_selection not in ['l1', 'l2']:
+    elif experiment in ['viz', 'fields_info'] \
+            and reference_experiment == 'loc_n_rot':
         figs_path = \
-            f'figs/{unity_env}/{movement_mode}/{moving_trajectory}'\
-            f'{model_name}/{experiment}/{feature_selection}/{output_layer}/'\
-            f'sr{sampling_rate}/seed{random_seed}'
+            f'figs/{unity_env}/{movement_mode}/{moving_trajectory}/'\
+            f'{model_name}/inspect_units/{reference_experiment}/{experiment}/{feature_selection}/'\
+            f'{decoding_model_name}_{decoding_model_hparams}/'\
+            f'{output_layer}/sr{sampling_rate}/seed{random_seed}'
         
     if not os.path.exists(figs_path):
         if \

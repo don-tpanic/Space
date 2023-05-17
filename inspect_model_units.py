@@ -71,6 +71,7 @@ def _single_model_reps(config):
 def _single_env_viz_units(
         config_version, 
         experiment,
+        reference_experiment,
         feature_selection, 
         decoding_model_choice,
         sampling_rate,
@@ -85,19 +86,20 @@ def _single_env_viz_units(
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
 
     config = utils.load_config(config_version)
-    results_path = utils.load_results_path(
-        config=config,
-        experiment='loc_n_rot',  # Dirty but coef is saved in loc_n_rot
-        feature_selection=feature_selection,
-        decoding_model_choice=decoding_model_choice,
-        sampling_rate=sampling_rate,
-        moving_trajectory=moving_trajectory,
-        random_seed=random_seed,
+    reference_experiment_results_path = \
+            utils.load_results_path(
+                config=config,
+                experiment=reference_experiment,  # Dirty but coef is saved in loc_n_rot
+                feature_selection=feature_selection,
+                decoding_model_choice=decoding_model_choice,
+                sampling_rate=sampling_rate,
+                moving_trajectory=moving_trajectory,
+                random_seed=random_seed,
     )
     logging.info(
-        f'Loading results (for coef) from {results_path}'
+        f'Loading results (for coef) from {reference_experiment_results_path}'
     )
-    if results_path is None:
+    if reference_experiment_results_path is None:
         logging.info(
             f'Mismatch between feature '\
             f'selection and decoding model, skip.'
@@ -112,14 +114,7 @@ def _single_env_viz_units(
     multiplier=config['multiplier']
     
     # load model outputs
-    model_reps = _single_model_reps(
-        config,
-        feature_selection,
-        decoding_model_choice,
-        sampling_rate,
-        moving_trajectory,
-        random_seed,
-    )
+    model_reps = _single_model_reps(config)
     
     # TODO: feature selection based on rob metric or l1/l2
     # notice, one complexity is coef is x, y, rot
@@ -131,7 +126,7 @@ def _single_env_viz_units(
         targets = ['x', 'y', 'rot']
         coef = \
             np.load(
-                f'{results_path}/res.npy', 
+                f'{reference_experiment_results_path}/res.npy', 
                 allow_pickle=True).item()['coef']  # (n_targets, n_features)
         logging.info(f'Loaded coef.shape: {coef.shape}')
 
@@ -186,6 +181,7 @@ def _single_env_viz_units(
                 figs_path = utils.load_figs_path(
                     config=config,
                     experiment=experiment,
+                    reference_experiment='loc_n_rot',
                     feature_selection=feature_selection,
                     decoding_model_choice=decoding_model_choice,
                     sampling_rate=sampling_rate,
@@ -256,6 +252,7 @@ def _single_env_viz_units(
                 figs_path = utils.load_figs_path(
                     config=config,
                     experiment=experiment,
+                    reference_experiment='loc_n_rot',
                     feature_selection=feature_selection,
                     decoding_model_choice=decoding_model_choice,
                     sampling_rate=sampling_rate,
@@ -277,11 +274,12 @@ def _single_env_viz_units(
         raise NotImplementedError
 
 
-def multi_envs_viz_units_CPU(
+def multi_envs_inspect_units_CPU(
         target_func,
         envs,
         model_names,
-        experiment, 
+        experiment,
+        reference_experiment,
         moving_trajectories,
         sampling_rates,
         feature_selections,
@@ -305,6 +303,7 @@ def multi_envs_viz_units_CPU(
                                         args=(
                                             config_version, 
                                             experiment,
+                                            reference_experiment,
                                             feature_selection, 
                                             decoding_model_choice,
                                             sampling_rate,
@@ -318,11 +317,12 @@ def multi_envs_viz_units_CPU(
         pool.join()
 
 
-def multi_envs_viz_units_GPU(
+def multi_envs_inspect_units_GPU(
         target_func,
         envs,
         model_names,
         experiment, 
+        reference_experiment,
         moving_trajectories,
         sampling_rates,
         feature_selections,
@@ -346,6 +346,7 @@ def multi_envs_viz_units_GPU(
                                 single_entry['moving_trajectory'] = moving_trajectory
                                 single_entry['sampling_rate'] = sampling_rate
                                 single_entry['experiment'] = experiment
+                                single_entry['reference_experiment'] = reference_experiment
                                 single_entry['feature_selection'] = feature_selection
                                 single_entry['decoding_model_choice'] = decoding_model_choice
                                 single_entry['random_seed'] = random_seed
@@ -394,9 +395,10 @@ if __name__ == '__main__':
         logging.basicConfig(level=logging.DEBUG)
 
     # ======================================== #
-    TF_NUM_INTRAOP_THREADS = 2
-    CPU_NUM_PROCESSES = 30         
+    TF_NUM_INTRAOP_THREADS = 10
+    CPU_NUM_PROCESSES = 10         
     experiment = 'viz'
+    reference_experiment = 'loc_n_rot'
     envs = ['env28_r24']
     movement_modes = ['2d']
     # sampling_rates = [0.01, 0.1, 0.5]
@@ -420,12 +422,13 @@ if __name__ == '__main__':
     ]
     # ======================================== #
     
-    multi_envs_viz_units_GPU(
-    # multi_envs_viz_units_CPU(
+    multi_envs_inspect_units_GPU(
+    # multi_envs_inspect_units_CPU(
         target_func=_single_env_viz_units,
         envs=envs,
         model_names=model_names,
         experiment=experiment,
+        reference_experiment=reference_experiment,
         moving_trajectories=moving_trajectories,
         sampling_rates=sampling_rates,
         feature_selections=feature_selections,
