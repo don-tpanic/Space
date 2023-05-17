@@ -244,6 +244,23 @@ def _single_env_viz_units(
                             # ref: tests/testReshape_forHeatMap.py
                             heatmap = np.rot90(heatmap, k=1, axes=(0, 1))
 
+
+
+                            ########
+                            # compute fields info
+                            unit_fields_info = []
+                            num_clusters, num_pixels_in_clusters, max_value_in_clusters = \
+                                _compute_single_heatmap_fields_info(
+                                    heatmap=heatmap,
+                                    pixel_min_threshold=10,
+                                    pixel_max_threshold=int(heatmap.shape[0]*heatmap.shape[1]*0.5))
+                            unit_fields_info.append(num_clusters)
+                            unit_fields_info.append(num_pixels_in_clusters)
+                            unit_fields_info.append(max_value_in_clusters)
+                            ########
+
+
+
                             # plot heatmap on the left column.
                             axes[unit_rank, 0].imshow(heatmap)
                             axes[-1, 0].set_xlabel('Unity x-axis')
@@ -252,7 +269,10 @@ def _single_env_viz_units(
                             axes[unit_rank, 0].set_yticks([])
                             axes[unit_rank, 0].set_title(
                                 f'u{unit_index},'\
-                                f'coef{coef[target_index, unit_index]:.2f}'
+                                f'coef{coef[target_index, unit_index]:.2f}'\
+                                f'\nnum_clusters: {num_clusters}, '\
+                                f'\nnum_pixels_in_clusters: {num_pixels_in_clusters}, '\
+                                f'\nmax_value_in_clusters: {max_value_in_clusters}'
                             )
                             
                             # plot distribution on the right column.
@@ -292,6 +312,66 @@ def _single_env_viz_units(
         # TODO: metric-based feature selection.
         raise NotImplementedError
 
+
+def _compute_single_heatmap_fields_info(heatmap, pixel_min_threshold, pixel_max_threshold):
+    """
+    Given a 2D heatmap of a unit, compute:
+        num_clusters, num_pixels_in_clusters, max_value_in_clusters
+    """
+    scaler = MinMaxScaler()
+    # normalize to [0, 1]
+    heatmap_normalized = scaler.fit_transform(heatmap)  
+    # convert to [0, 255]      
+    heatmap_gray = (heatmap_normalized * 255).astype(np.uint8)
+    # compute activity threshold as the mean of the heatmap
+    activity_threshold = np.mean(heatmap_gray)
+
+    _, heatmap_thresholded = cv2.threshold(
+        heatmap_gray, activity_threshold, 
+        255, cv2.THRESH_BINARY
+    )
+
+    # num_labels=4,
+    # num_labels includes background
+    # labels \in (17, 17)
+    # stats \in (4, 5): [left, top, width, height, area] for each label
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(heatmap_thresholded)
+
+    # Create a mask to filter clusters based on pixel thresholds
+    # e.g. mask=[False, True, False, True] for each label (i.e. a cluster)
+    mask = (stats[:, cv2.CC_STAT_AREA] >= pixel_min_threshold) & \
+            (stats[:, cv2.CC_STAT_AREA] <= pixel_max_threshold)
+    # set background to False regardless of pixel thresholds
+    mask[0] = False
+        
+    # Filter the stats and labels based on the mask
+    # filtered_stats.shape (2, 5)
+    filtered_stats = stats[mask]
+
+    # For labels with mask=True, keep the label, otherwise set to 0
+    # this in fact will include 0, but we want 1, 3 only
+    # so when using `filtered_labels` to extract max value in each cluster
+    # we need to exclude 0
+    filtered_labels = np.where(np.isin(labels, np.nonzero(mask)[0]), labels, 0)
+
+    # Count the number of clusters that meet the criteria
+    num_clusters = [filtered_stats.shape[0]]
+
+    # Get the number of pixels in each cluster
+    num_pixels_in_clusters = filtered_stats[:, cv2.CC_STAT_AREA]
+
+    # Get the max value in heatmap based on each cluster
+    max_value_in_clusters = []
+    for label in np.unique(filtered_labels):
+        if label != 0:
+            max_value_in_clusters.append(
+                np.around(
+                    np.max(heatmap[filtered_labels == label]), 1
+                )
+            )
+
+    return num_clusters, num_pixels_in_clusters, max_value_in_clusters
+    
 
 def multi_envs_inspect_units_CPU(
         target_func,
