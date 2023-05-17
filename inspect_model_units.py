@@ -6,9 +6,12 @@ import time
 import logging
 import itertools
 import multiprocessing
+
+import cv2
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
 
 import utils
 import data
@@ -29,43 +32,62 @@ def _single_model_reps(config):
     """
     os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
-
-    # load model outputs
-    if config['model_name'] == 'none':
-        model = None
-        preprocess_func = None
-    else:
-        model, preprocess_func = models.load_model(
-            config['model_name'], config['output_layer'])
-
-    preprocessed_data = data.load_preprocessed_data(
-        data_path=\
-            f"data/unity/"\
-            f"{config['unity_env']}/"\
-            f"{config['movement_mode']}", 
-        movement_mode=config['movement_mode'],
-        env_x_min=config['env_x_min'],
-        env_x_max=config['env_x_max'],
-        env_y_min=config['env_y_min'],
-        env_y_max=config['env_y_max'],
-        multiplier=config['multiplier'],
-        n_rotations=config['n_rotations'],
-        preprocess_func=preprocess_func,
-    )    
     
-    # (n_locations*n_rotations, n_features)
-    model_reps = data.load_full_dataset_model_reps(
-        config, model, preprocessed_data
-    )
+    model_reps_fname = \
+        f'results/'\
+        f'{config["unity_env"]}/'\
+        f'{config["movement_mode"]}/'\
+        f'{config["model_name"]}/'\
+        f'model_reps_{config["output_layer"]}.npy'
 
-    # reshape to (n_locations, n_rotations, n_features)
-    model_reps = model_reps.reshape(
-        (model_reps.shape[0] // config['n_rotations'],  # n_locations
-        config['n_rotations'],                          # n_rotations
-        model_reps.shape[1])                            # all units
-    )
-    logging.info(f'model_reps.shape: {model_reps.shape}')
-    return model_reps
+    if os.path.exists(model_reps_fname):
+        logging.info(f'Loading model_reps from {model_reps_fname}')
+        model_reps = np.load(model_reps_fname)
+        logging.info(f'model_reps.shape: {model_reps.shape}')
+        return model_reps
+
+    else:
+        # load model outputs
+        if config['model_name'] == 'none':
+            model = None
+            preprocess_func = None
+        else:
+            model, preprocess_func = models.load_model(
+                config['model_name'], config['output_layer'])
+
+        preprocessed_data = data.load_preprocessed_data(
+            data_path=\
+                f"data/unity/"\
+                f"{config['unity_env']}/"\
+                f"{config['movement_mode']}", 
+            movement_mode=config['movement_mode'],
+            env_x_min=config['env_x_min'],
+            env_x_max=config['env_x_max'],
+            env_y_min=config['env_y_min'],
+            env_y_max=config['env_y_max'],
+            multiplier=config['multiplier'],
+            n_rotations=config['n_rotations'],
+            preprocess_func=preprocess_func,
+        )    
+        
+        # (n_locations*n_rotations, n_features)
+        model_reps = data.load_full_dataset_model_reps(
+            config, model, preprocessed_data
+        )
+
+        # reshape to (n_locations, n_rotations, n_features)
+        model_reps = model_reps.reshape(
+            (model_reps.shape[0] // config['n_rotations'],  # n_locations
+            config['n_rotations'],                          # n_rotations
+            model_reps.shape[1])                            # all units
+        )
+
+        # save to disk  
+        # # TODO: slow to save but is it benefitcial as we do it only once?
+        # logging.info(f'Saving model_reps to {model_reps_fname}...')
+        # np.save(model_reps_fname, model_reps)
+        # logging.info(f'[Saved] model_reps to {model_reps_fname}')
+        return model_reps
 
 
 def _single_env_viz_units(
@@ -139,22 +161,19 @@ def _single_env_viz_units(
                 filtering_order = filtering['filtering_order']
                 if filtering_order == 'top_n':
                     filtered_n_units_indices = np.argsort(coef[target_index, :])[::-1][:n_units_filtering]
-                    model_reps_filtered = model_reps[:, :, filtered_n_units_indices]
                 elif filtering_order == 'bottom_n':
                     filtered_n_units_indices = np.argsort(coef[target_index, :])[:n_units_filtering]
-                    model_reps_filtered = model_reps[:, :, filtered_n_units_indices]
-                coef_filtered = coef[target_index, filtered_n_units_indices]
 
                 fig, axes = plt.subplots(
-                    nrows=model_reps_filtered.shape[2], 
-                    ncols=model_reps_filtered.shape[1], 
+                    nrows=n_units_filtering, 
+                    ncols=model_reps.shape[1], 
                     figsize=(25, 25)
                 )
-                for unit_index in range(model_reps_filtered.shape[2]):
-                    for rotation in range(model_reps_filtered.shape[1]):
+                for unit_rank, unit_index in enumerate(filtered_n_units_indices):
+                    for rotation in range(model_reps.shape[1]):
                         if movement_mode == '2d':
                             # reshape to (n_locations, n_rotations, n_features)
-                            heatmap = model_reps_filtered[:, rotation, unit_index].reshape(
+                            heatmap = model_reps[:, rotation, unit_index].reshape(
                                 (env_x_max*multiplier-env_x_min*multiplier+1, 
                                 env_y_max*multiplier-env_y_min*multiplier+1)
                             )
@@ -164,13 +183,13 @@ def _single_env_viz_units(
                             heatmap = np.rot90(heatmap, k=1, axes=(0, 1))
 
                             # plot heatmap
-                            axes[unit_index, rotation].imshow(heatmap)
+                            axes[unit_rank, rotation].imshow(heatmap)
                             axes[-1, rotation].set_xlabel('Unity x-axis')
-                            axes[unit_index, 0].set_ylabel('Unity z-axis')
-                            axes[unit_index, rotation].set_xticks([])
-                            axes[unit_index, rotation].set_yticks([])
-                            axes[unit_index, rotation].set_title(
-                                f'u{filtered_n_units_indices[unit_index]},r{rotation}')
+                            axes[unit_rank, 0].set_ylabel('Unity z-axis')
+                            axes[unit_rank, rotation].set_xticks([])
+                            axes[unit_rank, rotation].set_yticks([])
+                            axes[unit_rank, rotation].set_title(
+                                f'u{unit_index},r{rotation}')
 
                 sup_title = f"{filtering_order},{targets[target_index]}, "\
                             f"{config['unity_env']},{movement_mode},"\
@@ -203,20 +222,20 @@ def _single_env_viz_units(
 
                 # plot summed over rotation heatmap and distribution of loc-wise
                 # activation intensities.
-                model_reps_filtered = np.sum(
-                    model_reps_filtered, axis=1, keepdims=True)
+                model_reps_summed = np.sum(
+                    model_reps, axis=1, keepdims=True)
 
                 # 1 for heatmap, 1 for distribution
                 fig, axes = plt.subplots(
-                    nrows=model_reps_filtered.shape[2], 
+                    nrows=n_units_filtering, 
                     ncols=2,
                     figsize=(5, 25)
                 )
-                for unit_index in range(model_reps_filtered.shape[2]):
-                    for rotation in range(model_reps_filtered.shape[1]):
+                for unit_rank, unit_index in enumerate(filtered_n_units_indices):
+                    for rotation in range(model_reps_summed.shape[1]):
                         if movement_mode == '2d':
                             # reshape to (n_locations, n_rotations, n_features)
-                            heatmap = model_reps_filtered[:, rotation, unit_index].reshape(
+                            heatmap = model_reps_summed[:, rotation, unit_index].reshape(
                                 (env_x_max*multiplier-env_x_min*multiplier+1, 
                                 env_y_max*multiplier-env_y_min*multiplier+1)
                             )
@@ -226,19 +245,19 @@ def _single_env_viz_units(
                             heatmap = np.rot90(heatmap, k=1, axes=(0, 1))
 
                             # plot heatmap on the left column.
-                            axes[unit_index, 0].imshow(heatmap)
+                            axes[unit_rank, 0].imshow(heatmap)
                             axes[-1, 0].set_xlabel('Unity x-axis')
                             axes[-1, 0].set_ylabel('Unity z-axis')
-                            axes[unit_index, 0].set_xticks([])
-                            axes[unit_index, 0].set_yticks([])
-                            axes[unit_index, 0].set_title(
-                                f'u{filtered_n_units_indices[unit_index]},'\
-                                f'coef{coef_filtered[unit_index]:.2f}'
+                            axes[unit_rank, 0].set_xticks([])
+                            axes[unit_rank, 0].set_yticks([])
+                            axes[unit_rank, 0].set_title(
+                                f'u{unit_index},'\
+                                f'coef{coef[target_index, unit_index]:.2f}'
                             )
                             
                             # plot distribution on the right column.
-                            axes[unit_index, 1].hist(
-                                model_reps_filtered[:, rotation, unit_index],
+                            axes[unit_rank, 1].hist(
+                                model_reps_summed[:, rotation, unit_index],
                                 bins=10,
                             )
                             axes[-1, 1].set_xlabel('Activation intensity')
