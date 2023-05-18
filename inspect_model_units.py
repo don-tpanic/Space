@@ -283,7 +283,7 @@ def _single_env_viz_units(
                             )
                             fpath = f'{results_path}/'\
                                     f'{filtering_order}'\
-                                    f'_rank{unit_rank}_u{unit_index}'\
+                                    f'_rank{unit_rank}'\
                                     f'_{targets[target_index]}.npy'
                             print(f'Saving unit fields info to {fpath}')
                             np.save(fpath, unit_fields_info)
@@ -402,7 +402,17 @@ def _compute_single_heatmap_fields_info(heatmap, pixel_min_threshold, pixel_max_
     return num_clusters, num_pixels_in_clusters, max_value_in_clusters
 
 
-def _single_env_viz_fields_info():
+def _single_env_viz_fields_info(
+        config_version, 
+        experiment,
+        reference_experiment,
+        feature_selection, 
+        decoding_model_choice,
+        sampling_rate,
+        moving_trajectory,
+        random_seed,
+        filterings,
+    ):
     """
     Visualize fields info across units.
 
@@ -424,7 +434,85 @@ def _single_env_viz_fields_info():
     Also perhaps across layers these fields info differ and can help 
     us understand the difference in decoding performance.
     """
-    raise NotImplementedError
+    targets = ['x', 'y', 'rot']
+    tracked_fields_info = [
+        'num_clusters', 'num_pixels_in_clusters', 
+        'max_value_in_clusters']
+    n_units_filtering = filterings[0]['n_units_filtering']
+    filtering_types = [f['filtering_order'] for f in filterings]
+    
+    config = utils.load_config(config_version)
+    results_path = utils.load_results_path(
+        config=config,
+        experiment=experiment,
+        reference_experiment=reference_experiment,
+        feature_selection=feature_selection,
+        decoding_model_choice=decoding_model_choice,
+        sampling_rate=sampling_rate,
+        moving_trajectory=moving_trajectory,
+        random_seed=random_seed,
+    )
+    
+    for target in targets:
+        fig, axes = plt.subplots(
+            nrows=len(tracked_fields_info), 
+            ncols=2, 
+            figsize=(10, 5)
+        )
+        for info_index, info in enumerate(tracked_fields_info):
+            top_n_stats = []
+            bottom_n_stats = []
+            for filtering in filtering_types:
+                for unit_rank in range(n_units_filtering):
+                    fname = f'{results_path}/{filtering}_rank{unit_rank}_{target}.npy'
+                    try:
+                        fields_info = np.load(fname, allow_pickle=True)
+                    except FileNotFoundError:
+                        logging.info(
+                            f'File {fname} not found, must `_single_env_viz_units`'\
+                            f'to save the units fields info first.'
+                        )
+                        exit
+                    
+                    if info == 'num_clusters':
+                        stats = fields_info[0]
+                    elif info == 'num_pixels_in_clusters':
+                        stats = fields_info[1]
+                    elif info == 'max_value_in_clusters':
+                        stats = fields_info[2]
+
+                    if filtering == 'top_n':
+                        try:
+                            top_n_stats.extend(stats)
+                        except TypeError:
+                            top_n_stats.append(stats)
+                    elif filtering == 'bottom_n':
+                        try:
+                            bottom_n_stats.extend(stats)
+                        except TypeError:
+                            bottom_n_stats.append(stats)
+            
+            # plot
+            axes[info_index, 0].set_title(info)
+            axes[info_index, 0].plot(
+                np.arange(len(top_n_stats)), top_n_stats, label='top_n', alpha=0.5
+            )
+            axes[info_index, 0].plot(
+                np.arange(len(bottom_n_stats)), bottom_n_stats, label='bottom_n', alpha=0.5
+            )
+
+            # kdeplot 
+            axes[info_index, 1].set_title(info)
+            sns.kdeplot(
+                top_n_stats, label='top_n', ax=axes[info_index, 1], alpha=0.5
+            )
+            sns.kdeplot(
+                bottom_n_stats, label='bottom_n', ax=axes[info_index, 1], alpha=0.5
+            )
+
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(f'temp_fields_info_{target}.png')
 
 
 def multi_envs_inspect_units_CPU(
@@ -550,7 +638,7 @@ if __name__ == '__main__':
     # ======================================== #
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 10         
-    experiment = 'viz'
+    experiment = 'fields_info'
     reference_experiment = 'loc_n_rot'
     envs = ['env28_r24']
     movement_modes = ['2d']
@@ -568,9 +656,10 @@ if __name__ == '__main__':
     ]
     # ======================================== #
     
-    multi_envs_inspect_units_GPU(
-    # multi_envs_inspect_units_CPU(
-        target_func=_single_env_viz_units,
+    # multi_envs_inspect_units_GPU(
+    multi_envs_inspect_units_CPU(
+        # target_func=_single_env_viz_units,
+        target_func=_single_env_viz_fields_info,
         envs=envs,
         model_names=model_names,
         experiment=experiment,
@@ -581,7 +670,7 @@ if __name__ == '__main__':
         decoding_model_choices=decoding_model_choices,
         random_seeds=random_seeds,
         filterings=filterings,
-        cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
+        # cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
     )
 
     # print time elapsed
