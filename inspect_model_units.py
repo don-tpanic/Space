@@ -465,6 +465,7 @@ def _single_env_viz_fields_info(
         for info_index, info in enumerate(tracked_fields_info):
             top_n_stats = []
             bottom_n_stats = []
+            random_n_stats = []
             for filtering in filtering_types:
                 for unit_rank in range(n_units_filtering):
                     fname = f'{results_path}/{filtering}_rank{unit_rank}_{target}.npy'
@@ -494,6 +495,11 @@ def _single_env_viz_fields_info(
                             bottom_n_stats.extend(stats)
                         except TypeError:
                             bottom_n_stats.append(stats)
+                    elif filtering == 'random_n':
+                        try:
+                            random_n_stats.extend(stats)
+                        except TypeError:
+                            random_n_stats.append(stats)
             
             # plot
             axes[info_index, 0].set_title(info)
@@ -502,6 +508,10 @@ def _single_env_viz_fields_info(
             )
             axes[info_index, 0].plot(
                 np.arange(len(bottom_n_stats)), bottom_n_stats, label='bottom_n', alpha=0.5
+            )
+            axes[info_index, 0].plot(
+                np.arange(len(random_n_stats)), random_n_stats, label='random_n', alpha=0.5,
+                c='gray'
             )
 
             # kdeplot 
@@ -512,10 +522,38 @@ def _single_env_viz_fields_info(
             sns.kdeplot(
                 bottom_n_stats, label='bottom_n', ax=axes[info_index, 1], alpha=0.5
             )
+            sns.kdeplot(
+                random_n_stats, label='random_n', ax=axes[info_index, 1], alpha=0.5,
+                color='gray'
+            )
+
+        sup_title = f"{target},"\
+                    f"{config['unity_env']},"\
+                    f"{config['model_name']},{feature_selection}"\
+                    f"({decoding_model_choice['hparams']}),"\
+                    f"sr{sampling_rate},seed{random_seed}"
+                
+        figs_path = utils.load_figs_path(
+            config=config,
+            experiment=experiment,
+            reference_experiment=reference_experiment,
+            feature_selection=feature_selection,
+            decoding_model_choice=decoding_model_choice,
+            sampling_rate=sampling_rate,
+            moving_trajectory=moving_trajectory,
+            random_seed=random_seed,
+        )
 
         plt.legend()
         plt.tight_layout()
-        plt.savefig(f'temp_fields_info_{target}.png')
+        plt.suptitle(sup_title)
+        plt.savefig(
+            f'{figs_path}/units_fields_info'\
+            f'_{target}_groupedByFilteringN.png')
+        plt.close()
+        logging.info(
+            f'[Saved] {figs_path}/units_fields_info'\
+            f'_{target}_groupedByFilteringN.png')
 
 
 def multi_envs_inspect_units_CPU(
@@ -654,16 +692,16 @@ if __name__ == '__main__':
     ]
     feature_selections = ['l2']
     filterings = [
-        # {'filtering_order': 'top_n', 'n_units_filtering': 200},
-        # {'filtering_order': 'bottom_n', 'n_units_filtering': 200},
+        {'filtering_order': 'top_n', 'n_units_filtering': 200},
+        {'filtering_order': 'bottom_n', 'n_units_filtering': 200},
         {'filtering_order': 'random_n', 'n_units_filtering': 200},
     ]
     # ======================================== #
     
-    multi_envs_inspect_units_GPU(
-    # multi_envs_inspect_units_CPU(
-        target_func=_single_env_viz_units,
-        # target_func=_single_env_viz_fields_info,
+    # multi_envs_inspect_units_GPU(
+    multi_envs_inspect_units_CPU(
+        # target_func=_single_env_viz_units,       # set experiment='viz'
+        target_func=_single_env_viz_fields_info,   # set experiment='fields_info'
         envs=envs,
         model_names=model_names,
         experiment=experiment,
@@ -674,7 +712,7 @@ if __name__ == '__main__':
         decoding_model_choices=decoding_model_choices,
         random_seeds=random_seeds,
         filterings=filterings,
-        cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
+        # cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
     )
 
     # print time elapsed
