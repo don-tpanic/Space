@@ -169,8 +169,11 @@ def _single_env_viz_units(
                     filtered_n_units_indices = np.argsort(
                         coef[target_index, :])[::-1][
                             int(coef.shape[1]/2)-int(n_units_filtering/2):
-                            int(coef.shape[1]/2)+int(n_units_filtering/2)
-                        ]
+                            int(coef.shape[1]/2)+int(n_units_filtering/2)]
+                elif filtering_order == 'random_n':
+                    np.random.seed(random_seed)
+                    filtered_n_units_indices = np.random.choice(
+                        coef.shape[1], n_units_filtering, replace=False)
 
                 # fig, axes = plt.subplots(
                 #     nrows=n_units_filtering, 
@@ -651,15 +654,16 @@ if __name__ == '__main__':
     ]
     feature_selections = ['l2']
     filterings = [
-        {'filtering_order': 'top_n', 'n_units_filtering': 200},
-        {'filtering_order': 'bottom_n', 'n_units_filtering': 200},
+        # {'filtering_order': 'top_n', 'n_units_filtering': 200},
+        # {'filtering_order': 'bottom_n', 'n_units_filtering': 200},
+        {'filtering_order': 'random_n', 'n_units_filtering': 200},
     ]
     # ======================================== #
     
-    # multi_envs_inspect_units_GPU(
-    multi_envs_inspect_units_CPU(
-        # target_func=_single_env_viz_units,
-        target_func=_single_env_viz_fields_info,
+    multi_envs_inspect_units_GPU(
+    # multi_envs_inspect_units_CPU(
+        target_func=_single_env_viz_units,
+        # target_func=_single_env_viz_fields_info,
         envs=envs,
         model_names=model_names,
         experiment=experiment,
@@ -670,7 +674,7 @@ if __name__ == '__main__':
         decoding_model_choices=decoding_model_choices,
         random_seeds=random_seeds,
         filterings=filterings,
-        # cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
+        cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
     )
 
     # print time elapsed
