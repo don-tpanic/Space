@@ -17,8 +17,8 @@ from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 
 import utils
-import data, data_v2
-import models, models_v2
+import data
+import models
 
 """
 Experiment script
@@ -105,7 +105,7 @@ def _load_train_test_data(
     return:
         X_train, X_test, y_train, y_test
     """
-    model_reps = data_v2.load_full_dataset_model_reps(
+    model_reps = data.load_full_dataset_model_reps(
         config=config, model=model, 
         preprocessed_data=preprocessed_data,
     )
@@ -333,10 +333,10 @@ def _single_env_decoding_error(
             model = None
             preprocess_func = None
         else:
-            model, preprocess_func = models_v2.load_model(
+            model, preprocess_func = models.load_model(
                 config['model_name'], config['output_layer'])
 
-        preprocessed_data = data_v2.load_preprocessed_data(
+        preprocessed_data = data.load_preprocessed_data(
             config=config,
             data_path=\
                 f"data/unity/{config['unity_env']}/"\
@@ -351,7 +351,7 @@ def _single_env_decoding_error(
             preprocess_func=preprocess_func,
         )
 
-        targets_true = data_v2.load_decoding_targets(
+        targets_true = data.load_decoding_targets(
             movement_mode=config['movement_mode'],
             env_x_min=config['env_x_min'],
             env_x_max=config['env_x_max'],
@@ -482,7 +482,7 @@ def cross_dimension_analysis(
         movement_mode = movement_modes[0]
 
         for model_name in model_names:
-            output_layers = data_v2.load_model_layers(model_name)
+            output_layers = data.load_model_layers(model_name)
             for feature_selection in feature_selections:
                 for decoding_model_choice in decoding_model_choices:
                     decoding_model_name = decoding_model_choice['name']
@@ -617,7 +617,7 @@ def cross_dimension_analysis(
 
         for random_seed in random_seeds:
             for model_name in model_names:
-                output_layers = data_v2.load_model_layers(model_name)
+                output_layers = data.load_model_layers(model_name)
                 for feature_selection in feature_selections:
                     for decoding_model_choice in decoding_model_choices:
                         decoding_model_name = decoding_model_choice['name']
@@ -743,7 +743,7 @@ def cross_dimension_analysis(
         movement_mode = movement_modes[0]
 
         for model_name in model_names:
-            output_layers = data_v2.load_model_layers(model_name)
+            output_layers = data.load_model_layers(model_name)
             for feature_selection in feature_selections:
                 for decoding_model_choice in decoding_model_choices:
                     decoding_model_name = decoding_model_choice['name']
@@ -899,7 +899,7 @@ def cross_dimension_analysis(
         )
 
         for model_name in model_names:
-            output_layers = data_v2.load_model_layers(model_name)
+            output_layers = data.load_model_layers(model_name)
             for feature_selection in feature_selections:
                 for decoding_model_name in unique_decoding_model_names:
                 # for decoding_model_choice in decoding_model_choices:
@@ -1037,7 +1037,7 @@ def cross_dimension_analysis(
         movement_mode = movement_modes[0]
 
         for model_name in model_names:
-            output_layers = data_v2.load_model_layers(model_name)
+            output_layers = data.load_model_layers(model_name)
             for output_layer in output_layers:
                 for feature_selection in feature_selections:
                     for decoding_model_choice in decoding_model_choices:
@@ -1136,7 +1136,7 @@ def cross_dimension_analysis(
 
 
 def load_envs_dict(model_name, envs):
-    model_layers = data_v2.load_model_layers(model_name)
+    model_layers = data.load_model_layers(model_name)
     # gradient cmap in warm colors in a list
     cmaps = sns.color_palette("Reds", len(model_layers)).as_hex()[::-1]
     if len(envs) == 1:
