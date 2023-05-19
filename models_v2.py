@@ -22,20 +22,13 @@ def load_model(model_name, output_layer=None, input_shape=(224, 224, 3)):
                 from transformers import AutoImageProcessor, TFViTModel
                 model = TFViTModel.from_pretrained(
                     'google/vit-base-patch16-224-in21k',
-                    cache_dir='model_zoo/vit_b16')
+                    cache_dir='model_zoo/vit_b16'
+                )
                 preprocess_func = AutoImageProcessor.from_pretrained(
                     "google/vit-base-patch16-224-in21k",
-                    cache_dir='model_zoo/vit_b16' )
+                    cache_dir='model_zoo/vit_b16'
+                )
 
-                # random input 
-                image = tf.random.uniform((1, 224, 224, 3))
-                inputs = preprocess_func(image, return_tensors="tf")
-                print(inputs['pixel_values'].shape)
-                exit()
-
-                # TODO: output layer not compatible to other models
-                # needs be handled after model(inputs) is called in `data_v2.py`
-                return model, preprocess_func
         else:
             if model_name == 'vgg16':
                 model = tf.keras.applications.VGG16(

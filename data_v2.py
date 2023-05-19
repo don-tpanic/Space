@@ -49,6 +49,7 @@ def generate_random_data(
 
 
 def load_preprocessed_data(
+        config,
         data_path, 
         movement_mode,
         env_x_min,
@@ -73,14 +74,18 @@ def load_preprocessed_data(
         n_stops_x = len( range(env_x_min*multiplier, env_x_max*multiplier+1) )
         n_stops_y = len( range(env_y_min*multiplier, env_y_max*multiplier+1) )
         n_samples = (n_stops_x * n_stops_y) * n_rotations
+    
+    if 'vit' in config['model_name']:
+        image_shape = (3, 224, 224)
+        data_format = 'channels_first'
+    else:
+        image_shape = (224, 224, 3)
+        data_format = 'channels_last'
 
     print(f'[Check] data loader - n_samples: {n_samples}')
-
+    print(f'[Check] preprocessing...')
     # build batch of image data
     batch_x = np.zeros((n_samples,) + image_shape, dtype=dtype)
-
-    # TODO: careful for vit, might have image_shape=(3, 224, 224)
-
     for i in range(n_samples):
         fpath = f'{data_path}/{i}.png'
         # PIL.Image
@@ -96,10 +101,12 @@ def load_preprocessed_data(
         if hasattr(img, 'close'):
             img.close()
         if preprocess_func:
-
-            # TODO: for vit, might need to do inputs['pixel_values']
-
-            x = preprocess_func(x)
+            if 'vit' in config['model_name']:
+                x = preprocess_func(
+                        x, return_tensors="tf"
+                    )['pixel_values']
+            else:
+                x = preprocess_func(x)
         batch_x[i] = x
     
     print(f'[Check] data loader - batch_x.shape: {batch_x.shape}')
@@ -144,22 +151,32 @@ def load_full_dataset_model_reps(
     """
     Generic function to produce model representations
     for the full dataset (before train/test split)
-    """    
+    """
+    print(f'[Check] producing model representations...')
     # use raw image input 
     if config['model_name'] == 'none':
         model_reps = preprocessed_data.reshape(preprocessed_data.shape[0], -1)
         print(f'raw image input shape: {model_reps.shape}')
     # use model output
     else:
-        # (n, 4096)
-
-        # TODO: for vit, config['output_layer'] needs to be 
-        # accessed here in order to get the correct output.
-
-        # TODO: think about how reps shape diff in VIT 
-        # and whether decoding works out of box from flattened hidden layer outputs.
-
-        model_reps = model.predict(preprocessed_data, verbose=1)
+        if 'vit' in config['model_name']:
+            if config['model_name'] == 'vit_b16':
+                # 'layer_x'[6:] = 'x'
+                layer_index = int(config['output_layer'][6:])
+                model_reps = model(
+                    preprocessed_data, training=False, 
+                    output_hidden_states=True
+                ).hidden_states[layer_index].numpy()
+                # TF related: model(x) returns eagar tensor
+                # which cannot be reshaped whereas model.predict(x)
+                # returns numpy array which can be reshaped.
+                # The pretrained ViT is a subclassed model not wrapped
+                # with tf.keras.Model, so the easiest way to get to 
+                # reshape model_reps is to access via .numpy()
+                # Of course, another downside is that model(x)
+                # unlike model.predict(x) does not support verbosity.
+        else:
+            model_reps = model.predict(preprocessed_data, verbose=1)
 
         # NOTE: solution to OOM for early layers is to save batches to disk
         # and merge on CPU and do whatever operations come below.
@@ -169,7 +186,7 @@ def load_full_dataset_model_reps(
             # when not a fc layer, we need to flatten the output dim
             # except the batch dim.
             model_reps = model_reps.reshape(model_reps.shape[0], -1)
-        print(f'model_reps.shape: {model_reps.shape}')
+
     return model_reps
 
 
@@ -201,7 +218,13 @@ def load_model_layers(model_name):
                 'conv4_block6_out',
                 'conv2_block3_out',
             ],
-        # TODO: vit_b16 requires layer naming.
+        'vit_b16':
+            [   
+                'layer_3',
+                # 'layer_6',
+                # 'layer_9',
+                # 'layer_12',
+            ],
     }
     return models_and_layers[model_name]
     

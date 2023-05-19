@@ -17,8 +17,8 @@ from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 
 import utils
-import data
-import models
+import data, data_v2
+import models, models_v2
 
 """
 Experiment script
@@ -105,7 +105,7 @@ def _load_train_test_data(
     return:
         X_train, X_test, y_train, y_test
     """
-    model_reps = data.load_full_dataset_model_reps(
+    model_reps = data_v2.load_full_dataset_model_reps(
         config=config, model=model, 
         preprocessed_data=preprocessed_data,
     )
@@ -333,10 +333,11 @@ def _single_env_decoding_error(
             model = None
             preprocess_func = None
         else:
-            model, preprocess_func = models.load_model(
+            model, preprocess_func = models_v2.load_model(
                 config['model_name'], config['output_layer'])
 
-        preprocessed_data = data.load_preprocessed_data(
+        preprocessed_data = data_v2.load_preprocessed_data(
+            config=config,
             data_path=\
                 f"data/unity/{config['unity_env']}/"\
                 f"{config['movement_mode']}", 
@@ -350,7 +351,7 @@ def _single_env_decoding_error(
             preprocess_func=preprocess_func,
         )
 
-        targets_true = data.load_decoding_targets(
+        targets_true = data_v2.load_decoding_targets(
             movement_mode=config['movement_mode'],
             env_x_min=config['env_x_min'],
             env_x_max=config['env_x_max'],
@@ -481,7 +482,7 @@ def cross_dimension_analysis(
         movement_mode = movement_modes[0]
 
         for model_name in model_names:
-            output_layers = data.load_model_layers(model_name)
+            output_layers = data_v2.load_model_layers(model_name)
             for feature_selection in feature_selections:
                 for decoding_model_choice in decoding_model_choices:
                     decoding_model_name = decoding_model_choice['name']
@@ -616,7 +617,7 @@ def cross_dimension_analysis(
 
         for random_seed in random_seeds:
             for model_name in model_names:
-                output_layers = data.load_model_layers(model_name)
+                output_layers = data_v2.load_model_layers(model_name)
                 for feature_selection in feature_selections:
                     for decoding_model_choice in decoding_model_choices:
                         decoding_model_name = decoding_model_choice['name']
@@ -742,7 +743,7 @@ def cross_dimension_analysis(
         movement_mode = movement_modes[0]
 
         for model_name in model_names:
-            output_layers = data.load_model_layers(model_name)
+            output_layers = data_v2.load_model_layers(model_name)
             for feature_selection in feature_selections:
                 for decoding_model_choice in decoding_model_choices:
                     decoding_model_name = decoding_model_choice['name']
@@ -898,7 +899,7 @@ def cross_dimension_analysis(
         )
 
         for model_name in model_names:
-            output_layers = data.load_model_layers(model_name)
+            output_layers = data_v2.load_model_layers(model_name)
             for feature_selection in feature_selections:
                 for decoding_model_name in unique_decoding_model_names:
                 # for decoding_model_choice in decoding_model_choices:
@@ -1036,7 +1037,7 @@ def cross_dimension_analysis(
         movement_mode = movement_modes[0]
 
         for model_name in model_names:
-            output_layers = data.load_model_layers(model_name)
+            output_layers = data_v2.load_model_layers(model_name)
             for output_layer in output_layers:
                 for feature_selection in feature_selections:
                     for decoding_model_choice in decoding_model_choices:
@@ -1135,7 +1136,7 @@ def cross_dimension_analysis(
 
 
 def load_envs_dict(model_name, envs):
-    model_layers = data.load_model_layers(model_name)
+    model_layers = data_v2.load_model_layers(model_name)
     # gradient cmap in warm colors in a list
     cmaps = sns.color_palette("Reds", len(model_layers)).as_hex()[::-1]
     if len(envs) == 1:
@@ -1168,26 +1169,28 @@ if __name__ == '__main__':
         logging.basicConfig(level=logging.DEBUG)
 
     # =================================================================== #
-    TF_NUM_INTRAOP_THREADS = 8
-    CPU_NUM_PROCESSES = 10
+    TF_NUM_INTRAOP_THREADS = 30
+    CPU_NUM_PROCESSES = 1
     experiment = 'loc_n_rot'
     envs = ['env28_r24']
     movement_modes = ['2d']
-    sampling_rates = [0.01, 0.1, 0.5]
-    random_seeds = [42, 1234, 999]
-    model_names = ['simclrv2_r50_1x_sk0', 'resnet50', 'vgg16']
+    sampling_rates = [0.5]
+    # random_seeds = [42, 1234, 999]
+    random_seeds = [42]
+    # model_names = ['simclrv2_r50_1x_sk0', 'resnet50', 'vgg16']
+    model_names = ['vit_b16']
     moving_trajectories = ['uniform']
     decoding_model_choices = [
         {'name': 'ridge_regression', 'hparams': 0.1},
-        {'name': 'ridge_regression', 'hparams': 0.5},
-        {'name': 'ridge_regression', 'hparams': 1.0},
-        {'name': 'ridge_regression', 'hparams': 2.0},
-        {'name': 'lasso_regression', 'hparams': 0.1},
-        {'name': 'lasso_regression', 'hparams': 0.5},
-        {'name': 'lasso_regression', 'hparams': 1.0},
-        {'name': 'lasso_regression', 'hparams': 2.0},
+        # {'name': 'ridge_regression', 'hparams': 0.5},
+        # {'name': 'ridge_regression', 'hparams': 1.0},
+        # {'name': 'ridge_regression', 'hparams': 2.0},
+        # {'name': 'lasso_regression', 'hparams': 0.1},
+        # {'name': 'lasso_regression', 'hparams': 0.5},
+        # {'name': 'lasso_regression', 'hparams': 1.0},
+        # {'name': 'lasso_regression', 'hparams': 2.0},
     ]
-    feature_selections = ['l2', 'l1']
+    feature_selections = ['l2']
     # =================================================================== #
 
     multi_envs_across_dimensions_CPU(
@@ -1203,7 +1206,7 @@ if __name__ == '__main__':
     )
 
     cross_dimension_analysis(
-        analysis='decoding_across_reg_strengths_n_layers',
+        analysis='decoding_across_sampling_rates_n_layers',
         envs=envs,
         movement_modes=movement_modes,
         model_names=model_names,
