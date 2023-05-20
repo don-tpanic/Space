@@ -207,8 +207,8 @@ def load_model_layers(model_name):
         'vgg16':
             [   
                 'fc2',
-                'block5_pool',
-                'block4_pool',
+                # 'block5_pool',
+                # 'block4_pool',
                 # 'block2_pool',
             ],
         'resnet50':
@@ -220,10 +220,10 @@ def load_model_layers(model_name):
             ],
         'vit_b16':
             [   
+                'layer_12',
+                'layer_9',
+                'layer_6',
                 'layer_3',
-                # 'layer_6',
-                # 'layer_9',
-                # 'layer_12',
             ],
     }
     return models_and_layers[model_name]
