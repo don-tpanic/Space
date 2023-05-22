@@ -1179,7 +1179,7 @@ if __name__ == '__main__':
     movement_modes = ['2d']
     sampling_rates = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
     random_seeds = [42, 1234, 999]
-    model_names = ['vit_b16']
+    model_names = ['simclrv2_r50_1x_sk0', 'resnet50', 'vgg16', 'vit_b16']
     moving_trajectories = ['uniform']
     decoding_model_choices = [
         {'name': 'ridge_regression', 'hparams': 0.1},
@@ -1207,7 +1207,7 @@ if __name__ == '__main__':
     )
 
     cross_dimension_analysis(
-        analysis='decoding_across_sampling_rates_n_layers',
+        analysis='decoding_across_reg_strengths_n_layers',
         envs=envs,
         movement_modes=movement_modes,
         model_names=model_names,
