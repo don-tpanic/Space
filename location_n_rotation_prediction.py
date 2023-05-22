@@ -288,7 +288,7 @@ def _single_env_decoding_error(
     ):
     os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
-    logging.info(f'[Check] config_version: {config_version}')
+    # logging.info(f'[Check] config_version: {config_version}')
 
     # check if feature_selection and decoding_model_choice match
     # specifically, we make sure if l1 is included in feature_selection,
@@ -306,9 +306,9 @@ def _single_env_decoding_error(
             'l2' in feature_selection and \
             decoding_model_choice['name'] != 'ridge_regression'
         ):
-        logging.info(
-            '[Skip] feature_selection and decoding_model_choice mismatch'
-        )
+        # logging.info(
+        #     '[Skip] feature_selection and decoding_model_choice mismatch'
+        # )
         return
 
     config = utils.load_config(config_version)
@@ -325,10 +325,13 @@ def _single_env_decoding_error(
     # check if this base-case result exists, 
     # if so skip
     if os.path.exists(f'{results_path}/res.npy'):
-        logging.info('[Check] base-case exists, skipping')
+        # logging.info('[Check] base-case exists, skipping')
         return
     else:
-        logging.info('[Check] base-case does not exist, continuing')
+        logging.info(
+            f'[Running] {config_version}, {sampling_rate},'\
+            f'{feature_selection}, {decoding_model_choice}, {random_seed}'
+        )
         if config['model_name'] == 'none':
             model = None
             preprocess_func = None
@@ -1169,28 +1172,26 @@ if __name__ == '__main__':
         logging.basicConfig(level=logging.DEBUG)
 
     # =================================================================== #
-    TF_NUM_INTRAOP_THREADS = 30
-    CPU_NUM_PROCESSES = 1
+    TF_NUM_INTRAOP_THREADS = 10
+    CPU_NUM_PROCESSES = 5
     experiment = 'loc_n_rot'
     envs = ['env28_r24']
     movement_modes = ['2d']
-    sampling_rates = [0.5]
-    # random_seeds = [42, 1234, 999]
-    random_seeds = [42]
-    # model_names = ['simclrv2_r50_1x_sk0', 'resnet50', 'vgg16']
+    sampling_rates = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
+    random_seeds = [42, 1234, 999]
     model_names = ['vit_b16']
     moving_trajectories = ['uniform']
     decoding_model_choices = [
         {'name': 'ridge_regression', 'hparams': 0.1},
-        # {'name': 'ridge_regression', 'hparams': 0.5},
-        # {'name': 'ridge_regression', 'hparams': 1.0},
-        # {'name': 'ridge_regression', 'hparams': 2.0},
-        # {'name': 'lasso_regression', 'hparams': 0.1},
-        # {'name': 'lasso_regression', 'hparams': 0.5},
-        # {'name': 'lasso_regression', 'hparams': 1.0},
-        # {'name': 'lasso_regression', 'hparams': 2.0},
+        {'name': 'ridge_regression', 'hparams': 0.5},
+        {'name': 'ridge_regression', 'hparams': 1.0},
+        {'name': 'ridge_regression', 'hparams': 2.0},
+        {'name': 'lasso_regression', 'hparams': 0.1},
+        {'name': 'lasso_regression', 'hparams': 0.5},
+        {'name': 'lasso_regression', 'hparams': 1.0},
+        {'name': 'lasso_regression', 'hparams': 2.0},
     ]
-    feature_selections = ['l2']
+    feature_selections = ['l2', 'l1']
     # =================================================================== #
 
     multi_envs_across_dimensions_CPU(
