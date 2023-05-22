@@ -56,6 +56,7 @@ def _single_model_reps(config):
                 config['model_name'], config['output_layer'])
 
         preprocessed_data = data.load_preprocessed_data(
+            config=config,
             data_path=\
                 f"data/unity/"\
                 f"{config['unity_env']}/"\
@@ -556,6 +557,165 @@ def _single_env_viz_fields_info(
             f'_{target}_groupedByFilteringN.png')
 
 
+def _single_env_viz_units_similarity(
+        config_version, 
+        experiment,
+        reference_experiment,
+        feature_selection, 
+        decoding_model_choice,
+        sampling_rate,
+        moving_trajectory,
+        random_seed,
+        filterings,
+    ):
+    """
+    This function should help to answer the question of really
+    how units correlate to one another. Given `model_reps`, 
+    we construct and visualize similarity matrix of units.
+
+    For instance, to avoid using the entire model_reps, whose
+    pairwise similarity matrix would be too large for early 
+    layers, we subsample units based on filterings. Concretely,
+    we construct similarity matrices with top_n+bottom_n or 
+    top_n+random_n rows/columns. Then we can visualize the
+    similarity matrix and see if there are patterns.
+    """
+    os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
+    os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+
+    config = utils.load_config(config_version)
+    reference_experiment_results_path = \
+            utils.load_results_path(
+                config=config,
+                experiment=reference_experiment,  # Dirty but coef is saved in loc_n_rot
+                feature_selection=feature_selection,
+                decoding_model_choice=decoding_model_choice,
+                sampling_rate=sampling_rate,
+                moving_trajectory=moving_trajectory,
+                random_seed=random_seed,
+    )
+    logging.info(
+        f'Loading results (for coef) from {reference_experiment_results_path}'
+    )
+    if reference_experiment_results_path is None:
+        logging.info(
+            f'Mismatch between feature '\
+            f'selection and decoding model, skip.'
+        )
+        return
+
+    movement_mode=config['movement_mode']
+    env_x_min=config['env_x_min']
+    env_x_max=config['env_x_max']
+    env_y_min=config['env_y_min']
+    env_y_max=config['env_y_max']
+    multiplier=config['multiplier']
+    
+    # load model outputs
+    model_reps = _single_model_reps(config)
+    
+    # TODO: feature selection based on rob metric or l1/l2
+    # notice, one complexity is coef is x, y, rot
+    # whereas rob metric may not be differentiating (x, y)
+    # one idea is to separately plot for x, y, rot 
+    if feature_selection in ['l1', 'l2']:
+        # load regression coefs as selection criteria
+        # for model_reps (per unit)
+        targets = ['x', 'y', 'rot']
+        coef = \
+            np.load(
+                f'{reference_experiment_results_path}/res.npy', 
+                allow_pickle=True).item()['coef']  # (n_targets, n_features)
+        logging.info(f'Loaded coef.shape: {coef.shape}')
+
+        for target_index in range(coef.shape[0]):
+            # filter columns of `model_reps` 
+            # based on each coef of each target
+            # based on `n_units_filtering` and `filtering_order`
+            for filtering in filterings:
+                n_units_filtering = filtering['n_units_filtering']
+                filtering_order = filtering['filtering_order']
+                if filtering_order == 'top_n':
+                    top_n_filtered_n_units_indices = np.argsort(
+                        coef[target_index, :])[::-1][:n_units_filtering]
+                elif filtering_order == 'bottom_n':
+                    bottom_n_filtered_n_units_indices = np.argsort(
+                        coef[target_index, :])[::-1][-n_units_filtering:]
+                elif filtering_order == 'random_n':
+                    np.random.seed(random_seed)
+                    random_n_filtered_n_units_indices = np.random.choice(
+                        coef.shape[1], n_units_filtering, replace=False)
+            
+            # based on indices, extract columns from `model_reps`
+            # summed over rotations. then for `model_reps_summed`,
+            # we construct pairwise similarity matrix.
+            # `model_reps` \in (n_locations, n_rotations, n_features)
+            # `model_reps_summed` \in (n_locations, n_features)
+            model_reps_summed = np.sum(
+                model_reps, axis=1, keepdims=False)
+            top_n_model_reps_summed = model_reps_summed[:, top_n_filtered_n_units_indices]
+            bottom_n_model_reps_summed = model_reps_summed[:, bottom_n_filtered_n_units_indices]
+            random_n_model_reps_summed = model_reps_summed[:, random_n_filtered_n_units_indices]
+
+            # concat top_n, bottom_n, random_n into one matrix
+            # so can compute similarity matrix
+            # `model_reps_summed_concat` \in (n_locations, 3*n_features)
+            model_reps_summed_concat = np.concatenate(
+                (
+                    top_n_model_reps_summed, 
+                    bottom_n_model_reps_summed, 
+                    random_n_model_reps_summed
+                ),
+                axis=1
+            )
+            
+            # compute similarity matrix
+            # `similarity_matrix` \in (3*n_features, 3*n_features)
+            similarity_matrix = np.corrcoef(
+                model_reps_summed_concat, rowvar=False
+            )
+
+            # plot similarity matrix as heatmap
+            # and mark portions of the heatmap
+            # that correspond to top_n, bottom_n, random_n
+            fig, axes = plt.subplots(
+                nrows=1,
+                ncols=1,
+                figsize=(10, 10)
+            )
+            axes.imshow(similarity_matrix)
+            axes.set_xticks([])
+            axes.set_yticks([])
+            axes.set_title(f'target_{target_index}')
+            axes.axvline(x=n_units_filtering, c='r')
+            axes.axvline(x=n_units_filtering*2, c='r')
+            axes.set_xticks([])
+            axes.set_yticks([])
+
+            # save the fig
+            figs_path = utils.load_figs_path(
+                config=config,
+                experiment=experiment,
+                reference_experiment=reference_experiment,
+                feature_selection=feature_selection,
+                decoding_model_choice=decoding_model_choice,
+                sampling_rate=sampling_rate,
+                moving_trajectory=moving_trajectory,
+                random_seed=random_seed,
+            )
+            plt.tight_layout()
+            plt.savefig(
+                f'{figs_path}/units_summed_similarity'\
+                f'_{targets[target_index]}.png'
+            )
+            plt.close()
+            logging.info(
+                f'[Saved] {figs_path}/units_summed_similarity'\
+                f'_{targets[target_index]}.png'
+            )
+            
+
+
 def multi_envs_inspect_units_CPU(
         target_func,
         envs,
@@ -678,8 +838,8 @@ if __name__ == '__main__':
 
     # ======================================== #
     TF_NUM_INTRAOP_THREADS = 10
-    CPU_NUM_PROCESSES = 10         
-    experiment = 'fields_info'
+    CPU_NUM_PROCESSES = 1         
+    experiment = 'similarity'
     reference_experiment = 'loc_n_rot'
     envs = ['env28_r24']
     movement_modes = ['2d']
@@ -698,10 +858,11 @@ if __name__ == '__main__':
     ]
     # ======================================== #
     
-    # multi_envs_inspect_units_GPU(
-    multi_envs_inspect_units_CPU(
+    multi_envs_inspect_units_GPU(
+    # multi_envs_inspect_units_CPU(
         # target_func=_single_env_viz_units,       # set experiment='viz'
-        target_func=_single_env_viz_fields_info,   # set experiment='fields_info'
+        # target_func=_single_env_viz_fields_info,   # set experiment='fields_info'
+        target_func=_single_env_viz_units_similarity,   # set experiment='similarity'
         envs=envs,
         model_names=model_names,
         experiment=experiment,
@@ -712,7 +873,7 @@ if __name__ == '__main__':
         decoding_model_choices=decoding_model_choices,
         random_seeds=random_seeds,
         filterings=filterings,
-        # cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
+        cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
     )
 
     # print time elapsed
