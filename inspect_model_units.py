@@ -281,8 +281,20 @@ def _single_env_viz_units(
                             # NOTE: in order to plot coef(x-axis) v fields info(y-axis), we need to 
                             # make sure coef is repeated the same number of times as the number of
                             # clusters.
-                            unit_fields_info.append(
-                                coef[target_index, unit_index].repeat(num_clusters[0])
+                            if num_clusters[0] > 1:
+                                unit_fields_info.append(
+                                    np.array(
+                                        coef[target_index, unit_index].repeat(num_clusters[0])
+                                    )
+                                )
+                            else:
+                                unit_fields_info.append(
+                                    np.array(
+                                        [coef[target_index, unit_index]])
+                                )
+                            
+                            unit_fields_info = np.array(
+                                unit_fields_info, dtype=object
                             )
 
                             # save each unit fields info to disk
@@ -301,8 +313,6 @@ def _single_env_viz_units(
                                     f'_rank{unit_rank}'\
                                     f'_{targets[target_index]}.npy'
                             print(f'Saving unit fields info to {fpath}')
-                            # `dtype=object` to get rid of numpy decrecation warning
-                            unit_fields_info = np.array(unit_fields_info, dtype=object)
                             np.save(fpath, unit_fields_info)
                             ########
 
@@ -401,7 +411,7 @@ def _compute_single_heatmap_fields_info(heatmap, pixel_min_threshold, pixel_max_
     filtered_labels = np.where(np.isin(labels, np.nonzero(mask)[0]), labels, 0)
 
     # Count the number of clusters that meet the criteria
-    num_clusters = [filtered_stats.shape[0]]
+    num_clusters = np.array([filtered_stats.shape[0]])
 
     # Get the number of pixels in each cluster
     num_pixels_in_clusters = filtered_stats[:, cv2.CC_STAT_AREA]
@@ -416,6 +426,15 @@ def _compute_single_heatmap_fields_info(heatmap, pixel_min_threshold, pixel_max_
                 )
             )
 
+    # Add 0 to `num_pixels_in_clusters` and `max_value_in_clusters`
+    # in case `num_clusters` is 0. This is helpful when we want to
+    # plot fields info against coef, as no matter if there is a cluster
+    # for a unit, there is always a coef for that unit.
+    if num_clusters[0] == 0:
+        num_pixels_in_clusters = np.array([0])
+        max_value_in_clusters = np.array([0])
+    else:
+        max_value_in_clusters = np.array(max_value_in_clusters)
     return num_clusters, num_pixels_in_clusters, max_value_in_clusters
 
 
@@ -474,7 +493,7 @@ def _single_env_viz_fields_info(
         fig, axes = plt.subplots(
             nrows=len(tracked_fields_info), 
             ncols=3, 
-            figsize=(10, 5)
+            figsize=(14, 7)
         )
         for info_index, info in enumerate(tracked_fields_info):
             top_n_stats = []
@@ -503,25 +522,30 @@ def _single_env_viz_fields_info(
                         stats = fields_info[2]
 
                     if filtering == 'top_n':
-                        try:
-                            top_n_stats.extend(stats)
-                        except TypeError:
-                            top_n_stats.append(stats)
-                        top_n_coef.append(fields_info[3])
+                        top_n_stats.extend(stats)
+                        if info == 'num_clusters':
+                            # HACK: due to coef is repeated the same number of times
+                            # as the number of clusters during saving, but when 
+                            # info == 'num_clusters', there is only one value for 
+                            # one coef, we need to extract the first coef from the list
+                            # of coef (first coef is the same as the rest though)
+                            top_n_coef.append(fields_info[-1][0])
+                        else:
+                            top_n_coef.extend(fields_info[-1])
 
                     elif filtering == 'bottom_n':
-                        try:
-                            bottom_n_stats.extend(stats)
-                        except TypeError:
-                            bottom_n_stats.append(stats)
-                        bottom_n_coef.append(fields_info[3])
+                        bottom_n_stats.extend(stats)
+                        if info == 'num_clusters':
+                            bottom_n_coef.append(fields_info[-1][0])
+                        else:
+                            bottom_n_coef.extend(fields_info[-1])
 
                     elif filtering == 'random_n':
-                        try:
-                            random_n_stats.extend(stats)
-                        except TypeError:
-                            random_n_stats.append(stats)
-                        random_n_coef.append(fields_info[3])
+                        random_n_stats.extend(stats)
+                        if info == 'num_clusters':
+                            random_n_coef.append(fields_info[-1][0])
+                        else:
+                            random_n_coef.extend(fields_info[-1])
                     
             # plot for each info, how units differ
             axes[info_index, 0].set_title(info)
@@ -535,7 +559,7 @@ def _single_env_viz_fields_info(
                 np.arange(len(random_n_stats)), random_n_stats, label='random_n', alpha=0.5,
                 c='gray'
             )
-
+            
             # kdeplot for each info, how units (distribution) differ
             axes[info_index, 1].set_title(info)
             sns.kdeplot(
@@ -549,18 +573,24 @@ def _single_env_viz_fields_info(
                 color='gray'
             )
 
+            # print(info)
+            # print(top_n_coef, len(top_n_coef), '\n')
+            # print(top_n_stats, len(top_n_stats))
+            # exit()
+
             # scatterplot for each info, how unit coef and info correlate
             axes[info_index, 2].set_title(info)
+            # axes[info_index, 2].scatter(
+            #     top_n_coef, top_n_stats, label='top_n', alpha=0.3
+            # )
+            # axes[info_index, 2].scatter(
+            #     bottom_n_coef, bottom_n_stats, label='bottom_n', alpha=0.3
+            # )
             axes[info_index, 2].scatter(
-                top_n_coef, top_n_stats, label='top_n', alpha=0.5
-            )
-            axes[info_index, 2].scatter(
-                bottom_n_coef, bottom_n_stats, label='bottom_n', alpha=0.5
-            )
-            axes[info_index, 2].scatter(
-                random_n_coef, random_n_stats, label='random_n', alpha=0.5,
+                random_n_coef, random_n_stats, label='random_n', alpha=0.3,
                 c='gray'
             )
+            axes[info_index, 2].set_xlabel('coef')
 
         sup_title = f"{target},"\
                     f"{config['unity_env']},"\
@@ -873,7 +903,7 @@ if __name__ == '__main__':
     # ======================================== #
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 4      
-    experiment = 'viz'
+    experiment = 'fields_info'
     reference_experiment = 'loc_n_rot'
     envs = ['env28_r24']
     movement_modes = ['2d']
@@ -892,10 +922,10 @@ if __name__ == '__main__':
     ]
     # ======================================== #
     
-    multi_envs_inspect_units_GPU(
-    # multi_envs_inspect_units_CPU(
-        target_func=_single_env_viz_units,       # set experiment='viz' (including saving fields info)
-        # target_func=_single_env_viz_fields_info,   # set experiment='fields_info'
+    # multi_envs_inspect_units_GPU(
+    multi_envs_inspect_units_CPU(
+        # target_func=_single_env_viz_units,       # set experiment='viz' (including saving fields info)
+        target_func=_single_env_viz_fields_info,   # set experiment='fields_info'
         # target_func=_single_env_viz_units_similarity,   # set experiment='similarity'
         envs=envs,
         model_names=model_names,
@@ -907,7 +937,7 @@ if __name__ == '__main__':
         decoding_model_choices=decoding_model_choices,
         random_seeds=random_seeds,
         filterings=filterings,
-        cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
+        # cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
     )
 
     # print time elapsed
