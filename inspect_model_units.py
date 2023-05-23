@@ -278,7 +278,12 @@ def _single_env_viz_units(
                             # by doing this, we can easily access the coef of this saved
                             # ranked unit without having to load `coef.npy` which is 
                             # quite cumbersome.
-                            unit_fields_info.append(coef[target_index, unit_index])
+                            # NOTE: in order to plot coef(x-axis) v fields info(y-axis), we need to 
+                            # make sure coef is repeated the same number of times as the number of
+                            # clusters.
+                            unit_fields_info.append(
+                                coef[target_index, unit_index].repeat(num_clusters[0])
+                            )
 
                             # save each unit fields info to disk
                             results_path = utils.load_results_path(
@@ -868,7 +873,7 @@ if __name__ == '__main__':
     # ======================================== #
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 4      
-    experiment = 'fields_info'
+    experiment = 'viz'
     reference_experiment = 'loc_n_rot'
     envs = ['env28_r24']
     movement_modes = ['2d']
@@ -887,10 +892,10 @@ if __name__ == '__main__':
     ]
     # ======================================== #
     
-    # multi_envs_inspect_units_GPU(
-    multi_envs_inspect_units_CPU(
-        # target_func=_single_env_viz_units,       # set experiment='viz' (including saving fields info)
-        target_func=_single_env_viz_fields_info,   # set experiment='fields_info'
+    multi_envs_inspect_units_GPU(
+    # multi_envs_inspect_units_CPU(
+        target_func=_single_env_viz_units,       # set experiment='viz' (including saving fields info)
+        # target_func=_single_env_viz_fields_info,   # set experiment='fields_info'
         # target_func=_single_env_viz_units_similarity,   # set experiment='similarity'
         envs=envs,
         model_names=model_names,
@@ -902,7 +907,7 @@ if __name__ == '__main__':
         decoding_model_choices=decoding_model_choices,
         random_seeds=random_seeds,
         filterings=filterings,
-        # cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
+        cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
     )
 
     # print time elapsed
