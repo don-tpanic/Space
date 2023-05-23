@@ -468,13 +468,16 @@ def _single_env_viz_fields_info(
     for target in targets:
         fig, axes = plt.subplots(
             nrows=len(tracked_fields_info), 
-            ncols=2, 
+            ncols=3, 
             figsize=(10, 5)
         )
         for info_index, info in enumerate(tracked_fields_info):
             top_n_stats = []
             bottom_n_stats = []
             random_n_stats = []
+            top_n_coef = []
+            bottom_n_coef = []
+            random_n_coef = []
             for filtering in filtering_types:
                 for unit_rank in range(n_units_filtering):
                     fname = f'{results_path}/{filtering}_rank{unit_rank}_{target}.npy'
@@ -499,18 +502,23 @@ def _single_env_viz_fields_info(
                             top_n_stats.extend(stats)
                         except TypeError:
                             top_n_stats.append(stats)
+                        top_n_coef.append(fields_info[3])
+
                     elif filtering == 'bottom_n':
                         try:
                             bottom_n_stats.extend(stats)
                         except TypeError:
                             bottom_n_stats.append(stats)
+                        bottom_n_coef.append(fields_info[3])
+
                     elif filtering == 'random_n':
                         try:
                             random_n_stats.extend(stats)
                         except TypeError:
                             random_n_stats.append(stats)
-            
-            # plot
+                        random_n_coef.append(fields_info[3])
+                    
+            # plot for each info, how units differ
             axes[info_index, 0].set_title(info)
             axes[info_index, 0].plot(
                 np.arange(len(top_n_stats)), top_n_stats, label='top_n', alpha=0.5
@@ -523,7 +531,7 @@ def _single_env_viz_fields_info(
                 c='gray'
             )
 
-            # kdeplot 
+            # kdeplot for each info, how units (distribution) differ
             axes[info_index, 1].set_title(info)
             sns.kdeplot(
                 top_n_stats, label='top_n', ax=axes[info_index, 1], alpha=0.5
@@ -534,6 +542,19 @@ def _single_env_viz_fields_info(
             sns.kdeplot(
                 random_n_stats, label='random_n', ax=axes[info_index, 1], alpha=0.5,
                 color='gray'
+            )
+
+            # scatterplot for each info, how unit coef and info correlate
+            axes[info_index, 2].set_title(info)
+            axes[info_index, 2].scatter(
+                top_n_coef, top_n_stats, label='top_n', alpha=0.5
+            )
+            axes[info_index, 2].scatter(
+                bottom_n_coef, bottom_n_stats, label='bottom_n', alpha=0.5
+            )
+            axes[info_index, 2].scatter(
+                random_n_coef, random_n_stats, label='random_n', alpha=0.5,
+                c='gray'
             )
 
         sup_title = f"{target},"\
@@ -847,7 +868,7 @@ if __name__ == '__main__':
     # ======================================== #
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 4      
-    experiment = 'viz'
+    experiment = 'fields_info'
     reference_experiment = 'loc_n_rot'
     envs = ['env28_r24']
     movement_modes = ['2d']
@@ -866,10 +887,10 @@ if __name__ == '__main__':
     ]
     # ======================================== #
     
-    multi_envs_inspect_units_GPU(
-    # multi_envs_inspect_units_CPU(
-        target_func=_single_env_viz_units,       # set experiment='viz' (including saving fields info)
-        # target_func=_single_env_viz_fields_info,   # set experiment='fields_info'
+    # multi_envs_inspect_units_GPU(
+    multi_envs_inspect_units_CPU(
+        # target_func=_single_env_viz_units,       # set experiment='viz' (including saving fields info)
+        target_func=_single_env_viz_fields_info,   # set experiment='fields_info'
         # target_func=_single_env_viz_units_similarity,   # set experiment='similarity'
         envs=envs,
         model_names=model_names,
@@ -881,7 +902,7 @@ if __name__ == '__main__':
         decoding_model_choices=decoding_model_choices,
         random_seeds=random_seeds,
         filterings=filterings,
-        cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
+        # cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
     )
 
     # print time elapsed
