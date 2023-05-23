@@ -926,8 +926,9 @@ if __name__ == '__main__':
     moving_trajectories = ['uniform']
     decoding_model_choices = [
         {'name': 'ridge_regression', 'hparams': 1.0},
+        {'name': 'lasso_regression', 'hparams': 1.0},
     ]
-    feature_selections = ['l2']
+    feature_selections = ['l2', 'l1']
     filterings = [
         {'filtering_order': 'top_n', 'n_units_filtering': 200},
         {'filtering_order': 'mid_n', 'n_units_filtering': 200},
