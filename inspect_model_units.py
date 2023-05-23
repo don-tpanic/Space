@@ -499,9 +499,11 @@ def _single_env_viz_fields_info(
             top_n_stats = []
             bottom_n_stats = []
             random_n_stats = []
+            mid_n_stats = []
             top_n_coef = []
             bottom_n_coef = []
             random_n_coef = []
+            mid_n_coef = []
             for filtering in filtering_types:
                 for unit_rank in range(n_units_filtering):
                     fname = f'{results_path}/{filtering}_rank{unit_rank}_{target}.npy'
@@ -547,10 +549,20 @@ def _single_env_viz_fields_info(
                         else:
                             random_n_coef.extend(fields_info[-1])
                     
+                    elif filtering == 'mid_n':
+                        mid_n_stats.extend(stats)
+                        if info == 'num_clusters':
+                            mid_n_coef.append(fields_info[-1][0])
+                        else:
+                            mid_n_coef.extend(fields_info[-1])
+                    
             # plot for each info, how units differ
             axes[info_index, 0].set_title(info)
             axes[info_index, 0].plot(
                 np.arange(len(top_n_stats)), top_n_stats, label='top_n', alpha=0.5
+            )
+            axes[info_index, 0].plot(
+                np.arange(len(mid_n_stats)), mid_n_stats, label='mid_n', alpha=0.5,
             )
             axes[info_index, 0].plot(
                 np.arange(len(bottom_n_stats)), bottom_n_stats, label='bottom_n', alpha=0.5
@@ -566,6 +578,9 @@ def _single_env_viz_fields_info(
                 top_n_stats, label='top_n', ax=axes[info_index, 1], alpha=0.5
             )
             sns.kdeplot(
+                mid_n_stats, label='mid_n', ax=axes[info_index, 1], alpha=0.5,
+            )
+            sns.kdeplot(
                 bottom_n_stats, label='bottom_n', ax=axes[info_index, 1], alpha=0.5
             )
             sns.kdeplot(
@@ -573,22 +588,20 @@ def _single_env_viz_fields_info(
                 color='gray'
             )
 
-            # print(info)
-            # print(top_n_coef, len(top_n_coef), '\n')
-            # print(top_n_stats, len(top_n_stats))
-            # exit()
-
             # scatterplot for each info, how unit coef and info correlate
             axes[info_index, 2].set_title(info)
-            # axes[info_index, 2].scatter(
-            #     top_n_coef, top_n_stats, label='top_n', alpha=0.3
-            # )
-            # axes[info_index, 2].scatter(
-            #     bottom_n_coef, bottom_n_stats, label='bottom_n', alpha=0.3
-            # )
+            axes[info_index, 2].scatter(
+                top_n_coef, top_n_stats, label='top_n', alpha=0.1
+            )
+            axes[info_index, 2].scatter(
+                mid_n_coef, mid_n_stats, label='mid_n', alpha=0.1,
+            )
+            axes[info_index, 2].scatter(
+                bottom_n_coef, bottom_n_stats, label='bottom_n', alpha=0.1
+            )
             axes[info_index, 2].scatter(
                 random_n_coef, random_n_stats, label='random_n', alpha=0.3,
-                c='gray'
+                c='gray', marker='x'
             )
             axes[info_index, 2].set_xlabel('coef')
 
@@ -610,7 +623,7 @@ def _single_env_viz_fields_info(
         )
 
         plt.legend()
-        plt.tight_layout()
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
         plt.suptitle(sup_title)
         plt.savefig(
             f'{figs_path}/units_fields_info'\
@@ -917,6 +930,7 @@ if __name__ == '__main__':
     feature_selections = ['l2']
     filterings = [
         {'filtering_order': 'top_n', 'n_units_filtering': 200},
+        {'filtering_order': 'mid_n', 'n_units_filtering': 200},
         {'filtering_order': 'bottom_n', 'n_units_filtering': 200},
         {'filtering_order': 'random_n', 'n_units_filtering': 200},
     ]
