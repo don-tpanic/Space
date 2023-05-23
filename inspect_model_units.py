@@ -838,14 +838,14 @@ if __name__ == '__main__':
 
     # ======================================== #
     TF_NUM_INTRAOP_THREADS = 10
-    CPU_NUM_PROCESSES = 1         
-    experiment = 'similarity'
+    CPU_NUM_PROCESSES = 4      
+    experiment = 'fields_info'
     reference_experiment = 'loc_n_rot'
     envs = ['env28_r24']
     movement_modes = ['2d']
     sampling_rates = [0.5]
     random_seeds = [42]
-    model_names = ['vgg16']
+    model_names = ['vit_b16']
     moving_trajectories = ['uniform']
     decoding_model_choices = [
         {'name': 'ridge_regression', 'hparams': 1.0},
@@ -858,11 +858,11 @@ if __name__ == '__main__':
     ]
     # ======================================== #
     
-    multi_envs_inspect_units_GPU(
-    # multi_envs_inspect_units_CPU(
+    # multi_envs_inspect_units_GPU(
+    multi_envs_inspect_units_CPU(
         # target_func=_single_env_viz_units,       # set experiment='viz'
-        # target_func=_single_env_viz_fields_info,   # set experiment='fields_info'
-        target_func=_single_env_viz_units_similarity,   # set experiment='similarity'
+        target_func=_single_env_viz_fields_info,   # set experiment='fields_info'
+        # target_func=_single_env_viz_units_similarity,   # set experiment='similarity'
         envs=envs,
         model_names=model_names,
         experiment=experiment,
@@ -873,7 +873,7 @@ if __name__ == '__main__':
         decoding_model_choices=decoding_model_choices,
         random_seeds=random_seeds,
         filterings=filterings,
-        cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
+        # cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
     )
 
     # print time elapsed
