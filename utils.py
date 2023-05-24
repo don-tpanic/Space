@@ -100,7 +100,7 @@ def load_figs_path(
             f'{decoding_model_name}_{decoding_model_hparams}/'\
             f'{output_layer}/sr{sampling_rate}/seed{random_seed}'
         
-    elif experiment in ['viz', 'fields_info'] \
+    elif experiment in ['viz', 'fields_info', 'similarity'] \
             and reference_experiment == 'loc_n_rot':
         figs_path = \
             f'figs/{unity_env}/{movement_mode}/{moving_trajectory}/'\
