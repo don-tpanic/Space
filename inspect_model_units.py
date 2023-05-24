@@ -172,9 +172,20 @@ def _single_env_viz_units(
                             int(coef.shape[1]/2)-int(n_units_filtering/2):
                             int(coef.shape[1]/2)+int(n_units_filtering/2)]
                 elif filtering_order == 'random_n':
+                    # randomly sample n_units_filtering units
+                    # but excluding the top and bottom n_units_filtering.
+                    # need to make sure the native indexing is preserved
+                    # as we use native unit indices for saving and plotting.
                     np.random.seed(random_seed)
                     filtered_n_units_indices = np.random.choice(
-                        coef.shape[1], n_units_filtering, replace=False)
+                        np.arange(coef.shape[1])[n_units_filtering:-n_units_filtering], 
+                        size=n_units_filtering, 
+                        replace=False
+                    )
+                    filtered_n_units_indices = np.sort(filtered_n_units_indices)
+                else:
+                    raise NotImplementedError
+
 
                 # fig, axes = plt.subplots(
                 #     nrows=n_units_filtering, 
