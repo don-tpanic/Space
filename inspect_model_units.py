@@ -251,7 +251,7 @@ def _single_env_viz_units(
                 # 1 for heatmap, 1 for distribution
                 fig, axes = plt.subplots(
                     nrows=n_units_filtering, 
-                    ncols=2,
+                    ncols=3,
                     figsize=(5, 300)
                 )
                 for unit_rank, unit_index in enumerate(filtered_n_units_indices):
@@ -276,7 +276,7 @@ def _single_env_viz_units(
                             # otherwise the fig is too big)
                             # compute and save fields info
                             unit_fields_info = []
-                            num_clusters, num_pixels_in_clusters, max_value_in_clusters = \
+                            num_clusters, num_pixels_in_clusters, max_value_in_clusters, bounds_heatmap = \
                                 _compute_single_heatmap_fields_info(
                                     heatmap=heatmap,
                                     pixel_min_threshold=10,
@@ -323,11 +323,9 @@ def _single_env_viz_units(
                                     f'{filtering_order}'\
                                     f'_rank{unit_rank}'\
                                     f'_{targets[target_index]}.npy'
-                            print(f'Saving unit fields info to {fpath}')
-                            np.save(fpath, unit_fields_info)
+                            # print(f'Saving unit fields info to {fpath}')
+                            # np.save(fpath, unit_fields_info)
                             ########
-
-
 
                             # plot heatmap on the left column.
                             axes[unit_rank, 0].imshow(heatmap)
@@ -340,13 +338,16 @@ def _single_env_viz_units(
                                 f'coef{coef[target_index, unit_index]:.1f}'\
                                 f'{num_clusters},{num_pixels_in_clusters},{max_value_in_clusters} '\
                             )
-                            
+
+                            # plot heatmap contour on the middle column.
+                            axes[unit_rank, 1].imshow(bounds_heatmap)
+
                             # plot distribution on the right column.
-                            axes[unit_rank, 1].hist(
+                            axes[unit_rank, 2].hist(
                                 model_reps_summed[:, rotation, unit_index],
                                 bins=10,
                             )
-                            axes[-1, 1].set_xlabel('Activation intensity')
+                            axes[-1, 2].set_xlabel('Activation intensity')
 
                 sup_title = f"{filtering_order},{targets[target_index]},"\
                             f"{config['unity_env']},{movement_mode},"\
@@ -446,7 +447,25 @@ def _compute_single_heatmap_fields_info(heatmap, pixel_min_threshold, pixel_max_
         max_value_in_clusters = np.array([0])
     else:
         max_value_in_clusters = np.array(max_value_in_clusters)
-    return num_clusters, num_pixels_in_clusters, max_value_in_clusters
+
+
+
+
+    # TODO: - temp - Draw contours of clusters, each cluster
+    # is in a different color. 
+    colors = np.arange(100, dtype=int).tolist()
+    for label in np.unique(filtered_labels):
+        if label != 0:
+            # create a mask for each label
+            mask = np.where(filtered_labels == label, 255, 0).astype(np.uint8)
+            # find contours
+            contours, _ = cv2.findContours(
+                mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+            )
+            # draw contours
+            cv2.drawContours(heatmap_thresholded, contours, -1, colors[label-1], 1)
+
+    return num_clusters, num_pixels_in_clusters, max_value_in_clusters, heatmap_thresholded
 
 
 def _single_env_viz_fields_info(
@@ -927,7 +946,7 @@ if __name__ == '__main__':
     # ======================================== #
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 4      
-    experiment = 'fields_info'
+    experiment = 'viz'
     reference_experiment = 'loc_n_rot'
     envs = ['env28_r24']
     movement_modes = ['2d']
@@ -948,10 +967,10 @@ if __name__ == '__main__':
     ]
     # ======================================== #
     
-    # multi_envs_inspect_units_GPU(
-    multi_envs_inspect_units_CPU(
-        # target_func=_single_env_viz_units,       # set experiment='viz' (including saving fields info)
-        target_func=_single_env_viz_fields_info,   # set experiment='fields_info'
+    multi_envs_inspect_units_GPU(
+    # multi_envs_inspect_units_CPU(
+        target_func=_single_env_viz_units,       # set experiment='viz' (including saving fields info)
+        # target_func=_single_env_viz_fields_info,   # set experiment='fields_info'
         # target_func=_single_env_viz_units_similarity,   # set experiment='similarity'
         envs=envs,
         model_names=model_names,
@@ -963,7 +982,7 @@ if __name__ == '__main__':
         decoding_model_choices=decoding_model_choices,
         random_seeds=random_seeds,
         filterings=filterings,
-        # cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
+        cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
     )
 
     # print time elapsed
