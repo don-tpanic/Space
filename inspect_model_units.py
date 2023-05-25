@@ -608,7 +608,16 @@ def _single_env_viz_fields_info(
                         else:
                             mid_n_coef.extend(fields_info[-1])
                     
-            # plot for each info, how units differ
+            # plot for each info, how units/fields differ
+
+            # set x-axis correctly as they differ for different info
+            # e.g. num_clusters are wrt units, whereas max_value_in_clusters
+            # are wrt clusters (longer axis due to each unit may have multiple clusters)
+            if info in ['num_clusters', 'entire_map_mean', 'entire_map_var']:
+                axes[info_index, 0].set_xlabel('units')
+            elif info in ['num_pixels_in_clusters', 'max_value_in_clusters']:
+                axes[info_index, 0].set_xlabel('fields')
+
             axes[info_index, 0].set_title(info)
             axes[info_index, 0].plot(
                 np.arange(len(top_n_stats)), top_n_stats, label='top_n', alpha=0.5
