@@ -276,14 +276,19 @@ def _single_env_viz_units(
                             # otherwise the fig is too big)
                             # compute and save fields info
                             unit_fields_info = []
-                            num_clusters, num_pixels_in_clusters, max_value_in_clusters, bounds_heatmap = \
-                                _compute_single_heatmap_fields_info(
-                                    heatmap=heatmap,
-                                    pixel_min_threshold=10,
-                                    pixel_max_threshold=int(heatmap.shape[0]*heatmap.shape[1]*0.5))
+                            num_clusters, num_pixels_in_clusters, max_value_in_clusters, \
+                                mean_value_in_clusters, var_value_in_clusters, \
+                                    bounds_heatmap = \
+                                        _compute_single_heatmap_fields_info(
+                                            heatmap=heatmap,
+                                            pixel_min_threshold=10,
+                                            pixel_max_threshold=int(heatmap.shape[0]*heatmap.shape[1]*0.5)
+                                        )
                             unit_fields_info.append(num_clusters)
                             unit_fields_info.append(num_pixels_in_clusters)
                             unit_fields_info.append(max_value_in_clusters)
+                            unit_fields_info.append(mean_value_in_clusters)
+                            unit_fields_info.append(var_value_in_clusters)
                             unit_fields_info.append(np.array([np.mean(heatmap)]))
                             unit_fields_info.append(np.array([np.var(heatmap)]))
 
@@ -387,7 +392,8 @@ def _single_env_viz_units(
 def _compute_single_heatmap_fields_info(heatmap, pixel_min_threshold, pixel_max_threshold):
     """
     Given a 2D heatmap of a unit, compute:
-        num_clusters, num_pixels_in_clusters, max_value_in_clusters
+        num_clusters, num_pixels_in_clusters, max_value_in_clusters, \
+            mean_value_in_clusters, var_value_in_clusters, heatmap_thresholded
     """
     scaler = MinMaxScaler()
     # normalize to [0, 1]
@@ -431,8 +437,10 @@ def _compute_single_heatmap_fields_info(heatmap, pixel_min_threshold, pixel_max_
     # Get the number of pixels in each cluster
     num_pixels_in_clusters = filtered_stats[:, cv2.CC_STAT_AREA]
 
-    # Get the max value in heatmap based on each cluster
+    # Get the max/mean/var value in heatmap based on each cluster
     max_value_in_clusters = []
+    mean_value_in_clusters = []
+    var_value_in_clusters = []
     for label in np.unique(filtered_labels):
         if label != 0:
             max_value_in_clusters.append(
@@ -440,7 +448,17 @@ def _compute_single_heatmap_fields_info(heatmap, pixel_min_threshold, pixel_max_
                     np.max(heatmap[filtered_labels == label]), 1
                 )
             )
-
+            mean_value_in_clusters.append(
+                np.around(
+                    np.mean(heatmap[filtered_labels == label]), 1
+                )
+            )
+            var_value_in_clusters.append(
+                np.around(
+                    np.var(heatmap[filtered_labels == label]), 1
+                )
+            )
+            
     # Add 0 to `num_pixels_in_clusters` and `max_value_in_clusters`
     # in case `num_clusters` is 0. This is helpful when we want to
     # plot fields info against coef, as no matter if there is a cluster
@@ -448,10 +466,12 @@ def _compute_single_heatmap_fields_info(heatmap, pixel_min_threshold, pixel_max_
     if num_clusters[0] == 0:
         num_pixels_in_clusters = np.array([0])
         max_value_in_clusters = np.array([0])
+        mean_value_in_clusters = np.array([0])
+        var_value_in_clusters = np.array([0])
     else:
         max_value_in_clusters = np.array(max_value_in_clusters)
-
-
+        mean_value_in_clusters = np.array(mean_value_in_clusters)
+        var_value_in_clusters = np.array(var_value_in_clusters)
 
 
     # TODO: - temp - Draw contours of clusters, each cluster
@@ -468,7 +488,8 @@ def _compute_single_heatmap_fields_info(heatmap, pixel_min_threshold, pixel_max_
             # draw contours
             cv2.drawContours(heatmap_thresholded, contours, -1, colors[label-1], 1)
 
-    return num_clusters, num_pixels_in_clusters, max_value_in_clusters, heatmap_thresholded
+    return num_clusters, num_pixels_in_clusters, max_value_in_clusters, \
+        mean_value_in_clusters, var_value_in_clusters, heatmap_thresholded
 
 
 def _single_env_viz_fields_info(
@@ -506,7 +527,8 @@ def _single_env_viz_fields_info(
     targets = ['x', 'y', 'rot']
     tracked_fields_info = [
         'num_clusters', 'num_pixels_in_clusters', 
-        'max_value_in_clusters', 'entire_map_mean', 'entire_map_var']
+        'max_value_in_clusters', 'mean_value_in_clusters', 'var_value_in_clusters', 
+        'entire_map_mean', 'entire_map_var']
     n_units_filtering = filterings[0]['n_units_filtering']
     filtering_types = [f['filtering_order'] for f in filterings]
     
@@ -562,10 +584,14 @@ def _single_env_viz_fields_info(
                         stats = fields_info[1]
                     elif info == 'max_value_in_clusters':
                         stats = fields_info[2]
-                    elif info == 'entire_map_mean':
+                    elif info == 'mean_value_in_clusters':
                         stats = fields_info[3]
-                    elif info == 'entire_map_var':
+                    elif info == 'var_value_in_clusters':
                         stats = fields_info[4]
+                    elif info == 'entire_map_mean':
+                        stats = fields_info[5]
+                    elif info == 'entire_map_var':
+                        stats = fields_info[6]
 
                     if filtering == 'top_n':
                         top_n_stats.extend(stats)
@@ -615,7 +641,8 @@ def _single_env_viz_fields_info(
             # are wrt clusters (longer axis due to each unit may have multiple clusters)
             if info in ['num_clusters', 'entire_map_mean', 'entire_map_var']:
                 axes[info_index, 0].set_xlabel('units')
-            elif info in ['num_pixels_in_clusters', 'max_value_in_clusters']:
+            elif info in ['num_pixels_in_clusters', 'max_value_in_clusters', 
+                          'mean_value_in_clusters', 'var_value_in_clusters']:
                 axes[info_index, 0].set_xlabel('fields')
 
             axes[info_index, 0].set_title(info)
