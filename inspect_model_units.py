@@ -844,7 +844,6 @@ if __name__ == '__main__':
     multi_envs_inspect_units_CPU(
         # target_func=_single_env_viz_units,       # set experiment='viz' (including saving fields info)
         target_func=_single_env_viz_fields_info,   # set experiment='fields_info'
-        # target_func=_single_env_viz_units_similarity,   # set experiment='similarity'
         envs=envs,
         model_names=model_names,
         experiment=experiment,
