@@ -153,6 +153,9 @@ def _single_env_viz_units(
                 allow_pickle=True).item()['coef']  # (n_targets, n_features)
         logging.info(f'Loaded coef.shape: {coef.shape}')
 
+        # Due to meeting 24-May-2023, we use absolute
+        # values of coef for filtering.
+        coef = np.abs(coef)
         for target_index in range(coef.shape[0]):
             # filter columns of `model_reps` 
             # based on each coef of each target
@@ -160,37 +163,33 @@ def _single_env_viz_units(
             for filtering in filterings:
                 n_units_filtering = filtering['n_units_filtering']
                 filtering_order = filtering['filtering_order']
+
                 if filtering_order == 'top_n':
                     filtered_n_units_indices = np.argsort(
                         coef[target_index, :])[::-1][:n_units_filtering]
-                elif filtering_order == 'bottom_n':
-                    filtered_n_units_indices = np.argsort(
-                        coef[target_index, :])[::-1][-n_units_filtering:]
+
                 elif filtering_order == 'mid_n':
                     filtered_n_units_indices = np.argsort(
                         coef[target_index, :])[::-1][
                             int(coef.shape[1]/2)-int(n_units_filtering/2):
                             int(coef.shape[1]/2)+int(n_units_filtering/2)]
+                    
                 elif filtering_order == 'random_n':
                     # randomly sample n_units_filtering units
-                    # but excluding the top and bottom n_units_filtering.
-                    # need to make sure the native indexing is preserved
-                    # as we use native unit indices for saving and plotting.
+                    # but excluding the top_n (also n_units_filtering)
                     np.random.seed(random_seed)
                     filtered_n_units_indices = np.random.choice(
-                        np.arange(coef.shape[1])[n_units_filtering:-n_units_filtering], 
-                        size=n_units_filtering, 
-                        replace=False
-                    )
-                    filtered_n_units_indices = np.sort(filtered_n_units_indices)
+                        np.argsort(
+                            coef[target_index, :])[::-1][n_units_filtering:],
+                            n_units_filtering,
+                            replace=False)
                 else:
                     raise NotImplementedError
-
 
                 # fig, axes = plt.subplots(
                 #     nrows=n_units_filtering, 
                 #     ncols=model_reps.shape[1], 
-                #     figsize=(25, 25)
+                #     figsize=(600, 600)
                 # )
                 # for unit_rank, unit_index in enumerate(filtered_n_units_indices):
                 #     for rotation in range(model_reps.shape[1]):
@@ -211,15 +210,13 @@ def _single_env_viz_units(
                 #             axes[unit_rank, 0].set_ylabel('Unity z-axis')
                 #             axes[unit_rank, rotation].set_xticks([])
                 #             axes[unit_rank, rotation].set_yticks([])
-                #             axes[unit_rank, rotation].set_title(
-                #                 f'u{unit_index},r{rotation}')
 
                 # sup_title = f"{filtering_order},{targets[target_index]}, "\
                 #             f"{config['unity_env']},{movement_mode},"\
                 #             f"{config['model_name']},{feature_selection}"\
                 #             f"({decoding_model_choice['hparams']}),"\
                 #             f"sr{sampling_rate},seed{random_seed}"
-                
+
                 # figs_path = utils.load_figs_path(
                 #     config=config,
                 #     experiment=experiment,
@@ -230,8 +227,9 @@ def _single_env_viz_units(
                 #     moving_trajectory=moving_trajectory,
                 #     random_seed=random_seed,
                 # )
+
                 # # fix suptitle overlap.
-                # fig.tight_layout(rect=[0, 0.03, 1, 0.98])
+                # # fig.tight_layout(rect=[0, 0.03, 1, 0.98])
                 # plt.suptitle(sup_title)
                 # plt.savefig(
                 #     f'{figs_path}/units_heatmaps_{targets[target_index]}'\
@@ -252,7 +250,7 @@ def _single_env_viz_units(
                 fig, axes = plt.subplots(
                     nrows=n_units_filtering, 
                     ncols=3,
-                    figsize=(5, 300)
+                    figsize=(5, 600)
                 )
                 for unit_rank, unit_index in enumerate(filtered_n_units_indices):
                     for rotation in range(model_reps_summed.shape[1]):
@@ -507,19 +505,19 @@ def _single_env_viz_fields_info(
     Visualize fields info across units.
 
     The fields info for each unit is 
-        [[num_clusters], [num_pixels_in_clusters], [max_value_in_clusters]]
+        [[num_clusters], [num_pixels_in_clusters], [max_value_in_clusters], ...]
 
-    As we created separate groups of units based on top_n or bottom_n based 
-    on units' corresponding coef. We can plot these units using their fields
-    info as representations, and see if there are patterns associated with
-    whether these units are from the top_n or bottom_n groups.
+    As we created separate groups of units based on top_n based 
+    on units' corresponding coef (abs due to Meeting 25-May-2023). 
+    We can plot these units using their fields info as representations, 
+    and see if there are patterns associated with
+    whether these units are from the top_n or other groups (random_n, mid_n, etc.)
 
     We can look at a few things:
         1. num_clusters across top_n vs bottom_n
         2. num_pixels_in_clusters across top_n vs bottom_n
         3. max_value_in_clusters across top_n vs bottom_n
-        4. or maybe there is some joint effect of these info 
-            that separate top_n vs bottom_n
+        4. ...
     
     Also perhaps across layers these fields info differ and can help 
     us understand the difference in decoding performance.
@@ -559,12 +557,10 @@ def _single_env_viz_fields_info(
         )
         for info_index, info in enumerate(tracked_fields_info):
             top_n_stats = []
-            bottom_n_stats = []
-            random_n_stats = []
-            mid_n_stats = []
             top_n_coef = []
-            bottom_n_coef = []
+            random_n_stats = []
             random_n_coef = []
+            mid_n_stats = []
             mid_n_coef = []
             for filtering in filtering_types:
                 for unit_rank in range(n_units_filtering):
@@ -606,24 +602,6 @@ def _single_env_viz_fields_info(
                             top_n_coef.append(fields_info[-1][0])
                         else:
                             top_n_coef.extend(fields_info[-1])
-
-                    elif filtering == 'bottom_n':
-                        bottom_n_stats.extend(stats)
-                        if info in ['num_clusters', 
-                                    'entire_map_mean', 
-                                    'entire_map_var']:
-                            bottom_n_coef.append(fields_info[-1][0])
-                        else:
-                            bottom_n_coef.extend(fields_info[-1])
-
-                    elif filtering == 'random_n':
-                        random_n_stats.extend(stats)
-                        if info in ['num_clusters', 
-                                    'entire_map_mean', 
-                                    'entire_map_var']:
-                            random_n_coef.append(fields_info[-1][0])
-                        else:
-                            random_n_coef.extend(fields_info[-1])
                     
                     elif filtering == 'mid_n':
                         mid_n_stats.extend(stats)
@@ -634,8 +612,16 @@ def _single_env_viz_fields_info(
                         else:
                             mid_n_coef.extend(fields_info[-1])
                     
+                    elif filtering == 'random_n':
+                        random_n_stats.extend(stats)
+                        if info in ['num_clusters', 
+                                    'entire_map_mean', 
+                                    'entire_map_var']:
+                            random_n_coef.append(fields_info[-1][0])
+                        else:
+                            random_n_coef.extend(fields_info[-1])
+                    
             # plot for each info, how units/fields differ
-
             # set x-axis correctly as they differ for different info
             # e.g. num_clusters are wrt units, whereas max_value_in_clusters
             # are wrt clusters (longer axis due to each unit may have multiple clusters)
@@ -653,9 +639,6 @@ def _single_env_viz_fields_info(
                 np.arange(len(mid_n_stats)), mid_n_stats, label='mid_n', alpha=0.5,
             )
             axes[info_index, 0].plot(
-                np.arange(len(bottom_n_stats)), bottom_n_stats, label='bottom_n', alpha=0.5
-            )
-            axes[info_index, 0].plot(
                 np.arange(len(random_n_stats)), random_n_stats, label='random_n', alpha=0.5,
                 c='gray'
             )
@@ -669,9 +652,6 @@ def _single_env_viz_fields_info(
                 mid_n_stats, label='mid_n', ax=axes[info_index, 1], alpha=0.5,
             )
             sns.kdeplot(
-                bottom_n_stats, label='bottom_n', ax=axes[info_index, 1], alpha=0.5
-            )
-            sns.kdeplot(
                 random_n_stats, label='random_n', ax=axes[info_index, 1], alpha=0.5,
                 color='gray'
             )
@@ -683,9 +663,6 @@ def _single_env_viz_fields_info(
             )
             axes[info_index, 2].scatter(
                 mid_n_coef, mid_n_stats, label='mid_n', alpha=0.1,
-            )
-            axes[info_index, 2].scatter(
-                bottom_n_coef, bottom_n_stats, label='bottom_n', alpha=0.1
             )
             axes[info_index, 2].scatter(
                 random_n_coef, random_n_stats, label='random_n', alpha=0.3,
@@ -1009,20 +986,16 @@ if __name__ == '__main__':
     reference_experiment = 'loc_n_rot'
     envs = ['env28_r24']
     movement_modes = ['2d']
-    sampling_rates = [0.5]
+    sampling_rates = [0.3]
     random_seeds = [42]
     model_names = ['vgg16']
     moving_trajectories = ['uniform']
-    decoding_model_choices = [
-        {'name': 'ridge_regression', 'hparams': 1.0},
-        {'name': 'lasso_regression', 'hparams': 1.0},
-    ]
-    feature_selections = ['l2', 'l1']
+    decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
+    feature_selections = ['l2']
     filterings = [
-        {'filtering_order': 'top_n', 'n_units_filtering': 200},
-        {'filtering_order': 'mid_n', 'n_units_filtering': 200},
-        {'filtering_order': 'bottom_n', 'n_units_filtering': 200},
-        {'filtering_order': 'random_n', 'n_units_filtering': 200},
+        {'filtering_order': 'top_n', 'n_units_filtering': 400},
+        {'filtering_order': 'mid_n', 'n_units_filtering': 400},
+        {'filtering_order': 'random_n', 'n_units_filtering': 400},
     ]
     # ======================================== #
     
