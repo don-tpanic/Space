@@ -16,6 +16,7 @@ from sklearn.preprocessing import MinMaxScaler
 import utils
 import data
 import models
+import scores
 
 """
 Visualize individual model units see 
@@ -824,6 +825,176 @@ def _single_env_viz_fields_info(
         logging.info(
             f'[Saved] {figs_path}/units_fields_info'\
             f'_{target}_groupedByFilteringN.png')
+
+
+def _single_env_produce_unit_chart(
+        config_version, 
+        experiment,
+        reference_experiment,
+        feature_selection, 
+        decoding_model_choice,
+        sampling_rate,
+        moving_trajectory,
+        random_seed,
+        filterings=None,  # charting all units, keep here to maintain API consistency
+    ):
+    """
+    Produce unit chart for each unit and save to disk, which 
+    will be used for plotting by `_single_env_viz_unit_chart`.
+
+    Unit chart is intended to capture characteristics of each 
+    unit (no filtering; ALL units). Currently, the chart includes:
+        0. if dead (if true, continue to next unit)
+        1. fields info - [
+                            num_clusters, 
+                            num_pixels_in_clusters, 
+                            max_value_in_clusters, 
+                            mean_value_in_clusters, 
+                            var_value_in_clusters,
+                            entire_map_mean,
+                            entire_map_var,
+                        ]
+        2. gridness  TODO:
+        3. TODO: what else?
+    """
+    os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
+    os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+
+    config = utils.load_config(config_version)
+    reference_experiment_results_path = \
+            utils.load_results_path(
+                config=config,
+                experiment=reference_experiment,  # Dirty but coef is saved in loc_n_rot
+                feature_selection=feature_selection,
+                decoding_model_choice=decoding_model_choice,
+                sampling_rate=sampling_rate,
+                moving_trajectory=moving_trajectory,
+                random_seed=random_seed,
+    )
+    logging.info(
+        f'Loading results (for coef) from {reference_experiment_results_path}'
+    )
+    if reference_experiment_results_path is None:
+        logging.info(
+            f'Mismatch between feature '\
+            f'selection and decoding model, skip.'
+        )
+        return
+
+    movement_mode=config['movement_mode']
+    env_x_min=config['env_x_min']
+    env_x_max=config['env_x_max']
+    env_y_min=config['env_y_min']
+    env_y_max=config['env_y_max']
+    multiplier=config['multiplier']
+    
+    # load model outputs
+    model_reps = _single_model_reps(config)
+
+    # charted info:
+    charted_info = [
+                    'dead',
+                    'num_clusters', 
+                    'num_pixels_in_clusters', 
+                    'max_value_in_clusters', 
+                    'mean_value_in_clusters', 
+                    'var_value_in_clusters',
+                    'entire_map_mean',
+                    'entire_map_var',
+                    'gridness',
+                    'coef',
+                ]
+    # initialize unit chart collector
+    # shape \in (total_n_units, len(charted_info))
+    unit_chart_info = np.empty((model_reps.shape[2], len(charted_info)), dtype=object)
+
+    if feature_selection in ['l1', 'l2']:
+        # load regression coefs as selection criteria
+        # for model_reps (per unit)
+        targets = ['x', 'y', 'rot']
+        coef = \
+            np.load(
+                f'{reference_experiment_results_path}/res.npy', 
+                allow_pickle=True).item()['coef']  # (n_targets, n_features)
+        logging.info(f'Loaded coef.shape: {coef.shape}')
+
+        coef = np.abs(coef)
+        for target_index in range(coef.shape[0]):
+            # fields info for each unit is computed on the summed heatmap 
+            # across rotations.
+            model_reps_summed = np.sum(model_reps, axis=1, keepdims=True)
+            for unit_rank, unit_index in enumerate(filtered_n_units_indices):
+                for rotation in range(model_reps_summed.shape[1]):
+                    if movement_mode == '2d':
+                        # reshape to (n_locations, n_rotations, n_features)
+                        heatmap = model_reps_summed[:, rotation, unit_index].reshape(
+                            (env_x_max*multiplier-env_x_min*multiplier+1, 
+                            env_y_max*multiplier-env_y_min*multiplier+1)
+                        )
+
+                        # rotate heatmap to match Unity coordinate system
+                        # ref: tests/testReshape_forHeatMap.py
+                        heatmap = np.rot90(heatmap, k=1, axes=(0, 1))
+                        
+                        # compute, collect and save fields info
+                        unit_fields_info = []
+                        num_clusters, num_pixels_in_clusters, max_value_in_clusters, \
+                            mean_value_in_clusters, var_value_in_clusters, \
+                                bounds_heatmap = \
+                                    _compute_single_heatmap_fields_info(
+                                        heatmap=heatmap,
+                                        pixel_min_threshold=10,
+                                        pixel_max_threshold=int(heatmap.shape[0]*heatmap.shape[1]*0.5)
+                                    )
+                        unit_fields_info.append(num_clusters)
+                        unit_fields_info.append(num_pixels_in_clusters)
+                        unit_fields_info.append(max_value_in_clusters)
+                        unit_fields_info.append(mean_value_in_clusters)
+                        unit_fields_info.append(var_value_in_clusters)
+                        unit_fields_info.append(np.array([np.mean(heatmap)]))
+                        unit_fields_info.append(np.array([np.var(heatmap)]))
+
+                        # NOTE: we then save this unit's coef per target dimension
+                        # as the last item in the list of fields info. 
+                        # by doing this, we can easily access the coef of this saved
+                        # ranked unit without having to load `coef.npy` which is 
+                        # quite cumbersome.
+                        # NOTE: in order to plot coef(x-axis) v fields info(y-axis), we need to 
+                        # make sure coef is repeated the same number of times as the number of
+                        # clusters.
+                        if num_clusters[0] > 1:
+                            unit_fields_info.append(
+                                np.array(
+                                    coef[target_index, unit_index].repeat(num_clusters[0])
+                                )
+                            )
+                        else:
+                            unit_fields_info.append(
+                                np.array(
+                                    [coef[target_index, unit_index]])
+                            )
+                        
+                        unit_fields_info = np.array(
+                            unit_fields_info, dtype=object
+                        )
+
+                        # save each unit fields info to disk
+                        results_path = utils.load_results_path(
+                            config=config,
+                            experiment='unit_chart',
+                            reference_experiment=reference_experiment,
+                            feature_selection=feature_selection,
+                            decoding_model_choice=decoding_model_choice,
+                            sampling_rate=sampling_rate,
+                            moving_trajectory=moving_trajectory,
+                            random_seed=random_seed,
+                        )
+                        fpath = f'{results_path}/'\
+                                f'{filtering_order}'\
+                                f'_rank{unit_rank}'\
+                                f'_{targets[target_index]}.npy'
+                        logging.info(f'Saving unit fields info to {fpath}')
+                        np.save(fpath, unit_fields_info)
 
 
 def multi_envs_inspect_units_CPU(
