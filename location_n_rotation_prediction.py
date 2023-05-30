@@ -1137,6 +1137,13 @@ def cross_dimension_analysis(
                                 f'regression_weights_across_sampling_rates_seed{random_seed}.png'
                             )
 
+    elif analysis == 'regression_weights_between_targets_correlation':
+        # Across layers and seeds, analyze how within the same setting (e.g. res.npy),
+        # how much does coef wrt x, y and rot correlate with each other. Then we 
+        # show an aggregate plot of these three pairs of correlations across layers and seeds.
+        # TODO: 
+        raise NotImplementedError
+
 
 def load_envs_dict(model_name, envs):
     model_layers = data.load_model_layers(model_name)
