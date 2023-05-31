@@ -6,10 +6,11 @@ import time
 import logging
 import itertools
 import multiprocessing
+from collections import defaultdict
+
 import numpy as np
 from scipy import stats
 import seaborn as sns
-from collections import defaultdict
 from matplotlib import pyplot as plt
 from tensorflow.keras import backend as K
 from sklearn import linear_model
@@ -1137,14 +1138,121 @@ def cross_dimension_analysis(
                                 f'regression_weights_across_sampling_rates_seed{random_seed}.png'
                             )
 
-    elif analysis == 'regression_weights_between_targets_correlation':
+    elif analysis == 'regression_weights_between_targets_correlations_across_layers':
         # Across layers and seeds, analyze how within the same setting (e.g. res.npy),
         # how much does coef wrt x, y and rot correlate with each other. Then we 
         # show an aggregate plot of these three pairs of correlations across layers and seeds.
-        # TODO: 
-        raise NotImplementedError
+        env = envs[0]
+        moving_trajectory = moving_trajectories[0]
+        movement_mode = movement_modes[0]
+        tracked_regression_weights = ['coef']
+        tracked_correlations = ['x_y_corr', 'x_rot_corr', 'y_rot_corr']
+        absolute_coef = False
 
+        for model_name in model_names:
+            output_layers = data.load_model_layers(model_name)
+            for decoding_model_choice in decoding_model_choices:
+                decoding_model_name = decoding_model_choice['name']
+                decoding_model_hparams = decoding_model_choice['hparams']
+                for feature_selection in feature_selections:
+                    if \
+                        (
+                            'l1' in feature_selection and \
+                            decoding_model_choice['name'] != 'lasso_regression'
+                        ) \
+                        or \
+                        (
+                            'l2' in feature_selection and \
+                            decoding_model_choice['name'] != 'ridge_regression'
+                        ):
+                        continue
 
+                    # collect results across dimensions
+                    # from base-case results.
+                    # key1 - output_layer
+                    # key2 - correlation type
+                    # key3 - avg/std
+                    results_collector = \
+                        defaultdict(
+                        lambda: defaultdict(
+                        lambda: defaultdict(list))
+                    )
+                    for output_layer in output_layers:
+                        for sampling_rate in sampling_rates:
+                            # key1 - metric, e.g. x_y_corr, x_rot_corr, y_rot_corr
+                            # key2 - random_seed
+                            to_average_over_seeds = defaultdict(lambda: defaultdict(list))
+                            for random_seed in random_seeds:
+                                results_path = \
+                                    f'results/{env}/{movement_mode}/{moving_trajectory}/'\
+                                    f'{model_name}/{experiment}/{feature_selection}/'\
+                                    f'{decoding_model_name}_{decoding_model_hparams}/'\
+                                    f'{output_layer}/sr{sampling_rate}/seed{random_seed}'
+                                results = \
+                                    np.load(
+                                    f'{results_path}/res.npy', allow_pickle=True).item()
+                                
+                                # compute correlation between x, y and rot
+                                coef = results['coef']  # (targets, features)
+                                if absolute_coef:
+                                    coef = np.abs(coef)
+                                x_coef = coef[0, :]
+                                y_coef = coef[1, :]
+                                rot_coef = coef[2, :]
+                                x_y_corr = np.round(stats.spearmanr(x_coef, y_coef)[0], 2)
+                                x_rot_corr = np.round(stats.spearmanr(x_coef, rot_coef)[0], 2)
+                                y_rot_corr = np.round(stats.spearmanr(y_coef, rot_coef)[0], 2)
+                                to_average_over_seeds['x_y_corr'][random_seed].append(x_y_corr)
+                                to_average_over_seeds['x_rot_corr'][random_seed].append(x_rot_corr)
+                                to_average_over_seeds['y_rot_corr'][random_seed].append(y_rot_corr)
+                            
+                            # collect averaged over seeds results for plotting.
+                            for corr_type in tracked_correlations:
+                                avg_corr = np.mean(list(to_average_over_seeds[corr_type].values()))
+                                std_corr = np.std(list(to_average_over_seeds[corr_type].values()))
+                                results_collector[output_layer][corr_type]['avg'].append(avg_corr)
+                                results_collector[output_layer][corr_type]['std'].append(std_corr)
+                                logging.info(f"[Collected] {output_layer},{sampling_rate},{corr_type}")
+                    
+                    # plotter
+                    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+                    for i, corr_type in enumerate(tracked_correlations):
+                        for output_layer in output_layers:
+                            axes[i].plot(
+                                sampling_rates,
+                                results_collector[output_layer][corr_type]['avg'],
+                                label=output_layer,
+                                color=load_envs_dict(model_name, envs)[
+                                    f'{envs[0]}_{movement_mode}_{model_name}_{output_layer}']['color']
+                            )
+                            axes[i].fill_between(
+                                sampling_rates,
+                                np.array(results_collector[output_layer][corr_type]['avg']) - \
+                                    np.array(results_collector[output_layer][corr_type]['std']),
+                                np.array(results_collector[output_layer][corr_type]['avg']) + \
+                                    np.array(results_collector[output_layer][corr_type]['std']),
+                                alpha=0.2,
+                                color=load_envs_dict(model_name, envs)[
+                                    f'{envs[0]}_{movement_mode}_{model_name}_{output_layer}']['color']
+                            )
+                        axes[i].set_xlabel('sampling rates')
+                        axes[i].set_xticks(sampling_rates)
+                        axes[i].set_title(corr_type)
+                    sup_title = f'{envs[0]},{movement_mode},'\
+                                f'{model_name},{feature_selection},'\
+                                f'{decoding_model_name}({decoding_model_hparams})'
+                    plt.legend()
+                    plt.suptitle(sup_title)
+                    plt.savefig(
+                        f'figs/{env}/{movement_mode}/{moving_trajectory}/'\
+                        f'{model_name}/{experiment}/{feature_selection}/'\
+                        f'{decoding_model_name}_{decoding_model_hparams}/'\
+                        f'regression_weights_between_targets_correlations_across_layers'\
+                        f'_absolute_coef={absolute_coef}.png'
+                    )
+                    plt.close()
+            
+                            
 def load_envs_dict(model_name, envs):
     model_layers = data.load_model_layers(model_name)
     # gradient cmap in warm colors in a list
@@ -1184,37 +1292,31 @@ if __name__ == '__main__':
     experiment = 'loc_n_rot'
     envs = ['env28_r24']
     movement_modes = ['2d']
-    sampling_rates = [0.01, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
+    sampling_rates = [0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
     random_seeds = [42, 1234, 999]
     model_names = ['simclrv2_r50_1x_sk0', 'resnet50', 'vgg16', 'vit_b16']
     moving_trajectories = ['uniform']
     decoding_model_choices = [
-        {'name': 'ridge_regression', 'hparams': 0.1},
-        {'name': 'ridge_regression', 'hparams': 0.5},
         {'name': 'ridge_regression', 'hparams': 1.0},
-        {'name': 'ridge_regression', 'hparams': 2.0},
-        {'name': 'lasso_regression', 'hparams': 0.1},
-        {'name': 'lasso_regression', 'hparams': 0.5},
-        {'name': 'lasso_regression', 'hparams': 1.0},
-        {'name': 'lasso_regression', 'hparams': 2.0},
+        {'name': 'ridge_regression', 'hparams': 0.1},
     ]
-    feature_selections = ['l2', 'l1']
+    feature_selections = ['l2']
     # =================================================================== #
 
-    multi_envs_across_dimensions_CPU(
-        target_func=_single_env_decoding_error,
-        envs=envs,
-        experiment=experiment,
-        sampling_rates=sampling_rates,
-        model_names=model_names,
-        moving_trajectories=moving_trajectories,
-        decoding_model_choices=decoding_model_choices,
-        feature_selections=feature_selections,
-        random_seeds=random_seeds,
-    )
+    # multi_envs_across_dimensions_CPU(
+    #     target_func=_single_env_decoding_error,
+    #     envs=envs,
+    #     experiment=experiment,
+    #     sampling_rates=sampling_rates,
+    #     model_names=model_names,
+    #     moving_trajectories=moving_trajectories,
+    #     decoding_model_choices=decoding_model_choices,
+    #     feature_selections=feature_selections,
+    #     random_seeds=random_seeds,
+    # )
 
     cross_dimension_analysis(
-        analysis='decoding_across_reg_strengths_n_layers',
+        analysis='regression_weights_between_targets_correlations_across_layers',
         envs=envs,
         movement_modes=movement_modes,
         model_names=model_names,
