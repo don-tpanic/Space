@@ -12,11 +12,11 @@ def load_config(config_version):
 def load_results_path(
         config, 
         experiment, 
-        feature_selection, 
-        decoding_model_choice,
-        sampling_rate,
-        moving_trajectory,
-        random_seed,
+        feature_selection=None, 
+        decoding_model_choice=None,
+        sampling_rate=None,
+        moving_trajectory=None,
+        random_seed=None,
         reference_experiment=None,
     ):
     """
@@ -33,20 +33,27 @@ def load_results_path(
     decoding_model_name = decoding_model_choice['name']
     decoding_model_hparams = decoding_model_choice['hparams']
 
-    if experiment == 'loc_n_rot':
+    if experiment in ['loc_n_rot', 'border_dist']:
         results_path = \
             f'results/{unity_env}/{movement_mode}/{moving_trajectory}/'\
             f'{model_name}/{experiment}/{feature_selection}/'\
             f'{decoding_model_name}_{decoding_model_hparams}/'\
             f'{output_layer}/sr{sampling_rate}/seed{random_seed}'
         
-    elif experiment in ['viz', 'fields_info', 'gridness', 'unit_chart'] \
-            and reference_experiment == 'loc_n_rot':
+    elif experiment in ['viz', 'fields_info', 'gridness'] \
+            and reference_experiment in ['loc_n_rot', 'border_dist']:
         results_path = \
             f'results/{unity_env}/{movement_mode}/{moving_trajectory}/'\
             f'{model_name}/inspect_units/{reference_experiment}/{experiment}/{feature_selection}/'\
             f'{decoding_model_name}_{decoding_model_hparams}/'\
             f'{output_layer}/sr{sampling_rate}/seed{random_seed}'
+    
+    elif experiment == 'unit_chart':
+        # no reference_experiment needed as its general to all experiments
+        # but still belongs to inspect_units
+        results_path = \
+            f'results/{unity_env}/{movement_mode}/{moving_trajectory}/'\
+            f'{model_name}/inspect_units/{experiment}/{output_layer}'
         
     if not os.path.exists(results_path):
         if \
@@ -72,11 +79,11 @@ def load_results_path(
 def load_figs_path(
         config, 
         experiment, 
-        feature_selection, 
-        decoding_model_choice,
-        sampling_rate,
-        moving_trajectory,
-        random_seed,
+        feature_selection=None, 
+        decoding_model_choice=None,
+        sampling_rate=None,
+        moving_trajectory=None,
+        random_seed=None,
         reference_experiment=None,
     ):
     """
@@ -93,20 +100,27 @@ def load_figs_path(
     decoding_model_name = decoding_model_choice['name']
     decoding_model_hparams = decoding_model_choice['hparams']
 
-    if experiment == 'loc_n_rot':
+    if experiment in ['loc_n_rot', 'border_dist']:
         figs_path = \
             f'figs/{unity_env}/{movement_mode}/{moving_trajectory}/'\
             f'{model_name}/{experiment}/{feature_selection}/'\
             f'{decoding_model_name}_{decoding_model_hparams}/'\
             f'{output_layer}/sr{sampling_rate}/seed{random_seed}'
         
-    elif experiment in ['viz', 'fields_info', 'gridness', 'unit_chart'] \
-            and reference_experiment == 'loc_n_rot':
+    elif experiment in ['viz', 'fields_info', 'gridness'] \
+            and reference_experiment in ['loc_n_rot', 'border_dist']:
         figs_path = \
             f'figs/{unity_env}/{movement_mode}/{moving_trajectory}/'\
             f'{model_name}/inspect_units/{reference_experiment}/{experiment}/{feature_selection}/'\
             f'{decoding_model_name}_{decoding_model_hparams}/'\
             f'{output_layer}/sr{sampling_rate}/seed{random_seed}'
+    
+    elif experiment == 'unit_chart':
+        # no reference_experiment needed as its general to all experiments
+        # but still belongs to inspect_units
+        figs_path = \
+            f'figs/{unity_env}/{movement_mode}/{moving_trajectory}/'\
+            f'{model_name}/inspect_units/{experiment}/{output_layer}'
         
     if not os.path.exists(figs_path):
         if \
