@@ -23,6 +23,14 @@ Visualize individual model units see
 if there are any patterns (e.g., place cells.)
 """
 
+def _is_dead_unit(heatmap):
+    """
+    Given a unit's 2D heatmap, check if it is a dead unit
+    by checking if all values in heatmap are zero/near-zero.
+    """
+    return np.allclose(heatmap, 0)
+
+
 def _single_model_reps(config):
     """
     Produce model_reps either directly computing if the first time,
@@ -830,13 +838,14 @@ def _single_env_viz_fields_info(
 def _single_env_produce_unit_chart(
         config_version, 
         experiment,
-        reference_experiment,
-        feature_selection, 
-        decoding_model_choice,
-        sampling_rate,
         moving_trajectory,
-        random_seed,
-        filterings=None,  # charting all units, keep here to maintain API consistency
+        reference_experiment=None,
+        feature_selection=None, 
+        decoding_model_choice=None,
+        sampling_rate=None,
+        random_seed=None,
+        filterings=None,  
+        # charting all units, use Nones to maintain API consistency
     ):
     """
     Produce unit chart for each unit and save to disk, which 
@@ -855,32 +864,11 @@ def _single_env_produce_unit_chart(
                             entire_map_var,
                         ]
         2. gridness  TODO:
-        3. TODO: what else?
+        3. what else?
     """
     os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
-
     config = utils.load_config(config_version)
-    reference_experiment_results_path = \
-            utils.load_results_path(
-                config=config,
-                experiment=reference_experiment,  # Dirty but coef is saved in loc_n_rot
-                feature_selection=feature_selection,
-                decoding_model_choice=decoding_model_choice,
-                sampling_rate=sampling_rate,
-                moving_trajectory=moving_trajectory,
-                random_seed=random_seed,
-    )
-    logging.info(
-        f'Loading results (for coef) from {reference_experiment_results_path}'
-    )
-    if reference_experiment_results_path is None:
-        logging.info(
-            f'Mismatch between feature '\
-            f'selection and decoding model, skip.'
-        )
-        return
-
     movement_mode=config['movement_mode']
     env_x_min=config['env_x_min']
     env_x_max=config['env_x_max']
@@ -902,99 +890,82 @@ def _single_env_produce_unit_chart(
                     'entire_map_mean',
                     'entire_map_var',
                     'gridness',
-                    'coef',
+                    # 'coef', # TODO: coef not charted but can be combined later.
                 ]
+    
     # initialize unit chart collector
     # shape \in (total_n_units, len(charted_info))
-    unit_chart_info = np.empty((model_reps.shape[2], len(charted_info)), dtype=object)
+    # init from zero so as we first check if a unit is dead
+    # if dead, we continue to next unit so the rest of the info re this unit 
+    # will be kept as zero
+    unit_chart_info = np.zeros(
+        (model_reps.shape[2], len(charted_info)), dtype=object
+    )
+    model_reps_summed = np.sum(
+        model_reps, axis=1, keepdims=True
+    )
+    for unit_index in range(model_reps_summed.shape[2]):
+        for rotation in range(model_reps_summed.shape[1]):
+            logging.info(f'[Charting] unit_index: {unit_index}')
+            if movement_mode == '2d':
+                # reshape to (n_locations, n_rotations, n_features)
+                heatmap = model_reps_summed[:, rotation, unit_index].reshape(
+                    (env_x_max*multiplier-env_x_min*multiplier+1, 
+                    env_y_max*multiplier-env_y_min*multiplier+1) )
+                # rotate heatmap to match Unity coordinate system
+                # ref: tests/testReshape_forHeatMap.py
+                heatmap = np.rot90(heatmap, k=1, axes=(0, 1))
 
-    if feature_selection in ['l1', 'l2']:
-        # load regression coefs as selection criteria
-        # for model_reps (per unit)
-        targets = ['x', 'y', 'rot']
-        coef = \
-            np.load(
-                f'{reference_experiment_results_path}/res.npy', 
-                allow_pickle=True).item()['coef']  # (n_targets, n_features)
-        logging.info(f'Loaded coef.shape: {coef.shape}')
-
-        coef = np.abs(coef)
-        for target_index in range(coef.shape[0]):
-            # fields info for each unit is computed on the summed heatmap 
-            # across rotations.
-            model_reps_summed = np.sum(model_reps, axis=1, keepdims=True)
-            for unit_rank, unit_index in enumerate(filtered_n_units_indices):
-                for rotation in range(model_reps_summed.shape[1]):
-                    if movement_mode == '2d':
-                        # reshape to (n_locations, n_rotations, n_features)
-                        heatmap = model_reps_summed[:, rotation, unit_index].reshape(
-                            (env_x_max*multiplier-env_x_min*multiplier+1, 
-                            env_y_max*multiplier-env_y_min*multiplier+1)
-                        )
-
-                        # rotate heatmap to match Unity coordinate system
-                        # ref: tests/testReshape_forHeatMap.py
-                        heatmap = np.rot90(heatmap, k=1, axes=(0, 1))
-                        
-                        # compute, collect and save fields info
-                        unit_fields_info = []
-                        num_clusters, num_pixels_in_clusters, max_value_in_clusters, \
-                            mean_value_in_clusters, var_value_in_clusters, \
-                                bounds_heatmap = \
-                                    _compute_single_heatmap_fields_info(
-                                        heatmap=heatmap,
-                                        pixel_min_threshold=10,
-                                        pixel_max_threshold=int(heatmap.shape[0]*heatmap.shape[1]*0.5)
-                                    )
-                        unit_fields_info.append(num_clusters)
-                        unit_fields_info.append(num_pixels_in_clusters)
-                        unit_fields_info.append(max_value_in_clusters)
-                        unit_fields_info.append(mean_value_in_clusters)
-                        unit_fields_info.append(var_value_in_clusters)
-                        unit_fields_info.append(np.array([np.mean(heatmap)]))
-                        unit_fields_info.append(np.array([np.var(heatmap)]))
-
-                        # NOTE: we then save this unit's coef per target dimension
-                        # as the last item in the list of fields info. 
-                        # by doing this, we can easily access the coef of this saved
-                        # ranked unit without having to load `coef.npy` which is 
-                        # quite cumbersome.
-                        # NOTE: in order to plot coef(x-axis) v fields info(y-axis), we need to 
-                        # make sure coef is repeated the same number of times as the number of
-                        # clusters.
-                        if num_clusters[0] > 1:
-                            unit_fields_info.append(
-                                np.array(
-                                    coef[target_index, unit_index].repeat(num_clusters[0])
+                ###### Go thru each required info, maybe modularise later.
+                if _is_dead_unit(heatmap):
+                    unit_chart_info[unit_index, 0] = 0
+                    continue
+                else:
+                    # compute, collect and save unit chart info
+                    # 1. fields info
+                    num_clusters, num_pixels_in_clusters, max_value_in_clusters, \
+                        mean_value_in_clusters, var_value_in_clusters, \
+                            bounds_heatmap = \
+                                _compute_single_heatmap_fields_info(
+                                    heatmap=heatmap,
+                                    pixel_min_threshold=10,
+                                    pixel_max_threshold=\
+                                    int(heatmap.shape[0]*heatmap.shape[1]*0.5)
                                 )
-                            )
-                        else:
-                            unit_fields_info.append(
-                                np.array(
-                                    [coef[target_index, unit_index]])
-                            )
-                        
-                        unit_fields_info = np.array(
-                            unit_fields_info, dtype=object
-                        )
+                    unit_chart_info[unit_index, 1] = num_clusters
+                    unit_chart_info[unit_index, 2] = num_pixels_in_clusters
+                    unit_chart_info[unit_index, 3] = max_value_in_clusters
+                    unit_chart_info[unit_index, 4] = mean_value_in_clusters
+                    unit_chart_info[unit_index, 5] = var_value_in_clusters
+                    unit_chart_info[unit_index, 6] = np.array([np.mean(heatmap)])
+                    unit_chart_info[unit_index, 7] = np.array([np.var(heatmap)])
 
-                        # save each unit fields info to disk
-                        results_path = utils.load_results_path(
-                            config=config,
-                            experiment='unit_chart',
-                            reference_experiment=reference_experiment,
-                            feature_selection=feature_selection,
-                            decoding_model_choice=decoding_model_choice,
-                            sampling_rate=sampling_rate,
-                            moving_trajectory=moving_trajectory,
-                            random_seed=random_seed,
-                        )
-                        fpath = f'{results_path}/'\
-                                f'{filtering_order}'\
-                                f'_rank{unit_rank}'\
-                                f'_{targets[target_index]}.npy'
-                        logging.info(f'Saving unit fields info to {fpath}')
-                        np.save(fpath, unit_fields_info)
+                    # 2. gridness
+                    def _compute_grid_scores(activation_map, smooth=False):
+                        # mask parameters
+                        starts = [0.2] * 10
+                        ends = np.linspace(0.4, 1.0, num=10)
+                        masks_parameters = zip(starts, ends.tolist())
+                        scorer = scores.GridScorer(
+                            len(activation_map), [0, len(activation_map)-1], masks_parameters)
+                        score_60, score_90, max_60_mask, max_90_mask, sac = scorer.get_scores(
+                            activation_map)
+                        return score_60, score_90, max_60_mask, max_90_mask, sac
+                    score_60_, _, _, _, sac = _compute_grid_scores(heatmap)
+                    unit_chart_info[unit_index, 8] = score_60_
+
+                    print(unit_chart_info)
+                    exit()
+
+        results_path = utils.load_results_path(
+            config=config,
+            experiment=experiment,
+            moving_trajectory=moving_trajectory,
+        )
+        fpath = f'{results_path}/unit_chart.npy'
+        logging.info(f'Saving unit_chart info to {fpath}')
+        np.save(fpath, unit_chart_info)
+        logging.info(f'[Saved] {fpath}]')
 
 
 def multi_envs_inspect_units_CPU(
@@ -1060,28 +1031,34 @@ def multi_envs_inspect_units_GPU(
         args_list = []
         for config_version in config_versions:
             for moving_trajectory in moving_trajectories:
-                for sampling_rate in sampling_rates:
-                    for feature_selection in feature_selections:
-                        for decoding_model_choice in decoding_model_choices:
-                            for random_seed in random_seeds:
-                                single_entry = {}
-                                single_entry['config_version'] = config_version
-                                single_entry['moving_trajectory'] = moving_trajectory
-                                single_entry['sampling_rate'] = sampling_rate
-                                single_entry['experiment'] = experiment
-                                single_entry['reference_experiment'] = reference_experiment
-                                single_entry['feature_selection'] = feature_selection
-                                single_entry['decoding_model_choice'] = decoding_model_choice
-                                single_entry['random_seed'] = random_seed
-                                single_entry['filterings'] = filterings
-                                args_list.append(single_entry)
+                if experiment == 'unit_chart':
+                    single_entry = {}
+                    single_entry['config_version'] = config_version
+                    single_entry['moving_trajectory'] = moving_trajectory
+                    single_entry['experiment'] = experiment
+                    args_list.append(single_entry)
+                else:
+                    for sampling_rate in sampling_rates:
+                        for feature_selection in feature_selections:
+                            for decoding_model_choice in decoding_model_choices:
+                                for random_seed in random_seeds:
+                                    single_entry = {}
+                                    single_entry['config_version'] = config_version
+                                    single_entry['moving_trajectory'] = moving_trajectory
+                                    single_entry['sampling_rate'] = sampling_rate
+                                    single_entry['experiment'] = experiment
+                                    single_entry['reference_experiment'] = reference_experiment
+                                    single_entry['feature_selection'] = feature_selection
+                                    single_entry['decoding_model_choice'] = decoding_model_choice
+                                    single_entry['random_seed'] = random_seed
+                                    single_entry['filterings'] = filterings
+                                    args_list.append(single_entry)
 
         logging.info(f'args_list = {args_list}')
         logging.info(f'args_list len = {len(args_list)}')
         utils.cuda_manager(
             target_func, args_list, cuda_id_list
         )
-        # TODO: is this indent correct?
 
 
 def load_envs_dict(model_name, envs):
@@ -1120,28 +1097,25 @@ if __name__ == '__main__':
     # ======================================== #
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 4     
-    experiment = 'fields_info'
-    reference_experiment = 'loc_n_rot'
+    experiment = 'unit_chart'
+    reference_experiment = None
     envs = ['env28_r24']
     movement_modes = ['2d']
     sampling_rates = [0.3]
-    random_seeds = [42]
+    random_seeds = []
     model_names = ['vgg16']
     moving_trajectories = ['uniform']
-    decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
-    feature_selections = ['l2']
-    filterings = [
-        {'filtering_order': 'top_n', 'n_units_filtering': 400},
-        {'filtering_order': 'mid_n', 'n_units_filtering': 400},
-        {'filtering_order': 'random_n', 'n_units_filtering': 400},
-    ]
+    decoding_model_choices = []
+    feature_selections = []
+    filterings = []
     # ======================================== #
     
     multi_envs_inspect_units_GPU(
     # multi_envs_inspect_units_CPU(
         # target_func=_single_env_viz_units,           # set experiment='viz'
-        target_func=_single_env_produce_fields_info,   # set experiment='fields_info'
+        # target_func=_single_env_produce_fields_info,   # set experiment='fields_info'
         # target_func=_single_env_viz_fields_info,     # set experiment='fields_info'
+        target_func=_single_env_produce_unit_chart,   # set experiment='unit_chart'
         envs=envs,
         model_names=model_names,
         experiment=experiment,
@@ -1152,7 +1126,7 @@ if __name__ == '__main__':
         decoding_model_choices=decoding_model_choices,
         random_seeds=random_seeds,
         filterings=filterings,
-        cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
+        cuda_id_list=[0],
     )
 
     # print time elapsed
