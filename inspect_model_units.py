@@ -444,6 +444,24 @@ def _compute_single_heatmap_fields_info(
         mean_value_in_clusters, var_value_in_clusters, heatmap_thresholded
 
 
+def _compute_single_heatmap_grid_scores(activation_map, smooth=False):
+    # mask parameters
+    starts = [0.2] * 10
+    ends = np.linspace(0.4, 1.0, num=10)
+    masks_parameters = zip(starts, ends.tolist())
+
+    scorer = scores.GridScorer(
+        len(activation_map),        # nbins
+        [0, len(activation_map)-1], # coords_range
+        masks_parameters            # parameters for the masks
+    )
+
+    score_60, score_90, max_60_mask, max_90_mask, sac = \
+        scorer.get_scores(activation_map)
+    
+    return score_60, score_90, max_60_mask, max_90_mask, sac, scorer
+
+
 def _single_env_produce_fields_info(
         config_version, 
         experiment,
@@ -906,7 +924,7 @@ def _single_env_produce_unit_chart(
     )
     for unit_index in range(model_reps_summed.shape[2]):
         for rotation in range(model_reps_summed.shape[1]):
-            logging.info(f'[Charting] unit_index: {unit_index}')
+            logging.info(f'[Charting] unit_index: {unit_index}, rotation: {rotation}')
             if movement_mode == '2d':
                 # reshape to (n_locations, n_rotations, n_features)
                 heatmap = model_reps_summed[:, rotation, unit_index].reshape(
@@ -941,31 +959,125 @@ def _single_env_produce_unit_chart(
                     unit_chart_info[unit_index, 7] = np.array([np.var(heatmap)])
 
                     # 2. gridness
-                    def _compute_grid_scores(activation_map, smooth=False):
-                        # mask parameters
-                        starts = [0.2] * 10
-                        ends = np.linspace(0.4, 1.0, num=10)
-                        masks_parameters = zip(starts, ends.tolist())
-                        scorer = scores.GridScorer(
-                            len(activation_map), [0, len(activation_map)-1], masks_parameters)
-                        score_60, score_90, max_60_mask, max_90_mask, sac = scorer.get_scores(
-                            activation_map)
-                        return score_60, score_90, max_60_mask, max_90_mask, sac
-                    score_60_, _, _, _, sac = _compute_grid_scores(heatmap)
+                    score_60_, _, _, _, sac, scorer = \
+                                _compute_single_heatmap_grid_scores(heatmap)
                     unit_chart_info[unit_index, 8] = score_60_
 
-                    print(unit_chart_info)
-                    exit()
+    results_path = utils.load_results_path(
+        config=config,
+        experiment=experiment,
+        moving_trajectory=moving_trajectory,
+    )
+    fpath = f'{results_path}/unit_chart.npy'
+    np.save(fpath, unit_chart_info)
+    logging.info(f'[Saved] {fpath}')
 
-        results_path = utils.load_results_path(
-            config=config,
-            experiment=experiment,
-            moving_trajectory=moving_trajectory,
-        )
-        fpath = f'{results_path}/unit_chart.npy'
-        logging.info(f'Saving unit_chart info to {fpath}')
-        np.save(fpath, unit_chart_info)
-        logging.info(f'[Saved] {fpath}]')
+
+def _single_env_viz_unit_chart(
+        config_version, 
+        experiment,
+        moving_trajectory,
+        reference_experiment=None,
+        feature_selection=None, 
+        decoding_model_choice=None,
+        sampling_rate=None,
+        random_seed=None,
+        filterings=None
+    ):
+    """
+    Visualize using unit chart info produced by `_single_env_produce_unit_chart`.
+    """
+    config = utils.load_config(config_version)
+    results_path = utils.load_results_path(
+        config=config,
+        experiment=experiment,
+        moving_trajectory=moving_trajectory,
+    )
+
+    # load unit chart info
+    unit_chart_info = np.load(
+        f'{results_path}/unit_chart.npy', allow_pickle=True
+    )
+    gridnesses = unit_chart_info[:, 8]
+    # print top_n gridness units
+    n = 50
+    top_n_gridness_indices = np.argsort(gridnesses)[::-1][:n]
+
+    print(
+        gridnesses[top_n_gridness_indices]
+    )
+
+    os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
+    os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+    config = utils.load_config(config_version)
+    movement_mode=config['movement_mode']
+    env_x_min=config['env_x_min']
+    env_x_max=config['env_x_max']
+    env_y_min=config['env_y_min']
+    env_y_max=config['env_y_max']
+    multiplier=config['multiplier']
+    
+    # load model outputs
+    model_reps = _single_model_reps(config)
+    model_reps_summed = np.sum(model_reps, axis=1, keepdims=True)
+
+    fig, axes = plt.subplots(
+        nrows=n, ncols=2, figsize=(5, 50)
+    )
+
+    for row_index, unit_index in enumerate(top_n_gridness_indices):
+        for rotation in range(model_reps_summed.shape[1]):
+            logging.info(f'[Charting] unit_index: {unit_index}')
+            if movement_mode == '2d':
+                # reshape to (n_locations, n_rotations, n_features)
+                heatmap = model_reps_summed[:, rotation, unit_index].reshape(
+                    (env_x_max*multiplier-env_x_min*multiplier+1, 
+                    env_y_max*multiplier-env_y_min*multiplier+1) )
+                # rotate heatmap to match Unity coordinate system
+                # ref: tests/testReshape_forHeatMap.py
+                heatmap = np.rot90(heatmap, k=1, axes=(0, 1))
+
+                # plot heatmap for the selected units
+                axes[row_index, 0].imshow(heatmap)
+                axes[row_index, 0].set_title(f'unit:{unit_index}')
+                axes[row_index, 0].set_xticks([])
+                axes[row_index, 0].set_yticks([])
+
+                # plot autocorrelagram for the selected units
+                _, _, _, _, sac, scorer = \
+                            _compute_single_heatmap_grid_scores(heatmap)
+                
+                useful_sac = sac * scorer._plotting_sac_mask
+                axes[row_index, 1].imshow(useful_sac)
+                axes[row_index, 1].set_title(f'gridness:{gridnesses[unit_index]:.2f}')
+                axes[row_index, 1].set_xticks([])
+                axes[row_index, 1].set_yticks([])
+
+                # # Plot a ring for the adequate mask
+                # mask_params = scorer._masks[1]
+                # if mask_params is not None:
+                #     center = scorer._nbins - 1
+                #     axes[row_index, 1].add_artist(
+                #         plt.Circle(
+                #             (center, center),
+                #             mask_params[0] * scorer._nbins,
+                #             fill=False,
+                #             edgecolor='k'))
+                #     axes[row_index, 1].add_artist(
+                #         plt.Circle(
+                #             (center, center),
+                #             mask_params[1] * scorer._nbins,
+                #             fill=False,
+                #             edgecolor='k'))
+
+    figs_path = utils.load_figs_path(
+        config=config,
+        experiment=experiment,
+        moving_trajectory=moving_trajectory,
+    )
+    plt.savefig(
+        f'{figs_path}/unit_chart.png'
+    )
 
 
 def multi_envs_inspect_units_CPU(
@@ -1097,31 +1209,26 @@ if __name__ == '__main__':
     # ======================================== #
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 4     
-    experiment = 'viz'
-    reference_experiment = 'border_dist'
+    experiment = 'unit_chart'
+    reference_experiment = None
     envs = ['env28_r24']
     movement_modes = ['2d']
     sampling_rates = [0.3]
     random_seeds = [42]
     model_names = ['vgg16']
     moving_trajectories = ['uniform']
-    decoding_model_choices = [
-        {'name': 'ridge_regression', 'hparams': 1.0},
-    ]
-    feature_selections = ['l2']
-    filterings = [
-        {'filtering_order': 'top_n', 'n_units_filtering': 400},
-        {'filtering_order': 'mid_n', 'n_units_filtering': 400},
-        {'filtering_order': 'random_n', 'n_units_filtering': 400},
-    ]
+    decoding_model_choices = []
+    feature_selections = []
+    filterings = []
     # ======================================== #
     
     multi_envs_inspect_units_GPU(
     # multi_envs_inspect_units_CPU(
-        target_func=_single_env_viz_units,           # set experiment='viz'
+        # target_func=_single_env_viz_units,           # set experiment='viz'
         # target_func=_single_env_produce_fields_info,   # set experiment='fields_info'
         # target_func=_single_env_viz_fields_info,     # set experiment='fields_info'
         # target_func=_single_env_produce_unit_chart,   # set experiment='unit_chart'
+        target_func=_single_env_viz_unit_chart,     # set experiment='unit_chart'
         envs=envs,
         model_names=model_names,
         experiment=experiment,
@@ -1132,7 +1239,7 @@ if __name__ == '__main__':
         decoding_model_choices=decoding_model_choices,
         random_seeds=random_seeds,
         filterings=filterings,
-        cuda_id_list=[0],
+        cuda_id_list=[0, 1],
     )
 
     # print time elapsed
