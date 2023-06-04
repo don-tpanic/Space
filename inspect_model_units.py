@@ -1097,25 +1097,31 @@ if __name__ == '__main__':
     # ======================================== #
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 4     
-    experiment = 'unit_chart'
-    reference_experiment = None
+    experiment = 'viz'
+    reference_experiment = 'border_dist'
     envs = ['env28_r24']
     movement_modes = ['2d']
     sampling_rates = [0.3]
-    random_seeds = []
+    random_seeds = [42]
     model_names = ['vgg16']
     moving_trajectories = ['uniform']
-    decoding_model_choices = []
-    feature_selections = []
-    filterings = []
+    decoding_model_choices = [
+        {'name': 'ridge_regression', 'hparams': 1.0},
+    ]
+    feature_selections = ['l2']
+    filterings = [
+        {'filtering_order': 'top_n', 'n_units_filtering': 400},
+        {'filtering_order': 'mid_n', 'n_units_filtering': 400},
+        {'filtering_order': 'random_n', 'n_units_filtering': 400},
+    ]
     # ======================================== #
     
     multi_envs_inspect_units_GPU(
     # multi_envs_inspect_units_CPU(
-        # target_func=_single_env_viz_units,           # set experiment='viz'
+        target_func=_single_env_viz_units,           # set experiment='viz'
         # target_func=_single_env_produce_fields_info,   # set experiment='fields_info'
         # target_func=_single_env_viz_fields_info,     # set experiment='fields_info'
-        target_func=_single_env_produce_unit_chart,   # set experiment='unit_chart'
+        # target_func=_single_env_produce_unit_chart,   # set experiment='unit_chart'
         envs=envs,
         model_names=model_names,
         experiment=experiment,
