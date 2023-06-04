@@ -20,20 +20,27 @@ def load_results_path(
         reference_experiment=None,
     ):
     """
-    reference_experiment:
-        only need to be provided if we are inspecting units
-        as inspecting units depends on whether the units are
-        selected from the loc_n_rot experiment or the border
-        experiment.
+    Notes:
+        reference_experiment:
+            only need to be provided if we are inspecting units
+            as inspecting units depends on whether the units are
+            selected from the loc_n_rot experiment or the border
+            experiment.
+
+        if experiment == 'unit_chart':
+            feature_selection, decoding_model_choice, sampling_rate, random_seed,
+            and reference_experiment are not needed. This is because unit_chart
+            is of the level of model regardless of experiments and is only 
+            specific to model layers.
     """
     unity_env = config['unity_env']
     model_name = config['model_name']
     output_layer = config['output_layer']
     movement_mode = config['movement_mode']
-    decoding_model_name = decoding_model_choice['name']
-    decoding_model_hparams = decoding_model_choice['hparams']
 
     if experiment in ['loc_n_rot', 'border_dist']:
+        decoding_model_name = decoding_model_choice['name']
+        decoding_model_hparams = decoding_model_choice['hparams']
         results_path = \
             f'results/{unity_env}/{movement_mode}/{moving_trajectory}/'\
             f'{model_name}/{experiment}/{feature_selection}/'\
@@ -42,6 +49,8 @@ def load_results_path(
         
     elif experiment in ['viz', 'fields_info', 'gridness'] \
             and reference_experiment in ['loc_n_rot', 'border_dist']:
+        decoding_model_name = decoding_model_choice['name']
+        decoding_model_hparams = decoding_model_choice['hparams']
         results_path = \
             f'results/{unity_env}/{movement_mode}/{moving_trajectory}/'\
             f'{model_name}/inspect_units/{reference_experiment}/{experiment}/{feature_selection}/'\
@@ -56,23 +65,24 @@ def load_results_path(
             f'{model_name}/inspect_units/{experiment}/{output_layer}'
         
     if not os.path.exists(results_path):
-        if \
-        (
-            'l1' in feature_selection and \
-            decoding_model_choice['name'] != 'lasso_regression'
-        ) \
-        or \
-        (
-            'l2' in feature_selection and \
-            decoding_model_choice['name'] != 'ridge_regression'
-        ):  
-            # do not create dir if mismatch between 
-            # feature selection and decoding model
-            results_path = None
-        
-        else:
+        if experiment == 'unit_chart':
             os.makedirs(results_path)
-
+        else:
+            if \
+            (
+                'l1' in feature_selection and \
+                decoding_model_choice['name'] != 'lasso_regression'
+            ) \
+            or \
+            (
+                'l2' in feature_selection and \
+                decoding_model_choice['name'] != 'ridge_regression'
+            ):  
+                # do not create dir if mismatch between 
+                # feature selection and decoding model
+                results_path = None
+            else:
+                os.makedirs(results_path)
     return results_path
 
 
@@ -87,20 +97,27 @@ def load_figs_path(
         reference_experiment=None,
     ):
     """
-    reference_experiment:
-        only need to be provided if we are inspecting units
-        as inspecting units depends on whether the units are
-        selected from the loc_n_rot experiment or the border
-        experiment.
+    Notes:
+        reference_experiment:
+            only need to be provided if we are inspecting units
+            as inspecting units depends on whether the units are
+            selected from the loc_n_rot experiment or the border
+            experiment.
+
+        if experiment == 'unit_chart':
+            feature_selection, decoding_model_choice, sampling_rate, random_seed,
+            and reference_experiment are not needed. This is because unit_chart
+            is of the level of model regardless of experiments and is only 
+            specific to model layers.
     """
     unity_env = config['unity_env']
     model_name = config['model_name']
     output_layer = config['output_layer']
     movement_mode = config['movement_mode']
-    decoding_model_name = decoding_model_choice['name']
-    decoding_model_hparams = decoding_model_choice['hparams']
 
     if experiment in ['loc_n_rot', 'border_dist']:
+        decoding_model_name = decoding_model_choice['name']
+        decoding_model_hparams = decoding_model_choice['hparams']
         figs_path = \
             f'figs/{unity_env}/{movement_mode}/{moving_trajectory}/'\
             f'{model_name}/{experiment}/{feature_selection}/'\
@@ -109,6 +126,8 @@ def load_figs_path(
         
     elif experiment in ['viz', 'fields_info', 'gridness'] \
             and reference_experiment in ['loc_n_rot', 'border_dist']:
+        decoding_model_name = decoding_model_choice['name']
+        decoding_model_hparams = decoding_model_choice['hparams']
         figs_path = \
             f'figs/{unity_env}/{movement_mode}/{moving_trajectory}/'\
             f'{model_name}/inspect_units/{reference_experiment}/{experiment}/{feature_selection}/'\
@@ -123,23 +142,24 @@ def load_figs_path(
             f'{model_name}/inspect_units/{experiment}/{output_layer}'
         
     if not os.path.exists(figs_path):
-        if \
-        (
-            'l1' in feature_selection and \
-            decoding_model_choice['name'] != 'lasso_regression'
-        ) \
-        or \
-        (
-            'l2' in feature_selection and \
-            decoding_model_choice['name'] != 'ridge_regression'
-        ):  
-            # do not create dir if mismatch between 
-            # feature selection and decoding model
-            figs_path = None
-        
-        else:
+        if experiment == 'unit_chart':
             os.makedirs(figs_path)
-
+        else:
+            if \
+            (
+                'l1' in feature_selection and \
+                decoding_model_choice['name'] != 'lasso_regression'
+            ) \
+            or \
+            (
+                'l2' in feature_selection and \
+                decoding_model_choice['name'] != 'ridge_regression'
+            ):  
+                # do not create dir if mismatch between 
+                # feature selection and decoding model
+                figs_path = None
+            else:
+                os.makedirs(figs_path)
     return figs_path
 
 
