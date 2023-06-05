@@ -100,7 +100,7 @@ def _single_model_reps(config):
         return model_reps
 
 
-def _single_env_viz_units(
+def _single_env_viz_units_ranked_by_coef(
         config_version, 
         experiment,
         reference_experiment,
@@ -462,7 +462,7 @@ def _compute_single_heatmap_grid_scores(activation_map, smooth=False):
     return score_60, score_90, max_60_mask, max_90_mask, sac, scorer
 
 
-def _single_env_produce_fields_info(
+def _single_env_produce_fields_info_ranked_by_coef(
         config_version, 
         experiment,
         reference_experiment,
@@ -635,7 +635,7 @@ def _single_env_produce_fields_info(
                             np.save(fpath, unit_fields_info)
 
 
-def _single_env_viz_fields_info(
+def _single_env_viz_fields_info_ranked_by_coef(
         config_version, 
         experiment,
         reference_experiment,
@@ -973,7 +973,7 @@ def _single_env_produce_unit_chart(
     logging.info(f'[Saved] {fpath}')
 
 
-def _single_env_viz_unit_chart(
+def _single_env_viz_gridness_ranked_by_unit_chart(
         config_version, 
         experiment,
         moving_trajectory,
@@ -982,31 +982,27 @@ def _single_env_viz_unit_chart(
         decoding_model_choice=None,
         sampling_rate=None,
         random_seed=None,
-        filterings=None
+        filterings=\
+            [{'filtering_order': 'top_n', 'n_units_filtering': 400},
+             {'filtering_order': 'mid_n', 'n_units_filtering': 400},
+             {'filtering_order': 'random_n', 'n_units_filtering': 400},
+            ]
     ):
     """
-    Visualize using unit chart info produced by `_single_env_produce_unit_chart`.
+    Based on unit chart info produced by `_single_env_produce_unit_chart`,
+    We can load the chart and sort by unit gridness and visualize the
+    top_n, mid_n,  gridness units in terms of ratemaps and autocorrelagrams.
+
+    Notice the postfix `sorted_from_unit_chart` is to distinguish from 
+    `*viz_fields_info*` and `*viz_units*` which are based on coef ranking 
+    which are based on specific combination of feature selection, sampling rate,
+    etc. Whereas here the visualization is general to all the settings and are
+    not coef-based but gridness-based (i.e. filtering is based on gridness).
+
+    We could replace coef-based viz for fields_info and switch to `fields`-based
+    ranking but that would require a specific selection criterion such as `num_clusters`
+    which we might get to at a later stage.
     """
-    config = utils.load_config(config_version)
-    results_path = utils.load_results_path(
-        config=config,
-        experiment=experiment,
-        moving_trajectory=moving_trajectory,
-    )
-
-    # load unit chart info
-    unit_chart_info = np.load(
-        f'{results_path}/unit_chart.npy', allow_pickle=True
-    )
-    gridnesses = unit_chart_info[:, 8]
-    # print top_n gridness units
-    n = 50
-    top_n_gridness_indices = np.argsort(gridnesses)[::-1][:n]
-
-    print(
-        gridnesses[top_n_gridness_indices]
-    )
-
     os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
     config = utils.load_config(config_version)
@@ -1020,64 +1016,87 @@ def _single_env_viz_unit_chart(
     # load model outputs
     model_reps = _single_model_reps(config)
     model_reps_summed = np.sum(model_reps, axis=1, keepdims=True)
-
-    fig, axes = plt.subplots(
-        nrows=n, ncols=2, figsize=(5, 50)
-    )
-
-    for row_index, unit_index in enumerate(top_n_gridness_indices):
-        for rotation in range(model_reps_summed.shape[1]):
-            logging.info(f'[Charting] unit_index: {unit_index}')
-            if movement_mode == '2d':
-                # reshape to (n_locations, n_rotations, n_features)
-                heatmap = model_reps_summed[:, rotation, unit_index].reshape(
-                    (env_x_max*multiplier-env_x_min*multiplier+1, 
-                    env_y_max*multiplier-env_y_min*multiplier+1) )
-                # rotate heatmap to match Unity coordinate system
-                # ref: tests/testReshape_forHeatMap.py
-                heatmap = np.rot90(heatmap, k=1, axes=(0, 1))
-
-                # plot heatmap for the selected units
-                axes[row_index, 0].imshow(heatmap)
-                axes[row_index, 0].set_title(f'unit:{unit_index}')
-                axes[row_index, 0].set_xticks([])
-                axes[row_index, 0].set_yticks([])
-
-                # plot autocorrelagram for the selected units
-                _, _, _, _, sac, scorer = \
-                            _compute_single_heatmap_grid_scores(heatmap)
-                
-                useful_sac = sac * scorer._plotting_sac_mask
-                axes[row_index, 1].imshow(useful_sac)
-                axes[row_index, 1].set_title(f'gridness:{gridnesses[unit_index]:.2f}')
-                axes[row_index, 1].set_xticks([])
-                axes[row_index, 1].set_yticks([])
-
-                # # Plot a ring for the adequate mask
-                # mask_params = scorer._masks[1]
-                # if mask_params is not None:
-                #     center = scorer._nbins - 1
-                #     axes[row_index, 1].add_artist(
-                #         plt.Circle(
-                #             (center, center),
-                #             mask_params[0] * scorer._nbins,
-                #             fill=False,
-                #             edgecolor='k'))
-                #     axes[row_index, 1].add_artist(
-                #         plt.Circle(
-                #             (center, center),
-                #             mask_params[1] * scorer._nbins,
-                #             fill=False,
-                #             edgecolor='k'))
-
-    figs_path = utils.load_figs_path(
+    
+    # load unit chart info
+    results_path = utils.load_results_path(
         config=config,
         experiment=experiment,
         moving_trajectory=moving_trajectory,
     )
-    plt.savefig(
-        f'{figs_path}/unit_chart.png'
-    )
+    unit_chart_info = np.load(f'{results_path}/unit_chart.npy', allow_pickle=True)
+    gridnesses = unit_chart_info[:, 8]
+    
+    # visualize top_n, mid_n, random_n units' gridness
+    for filtering in filterings:
+        n_units_filtering = filtering['n_units_filtering']
+        filtering_order = filtering['filtering_order']
+
+        logging.info(f'gridnesses.shape: {gridnesses.shape}')
+        logging.info(f'filtering_order: {filtering_order}')
+
+        if filtering_order == 'top_n':
+            filtered_n_units_indices = np.argsort(gridnesses)[::-1][:n_units_filtering]
+
+        elif filtering_order == 'mid_n':
+            filtered_n_units_indices = np.argsort(gridnesses)[::-1][
+                    int(gridnesses.shape[0]/2)-int(n_units_filtering/2):
+                    int(gridnesses.shape[0]/2)+int(n_units_filtering/2)]
+            
+        elif filtering_order == 'random_n':
+            # randomly sample n_units_filtering units
+            # but excluding the top_n (also n_units_filtering)
+            np.random.seed(random_seed)
+            filtered_n_units_indices = np.random.choice(
+                np.argsort(gridnesses)[::-1][n_units_filtering:],
+                    n_units_filtering,
+                    replace=False)
+        else:
+            raise NotImplementedError
+
+        # plotter
+        fig, axes = plt.subplots(
+            nrows=n_units_filtering, ncols=2, figsize=(5, 600)
+        )
+
+        for row_index, unit_index in enumerate(filtered_n_units_indices):
+            for rotation in range(model_reps_summed.shape[1]):
+                if movement_mode == '2d':
+                    # reshape to (n_locations, n_rotations, n_features)
+                    heatmap = model_reps_summed[:, rotation, unit_index].reshape(
+                        (env_x_max*multiplier-env_x_min*multiplier+1, 
+                        env_y_max*multiplier-env_y_min*multiplier+1) )
+                    # rotate heatmap to match Unity coordinate system
+                    # ref: tests/testReshape_forHeatMap.py
+                    heatmap = np.rot90(heatmap, k=1, axes=(0, 1))
+
+                    # plot heatmap for the selected units
+                    axes[row_index, 0].imshow(heatmap)
+                    axes[row_index, 0].set_title(f'unit:{unit_index}')
+                    axes[row_index, 0].set_xticks([])
+                    axes[row_index, 0].set_yticks([])
+
+                    # plot autocorrelagram for the selected units
+                    _, _, _, _, sac, scorer = \
+                                _compute_single_heatmap_grid_scores(heatmap)
+                    
+                    useful_sac = sac * scorer._plotting_sac_mask
+                    axes[row_index, 1].imshow(useful_sac)
+                    axes[row_index, 1].set_title(f'gridness:{gridnesses[unit_index]:.2f}')
+                    axes[row_index, 1].set_xticks([])
+                    axes[row_index, 1].set_yticks([])
+
+        figs_path = utils.load_figs_path(
+            config=config,
+            experiment=experiment,
+            moving_trajectory=moving_trajectory,
+        )
+        plt.savefig(
+            f'{figs_path}/gridness_sorted_from_unit_chart_{filtering_order}.png'
+        )
+        plt.close()
+        logging.info(
+            f'[Saved] {figs_path}/gridness_sorted_from_unit_chart_{filtering_order}.png'
+        )
 
 
 def multi_envs_inspect_units_CPU(
@@ -1224,11 +1243,11 @@ if __name__ == '__main__':
     
     multi_envs_inspect_units_GPU(
     # multi_envs_inspect_units_CPU(
-        # target_func=_single_env_viz_units,           # set experiment='viz'
-        # target_func=_single_env_produce_fields_info,   # set experiment='fields_info'
-        # target_func=_single_env_viz_fields_info,     # set experiment='fields_info'
-        # target_func=_single_env_produce_unit_chart,   # set experiment='unit_chart'
-        target_func=_single_env_viz_unit_chart,     # set experiment='unit_chart'
+        # target_func=_single_env_viz_units_ranked_by_coef,             # set experiment='viz'
+        # target_func=_single_env_produce_fields_info_ranked_by_coef,   # set experiment='fields_info'
+        # target_func=_single_env_viz_fields_info_ranked_by_coef,       # set experiment='fields_info'
+        # target_func=_single_env_produce_unit_chart,                   # set experiment='unit_chart'
+        target_func=_single_env_viz_gridness_ranked_by_unit_chart,      # set experiment='unit_chart'
         envs=envs,
         model_names=model_names,
         experiment=experiment,
