@@ -922,9 +922,10 @@ def _single_env_produce_unit_chart(
     model_reps_summed = np.sum(
         model_reps, axis=1, keepdims=True
     )
+
     for unit_index in range(model_reps_summed.shape[2]):
         for rotation in range(model_reps_summed.shape[1]):
-            logging.info(f'[Charting] unit_index: {unit_index}, rotation: {rotation}')
+            logging.info(f'[Charting] unit_index: {unit_index}')
             if movement_mode == '2d':
                 # reshape to (n_locations, n_rotations, n_features)
                 heatmap = model_reps_summed[:, rotation, unit_index].reshape(
@@ -936,9 +937,10 @@ def _single_env_produce_unit_chart(
 
                 ###### Go thru each required info, maybe modularise later.
                 if _is_dead_unit(heatmap):
-                    unit_chart_info[unit_index, 0] = 0
+                    unit_chart_info[unit_index, 0] = np.array([0])
                     continue
                 else:
+                    unit_chart_info[unit_index, 0] = np.array([1])
                     # compute, collect and save unit chart info
                     # 1. fields info
                     num_clusters, num_pixels_in_clusters, max_value_in_clusters, \
@@ -962,7 +964,7 @@ def _single_env_produce_unit_chart(
                     score_60_, _, _, _, sac, scorer = \
                                 _compute_single_heatmap_grid_scores(heatmap)
                     unit_chart_info[unit_index, 8] = score_60_
-
+        
     results_path = utils.load_results_path(
         config=config,
         experiment=experiment,
@@ -1097,6 +1099,133 @@ def _single_env_viz_gridness_ranked_by_unit_chart(
         logging.info(
             f'[Saved] {figs_path}/gridness_sorted_from_unit_chart_{filtering_order}.png'
         )
+
+
+def _single_env_viz_unit_chart(
+        config_version, 
+        experiment,
+        moving_trajectory,
+        reference_experiment=None,
+        feature_selection=None, 
+        decoding_model_choice=None,
+        sampling_rate=None,
+        random_seed=None,
+        filterings=None,
+    ):
+    """
+    Visualize unit chart info produced by `_single_env_produce_unit_chart`.
+
+    For now, we chart:
+        1. % units dead
+        2. % units (place-cells) with 1, 2, .., max num_clusters
+        3. % units (border-cells) with border firings..  # TODO: wait for border scoring.
+    """
+    # charted info
+    charted_info = [
+                    'dead',
+                    'num_clusters', 
+                    'num_pixels_in_clusters', 
+                    'max_value_in_clusters', 
+                    'mean_value_in_clusters', 
+                    'var_value_in_clusters',
+                    'entire_map_mean',
+                    'entire_map_var',
+                    'gridness',
+                ]
+    
+    config = utils.load_config(config_version)
+    
+    # load unit chart info
+    results_path = utils.load_results_path(
+        config=config,
+        experiment=experiment,
+        moving_trajectory=moving_trajectory,
+    )
+    unit_chart_info = np.load(
+        f'{results_path}/unit_chart.npy', allow_pickle=True)
+    logging.info(f'unit_chart_info.shape: {unit_chart_info.shape}')
+
+    # Given `unit_chart_info`, for now we test `% dead`, `% num_clusters`
+    #   For `% dead`, we iterate through unit_chart_info and count 
+    # how many units are dead along the first column (i.e. unit_chart_info[i, 0] == 0)
+    # we return the percentage of dead units.
+    #   For `% num_clusters`, we iterate through unit_chart_info and count
+    # how many units have 1, 2, .., max num_clusters.
+    # and for each unique `num_clusters`, we return the percentage of corresponding units.
+    #   For `% cluster size`, we iterate through unit_chart_info and count
+    # the sizes of fields of qualified units.
+    #   For `% peak cluster activation`, we iterate through unit_chart_info and count
+    # the peak activation of fields of qualified units.
+    dead_units = 0
+    max_num_clusters = np.max(unit_chart_info[:, 1])
+    num_clusters = np.zeros(max_num_clusters+1)
+    cluster_sizes = []
+    cluster_peaks = []
+
+    for unit_index in range(unit_chart_info.shape[0]):
+        if unit_chart_info[unit_index, 0] == 0:
+            dead_units += 1
+        else:
+            num_clusters[int(unit_chart_info[unit_index, 1])] += 1
+            cluster_sizes.extend(unit_chart_info[unit_index, 2])
+            cluster_peaks.extend(unit_chart_info[unit_index, 3])
+
+    
+    # plot
+    fig, axes = plt.subplots(
+        nrows=4, ncols=1, figsize=(5, 10)
+    )
+
+    # 0-each bar is % of dead/active units
+    # left bar is dead, right bar is active,
+    # plot in gray for dead units, plot in blue for active units
+    axes[0].bar(
+        np.arange(2),
+        [dead_units/unit_chart_info.shape[0],
+            (unit_chart_info.shape[0]-dead_units)/unit_chart_info.shape[0]],
+        color=['gray', 'blue']
+    )
+    axes[0].set_xticks(np.arange(2))
+    axes[0].set_xticklabels(['dead', 'active'])
+    axes[0].set_ylabel('% units')
+    axes[0].set_title(f'% units dead/active')
+    axes[0].set_ylim([-.05, 1.05])
+
+    # 1-each bar is % of a num_clusters
+    axes[1].bar(
+        np.arange(max_num_clusters+1),
+        num_clusters/unit_chart_info.shape[0]
+    )
+    axes[1].set_xlabel('num_clusters')
+    axes[1].set_ylabel('% units')
+    axes[1].set_title(f'% units with 1, 2, .., {max_num_clusters[0]} clusters')
+    axes[1].set_ylim([-.05, 1.05])
+
+    # 2-each bar is % of a cluster size (bined)
+    axes[2].hist(
+        cluster_sizes, bins=20, density=True
+    )
+    axes[2].set_xlabel('cluster size')
+    axes[2].set_ylabel('density')
+    axes[2].set_title(f'cluster size distribution')
+
+    # 3-each bar is % of a cluster peak (bined)
+    axes[3].hist(
+        cluster_peaks, bins=20, density=True
+    )
+    axes[3].set_xlabel('cluster peak')
+    axes[3].set_ylabel('density')
+    axes[3].set_title(f'cluster peak distribution')
+    
+    figs_path = utils.load_figs_path(
+        config=config,
+        experiment=experiment,
+        moving_trajectory=moving_trajectory,
+    )
+    plt.tight_layout()
+    plt.savefig(
+        f'{figs_path}/unit_chart.png'
+    )
 
 
 def multi_envs_inspect_units_CPU(
@@ -1246,8 +1375,9 @@ if __name__ == '__main__':
         # target_func=_single_env_viz_units_ranked_by_coef,             # set experiment='viz'
         # target_func=_single_env_produce_fields_info_ranked_by_coef,   # set experiment='fields_info'
         # target_func=_single_env_viz_fields_info_ranked_by_coef,       # set experiment='fields_info'
-        # target_func=_single_env_produce_unit_chart,                   # set experiment='unit_chart'
-        target_func=_single_env_viz_gridness_ranked_by_unit_chart,      # set experiment='unit_chart'
+        target_func=_single_env_produce_unit_chart,                   # set experiment='unit_chart'
+        # target_func=_single_env_viz_gridness_ranked_by_unit_chart,      # set experiment='unit_chart'
+        # target_func=_single_env_viz_unit_chart,                          # set experiment='unit_chart'
         envs=envs,
         model_names=model_names,
         experiment=experiment,
