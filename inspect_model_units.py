@@ -1285,10 +1285,11 @@ def multi_envs_inspect_units_GPU(
         filterings,
         cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
     ):
+    args_list = []
     for model_name in model_names:
         envs_dict = load_envs_dict(model_name, envs)
         config_versions=list(envs_dict.keys())
-        args_list = []
+        # args_list = []
         for config_version in config_versions:
             for moving_trajectory in moving_trajectories:
                 if experiment == 'unit_chart':
@@ -1314,11 +1315,11 @@ def multi_envs_inspect_units_GPU(
                                     single_entry['filterings'] = filterings
                                     args_list.append(single_entry)
 
-        logging.info(f'args_list = {args_list}')
-        logging.info(f'args_list len = {len(args_list)}')
-        utils.cuda_manager(
-            target_func, args_list, cuda_id_list
-        )
+    logging.info(f'args_list = {args_list}')
+    logging.info(f'args_list len = {len(args_list)}')
+    utils.cuda_manager(
+        target_func, args_list, cuda_id_list
+    )
 
 
 def load_envs_dict(model_name, envs):
@@ -1363,7 +1364,7 @@ if __name__ == '__main__':
     movement_modes = ['2d']
     sampling_rates = [0.3]
     random_seeds = [42]
-    model_names = ['vgg16']
+    model_names = ['simclrv2_r50_1x_sk0']
     moving_trajectories = ['uniform']
     decoding_model_choices = []
     feature_selections = []
@@ -1375,9 +1376,9 @@ if __name__ == '__main__':
         # target_func=_single_env_viz_units_ranked_by_coef,             # set experiment='viz'
         # target_func=_single_env_produce_fields_info_ranked_by_coef,   # set experiment='fields_info'
         # target_func=_single_env_viz_fields_info_ranked_by_coef,       # set experiment='fields_info'
-        target_func=_single_env_produce_unit_chart,                   # set experiment='unit_chart'
+        # target_func=_single_env_produce_unit_chart,                     # set experiment='unit_chart'
         # target_func=_single_env_viz_gridness_ranked_by_unit_chart,      # set experiment='unit_chart'
-        # target_func=_single_env_viz_unit_chart,                          # set experiment='unit_chart'
+        target_func=_single_env_viz_unit_chart,                          # set experiment='unit_chart'
         envs=envs,
         model_names=model_names,
         experiment=experiment,
@@ -1388,7 +1389,7 @@ if __name__ == '__main__':
         decoding_model_choices=decoding_model_choices,
         random_seeds=random_seeds,
         filterings=filterings,
-        cuda_id_list=[0, 1],
+        cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
     )
 
     # print time elapsed
