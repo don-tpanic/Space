@@ -462,6 +462,42 @@ def _compute_single_heatmap_grid_scores(activation_map, smooth=False):
     return score_60, score_90, max_60_mask, max_90_mask, sac, scorer
 
 
+def _compute_single_heatmap_border_scores(activation_map, db=3):
+    """
+    Banino et al. 2018 uses db=3.
+    """
+    num_bins = activation_map.shape[0]
+    
+    # Compute c (average activity for bins further than db bins from any wall)
+    c = np.mean([
+        activation_map[i, j]
+        for i in range(db, num_bins - db)
+        for j in range(db, num_bins - db)
+    ])
+
+    wall_scores = []
+
+    # Compute the average activation for each wall
+    for i in range(4):
+        if i == 0:
+            # Top wall
+            activations = activation_map[:db, :]
+        elif i == 1:
+            # Right wall
+            activations = activation_map[:, -db:]
+        elif i == 2:
+            # Bottom wall
+            activations = activation_map[-db:, :]
+        elif i == 3:
+            # Left wall
+            activations = activation_map[:, :db]
+
+        bi = np.mean(activations)
+        wall_scores.append((bi - c) / (bi + c))
+
+    return np.max(wall_scores)
+
+
 def _single_env_produce_fields_info_ranked_by_coef(
         config_version, 
         experiment,
@@ -881,8 +917,9 @@ def _single_env_produce_unit_chart(
                             entire_map_mean,
                             entire_map_var,
                         ]
-        2. gridness  TODO:
-        3. what else?
+        2. gridness
+        3. borderness
+        4. directioness TODO: but how to separate from the rest as it is rotation specific?
     """
     os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
@@ -908,6 +945,7 @@ def _single_env_produce_unit_chart(
                     'entire_map_mean',
                     'entire_map_var',
                     'gridness',
+                    'borderness',
                     # 'coef', # TODO: coef not charted but can be combined later.
                 ]
     
@@ -964,6 +1002,10 @@ def _single_env_produce_unit_chart(
                     score_60_, _, _, _, sac, scorer = \
                                 _compute_single_heatmap_grid_scores(heatmap)
                     unit_chart_info[unit_index, 8] = score_60_
+
+                    # 3. borderness
+                    border_score = _compute_single_heatmap_border_scores(heatmap)
+                    unit_chart_info[unit_index, 9] = border_score
         
     results_path = utils.load_results_path(
         config=config,
@@ -1098,6 +1140,112 @@ def _single_env_viz_gridness_ranked_by_unit_chart(
         plt.close()
         logging.info(
             f'[Saved] {figs_path}/gridness_sorted_from_unit_chart_{filtering_order}.png'
+        )
+
+
+def _single_env_viz_borderness_ranked_by_unit_chart(
+        config_version, 
+        experiment,
+        moving_trajectory,
+        reference_experiment=None,
+        feature_selection=None, 
+        decoding_model_choice=None,
+        sampling_rate=None,
+        random_seed=None,
+        filterings=\
+            [{'filtering_order': 'top_n', 'n_units_filtering': 400},
+             {'filtering_order': 'mid_n', 'n_units_filtering': 400},
+             {'filtering_order': 'random_n', 'n_units_filtering': 400},
+            ]
+    ):
+    """
+    """
+    os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
+    os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+    config = utils.load_config(config_version)
+    movement_mode=config['movement_mode']
+    env_x_min=config['env_x_min']
+    env_x_max=config['env_x_max']
+    env_y_min=config['env_y_min']
+    env_y_max=config['env_y_max']
+    multiplier=config['multiplier']
+    
+    # load model outputs
+    model_reps = _single_model_reps(config)
+    model_reps_summed = np.sum(model_reps, axis=1, keepdims=True)
+    
+    # load unit chart info
+    results_path = utils.load_results_path(
+        config=config,
+        experiment=experiment,
+        moving_trajectory=moving_trajectory,
+    )
+    unit_chart_info = np.load(f'{results_path}/unit_chart.npy', allow_pickle=True)
+    borderness = unit_chart_info[:, 9]
+    
+    # visualize top_n, mid_n, random_n units' borderness
+    for filtering in filterings:
+        n_units_filtering = filtering['n_units_filtering']
+        filtering_order = filtering['filtering_order']
+
+        logging.info(f'borderness.shape: {borderness.shape}')
+        logging.info(f'filtering_order: {filtering_order}')
+
+        if filtering_order == 'top_n':
+            filtered_n_units_indices = np.argsort(borderness)[::-1][:n_units_filtering]
+
+        elif filtering_order == 'mid_n':
+            filtered_n_units_indices = np.argsort(borderness)[::-1][
+                    int(borderness.shape[0]/2)-int(n_units_filtering/2):
+                    int(borderness.shape[0]/2)+int(n_units_filtering/2)]
+            
+        elif filtering_order == 'random_n':
+            # randomly sample n_units_filtering units
+            # but excluding the top_n (also n_units_filtering)
+            np.random.seed(random_seed)
+            filtered_n_units_indices = np.random.choice(
+                np.argsort(borderness)[::-1][n_units_filtering:],
+                    n_units_filtering,
+                    replace=False)
+        else:
+            raise NotImplementedError
+
+        # plotter
+        fig, axes = plt.subplots(
+            nrows=n_units_filtering, ncols=1, figsize=(5, 600)
+        )
+
+        for row_index, unit_index in enumerate(filtered_n_units_indices):
+            for rotation in range(model_reps_summed.shape[1]):
+                if movement_mode == '2d':
+                    # reshape to (n_locations, n_rotations, n_features)
+                    heatmap = model_reps_summed[:, rotation, unit_index].reshape(
+                        (env_x_max*multiplier-env_x_min*multiplier+1, 
+                        env_y_max*multiplier-env_y_min*multiplier+1) )
+                    # rotate heatmap to match Unity coordinate system
+                    # ref: tests/testReshape_forHeatMap.py
+                    heatmap = np.rot90(heatmap, k=1, axes=(0, 1))
+
+                    # plot heatmap for the selected units
+                    axes[row_index].imshow(heatmap)
+                    axes[row_index].set_xticks([])
+                    axes[row_index].set_yticks([])
+                    axes[row_index].set_title(
+                        f'unit:{unit_index},'\
+                        f'borderness:{borderness[unit_index]:.2f}'
+                    )
+
+        figs_path = utils.load_figs_path(
+            config=config,
+            experiment=experiment,
+            moving_trajectory=moving_trajectory,
+        )
+        plt.savefig(
+            f'{figs_path}/borderness_sorted_from_unit_chart_{filtering_order}.png'
+        )
+        plt.close()
+        logging.info(
+            f'[Saved] {figs_path}/borderness_sorted_from_unit_chart_{filtering_order}.png'
         )
 
 
@@ -1364,7 +1512,7 @@ if __name__ == '__main__':
     movement_modes = ['2d']
     sampling_rates = [0.3]
     random_seeds = [42]
-    model_names = ['simclrv2_r50_1x_sk0']
+    model_names = ['vgg16']
     moving_trajectories = ['uniform']
     decoding_model_choices = []
     feature_selections = []
@@ -1378,7 +1526,8 @@ if __name__ == '__main__':
         # target_func=_single_env_viz_fields_info_ranked_by_coef,       # set experiment='fields_info'
         # target_func=_single_env_produce_unit_chart,                     # set experiment='unit_chart'
         # target_func=_single_env_viz_gridness_ranked_by_unit_chart,      # set experiment='unit_chart'
-        target_func=_single_env_viz_unit_chart,                          # set experiment='unit_chart'
+        target_func=_single_env_viz_borderness_ranked_by_unit_chart,    # set experiment='unit_chart'
+        # target_func=_single_env_viz_unit_chart,                          # set experiment='unit_chart'
         envs=envs,
         model_names=model_names,
         experiment=experiment,
