@@ -493,6 +493,13 @@ def _compute_single_heatmap_border_scores(activation_map, db=3):
             activations = activation_map[:, :db]
 
         bi = np.mean(activations)
+        score = (bi - c) / (bi + c)
+
+        # DEBUG: when score is nan
+        if np.isnan(score):
+            print(f'bi: {bi}, c: {c}, score: {score}')
+            exit()
+
         wall_scores.append((bi - c) / (bi + c))
 
     return np.max(wall_scores)
@@ -975,9 +982,11 @@ def _single_env_produce_unit_chart(
 
                 ###### Go thru each required info, maybe modularise later.
                 if _is_dead_unit(heatmap):
+                    logging.info(f'Unit {unit_index} dead.')
                     unit_chart_info[unit_index, 0] = np.array([0])
                     continue
                 else:
+                    logging.info(f'Unit {unit_index} active')
                     unit_chart_info[unit_index, 0] = np.array([1])
                     # compute, collect and save unit chart info
                     # 1. fields info
@@ -1527,9 +1536,9 @@ if __name__ == '__main__':
         # target_func=_single_env_viz_units_ranked_by_coef,             # set experiment='viz'
         # target_func=_single_env_produce_fields_info_ranked_by_coef,   # set experiment='fields_info'
         # target_func=_single_env_viz_fields_info_ranked_by_coef,       # set experiment='fields_info'
-        # target_func=_single_env_produce_unit_chart,                     # set experiment='unit_chart'
+        target_func=_single_env_produce_unit_chart,                     # set experiment='unit_chart'
         # target_func=_single_env_viz_gridness_ranked_by_unit_chart,      # set experiment='unit_chart'
-        target_func=_single_env_viz_borderness_ranked_by_unit_chart,    # set experiment='unit_chart'
+        # target_func=_single_env_viz_borderness_ranked_by_unit_chart,    # set experiment='unit_chart'
         # target_func=_single_env_viz_unit_chart,                          # set experiment='unit_chart'
         envs=envs,
         model_names=model_names,
