@@ -20,6 +20,7 @@ from sklearn.model_selection import train_test_split
 import utils
 import data
 import models
+import lesion
 
 """
 Experiment script
@@ -111,6 +112,14 @@ def _load_train_test_data(
         preprocessed_data=preprocessed_data,
     )
 
+    # TODO: WIP, lesion here
+    model_reps = lesion.lesion(
+        config=config,
+        feature_selection,
+        moving_trajectory=moving_trajectory
+        model_reps=model_reps,
+    )
+
     X_train, X_test, y_train, y_test = \
         _determine_moving_trajectory(
             model_reps=model_reps,
@@ -186,9 +195,6 @@ def _fit_decoding_model(
 
     """
     logging.info(f'[Check] Fitting regression model..')
-
-    # TODO: if there is feature selection (e.g. place-cell score)
-    # Apply to train here.
 
     if decoding_model_choice['name'] == 'linear_regression':
         decoding_model = linear_model.LinearRegression()
