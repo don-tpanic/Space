@@ -1159,6 +1159,9 @@ def _single_env_viz_borderness_ranked_by_unit_chart(
             ]
     ):
     """
+    Based on unit chart info produced by `_single_env_produce_unit_chart`,
+    We can load the chart and sort by unit `borderness` and visualize the
+    top_n, mid_n, random_n as heatmaps.
     """
     os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
