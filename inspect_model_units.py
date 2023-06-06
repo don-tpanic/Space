@@ -1286,6 +1286,7 @@ def _single_env_viz_unit_chart(
                     'entire_map_mean',
                     'entire_map_var',
                     'gridness',
+                    'borderness',
                 ]
     
     config = utils.load_config(config_version)
@@ -1311,11 +1312,14 @@ def _single_env_viz_unit_chart(
     # the sizes of fields of qualified units.
     #   For `% peak cluster activation`, we iterate through unit_chart_info and count
     # the peak activation of fields of qualified units.
+    #   For `% borderness`, we iterate through unit_chart_info and count
+    # the borderness of qualified units (w borderness>0.5).
     dead_units = 0
     max_num_clusters = np.max(unit_chart_info[:, 1])
     num_clusters = np.zeros(max_num_clusters+1)
     cluster_sizes = []
     cluster_peaks = []
+    border_cells = 0
 
     for unit_index in range(unit_chart_info.shape[0]):
         if unit_chart_info[unit_index, 0] == 0:
@@ -1324,11 +1328,13 @@ def _single_env_viz_unit_chart(
             num_clusters[int(unit_chart_info[unit_index, 1])] += 1
             cluster_sizes.extend(unit_chart_info[unit_index, 2])
             cluster_peaks.extend(unit_chart_info[unit_index, 3])
+            if unit_chart_info[unit_index, 9] > 0.5:
+                border_cells += 1
 
     
     # plot
     fig, axes = plt.subplots(
-        nrows=4, ncols=1, figsize=(5, 10)
+        nrows=5, ncols=1, figsize=(5, 10)
     )
 
     # 0-each bar is % of dead/active units
@@ -1371,6 +1377,20 @@ def _single_env_viz_unit_chart(
     axes[3].set_xlabel('cluster peak')
     axes[3].set_ylabel('density')
     axes[3].set_title(f'cluster peak distribution')
+
+    # 4-each bar is % of a borderness
+    # non-border left, border right
+    axes[4].bar(
+        np.arange(2),
+        [1-border_cells/unit_chart_info.shape[0],
+            border_cells/unit_chart_info.shape[0]],
+        color=['grey', 'blue']
+    )
+    axes[4].set_xticks(np.arange(2))
+    axes[4].set_xticklabels(['non-border', 'border'])
+    axes[4].set_ylabel('% units')
+    axes[4].set_title(f'% units border/non-border')
+    axes[4].set_ylim([-.05, 1.05])
     
     figs_path = utils.load_figs_path(
         config=config,
