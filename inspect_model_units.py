@@ -25,10 +25,12 @@ if there are any patterns (e.g., place cells.)
 
 def _is_dead_unit(heatmap):
     """
-    Given a unit's 2D heatmap, check if it is a dead unit
-    by checking if all values in heatmap are zero/near-zero.
+    Given a unit's 2D heatmap, check if it is a dead unit.
     """
-    return np.allclose(heatmap, 0)
+    # return np.allclose(heatmap, 0)
+
+    # unit is dead if less than 1% of the heatmap is active
+    return np.sum(heatmap > 0) < 0.01 * heatmap.shape[0] * heatmap.shape[1]
 
 
 def _single_model_reps(config):
@@ -493,13 +495,6 @@ def _compute_single_heatmap_border_scores(activation_map, db=3):
             activations = activation_map[:, :db]
 
         bi = np.mean(activations)
-        score = (bi - c) / (bi + c)
-
-        # DEBUG: when score is nan
-        if np.isnan(score):
-            print(f'bi: {bi}, c: {c}, score: {score}')
-            exit()
-
         wall_scores.append((bi - c) / (bi + c))
 
     return np.max(wall_scores)
@@ -1536,10 +1531,10 @@ if __name__ == '__main__':
         # target_func=_single_env_viz_units_ranked_by_coef,             # set experiment='viz'
         # target_func=_single_env_produce_fields_info_ranked_by_coef,   # set experiment='fields_info'
         # target_func=_single_env_viz_fields_info_ranked_by_coef,       # set experiment='fields_info'
-        target_func=_single_env_produce_unit_chart,                     # set experiment='unit_chart'
+        # target_func=_single_env_produce_unit_chart,                     # set experiment='unit_chart'
         # target_func=_single_env_viz_gridness_ranked_by_unit_chart,      # set experiment='unit_chart'
         # target_func=_single_env_viz_borderness_ranked_by_unit_chart,    # set experiment='unit_chart'
-        # target_func=_single_env_viz_unit_chart,                          # set experiment='unit_chart'
+        target_func=_single_env_viz_unit_chart,                          # set experiment='unit_chart'
         envs=envs,
         model_names=model_names,
         experiment=experiment,
