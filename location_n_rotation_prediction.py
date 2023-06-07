@@ -94,6 +94,7 @@ def _load_train_test_data(
         targets_true,
         moving_trajectory,
         sampling_rate,
+        feature_selection,
         results_path,
         random_seed,
     ):
@@ -112,13 +113,15 @@ def _load_train_test_data(
         preprocessed_data=preprocessed_data,
     )
 
-    # TODO: WIP, lesion here
-    model_reps = lesion.lesion(
-        config=config,
-        feature_selection,
-        moving_trajectory=moving_trajectory
-        model_reps=model_reps,
-    )
+    # TODO: remember after lesion, the meaning of the columns change; further analysis 
+    # of coef needs to be careful.
+    if 'lesion' in feature_selection:
+        model_reps = lesion.lesion(
+            config=config,
+            moving_trajectory=moving_trajectory,
+            feature_selection=feature_selection,
+            model_reps=model_reps,
+        )
 
     X_train, X_test, y_train, y_test = \
         _determine_moving_trajectory(
@@ -380,6 +383,7 @@ def _single_env_decoding_error(
                 targets_true=targets_true,
                 moving_trajectory=moving_trajectory,
                 sampling_rate=sampling_rate,
+                feature_selection=feature_selection,
                 results_path=results_path,
                 random_seed=random_seed,
             )
@@ -448,6 +452,45 @@ def multi_envs_across_dimensions_CPU(
         logging.info(res.get())
         pool.close()
         pool.join()
+
+
+def multi_envs_across_dimensions_GPU(
+        target_func,
+        envs,
+        experiment,
+        sampling_rates,
+        model_names,
+        moving_trajectories,
+        decoding_model_choices,
+        feature_selections,
+        random_seeds,
+        cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
+    ):
+    for model_name in model_names:
+        envs_dict = load_envs_dict(model_name, envs)
+        config_versions=list(envs_dict.keys())
+        args_list = []
+        for config_version in config_versions:
+            for moving_trajectory in moving_trajectories:
+                for sampling_rate in sampling_rates:
+                    for feature_selection in feature_selections:
+                        for decoding_model_choice in decoding_model_choices:
+                            for random_seed in random_seeds:
+                                single_entry = {}
+                                single_entry['config_version'] = config_version
+                                single_entry['moving_trajectory'] = moving_trajectory
+                                single_entry['sampling_rate'] = sampling_rate
+                                single_entry['experiment'] = experiment
+                                single_entry['feature_selection'] = feature_selection
+                                single_entry['decoding_model_choice'] = decoding_model_choice
+                                single_entry['random_seed'] = random_seed
+                                args_list.append(single_entry)
+
+    logging.info(f'args_list = {args_list}')
+    logging.info(f'args_list len = {len(args_list)}')
+    utils.cuda_manager(
+        target_func, args_list, cuda_id_list
+    )
 
 
 def cross_dimension_analysis(
@@ -1169,29 +1212,31 @@ if __name__ == '__main__':
     movement_modes = ['2d']
     sampling_rates = [0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
     random_seeds = [42, 1234, 999]
-    model_names = ['simclrv2_r50_1x_sk0', 'resnet50', 'vgg16', 'vit_b16']
+    # model_names = ['simclrv2_r50_1x_sk0', 'resnet50', 'vgg16', 'vit_b16']
+    model_names = ['vgg16']
     moving_trajectories = ['uniform']
     decoding_model_choices = [
         {'name': 'ridge_regression', 'hparams': 1.0},
-        {'name': 'ridge_regression', 'hparams': 0.1},
     ]
-    feature_selections = ['l2']
+    feature_selections = ['l2+lesion_borderness_0.5_top_0.1']
     # =================================================================== #
 
-    # multi_envs_across_dimensions_CPU(
-    #     target_func=_single_env_decoding_error,
-    #     envs=envs,
-    #     experiment=experiment,
-    #     sampling_rates=sampling_rates,
-    #     model_names=model_names,
-    #     moving_trajectories=moving_trajectories,
-    #     decoding_model_choices=decoding_model_choices,
-    #     feature_selections=feature_selections,
-    #     random_seeds=random_seeds,
-    # )
+    multi_envs_across_dimensions_CPU(
+    # multi_envs_across_dimensions_GPU(
+        target_func=_single_env_decoding_error,
+        envs=envs,
+        experiment=experiment,
+        sampling_rates=sampling_rates,
+        model_names=model_names,
+        moving_trajectories=moving_trajectories,
+        decoding_model_choices=decoding_model_choices,
+        feature_selections=feature_selections,
+        random_seeds=random_seeds,
+        # cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
+    )
 
     cross_dimension_analysis(
-        analysis='regression_weights_between_targets_correlations_across_layers',
+        analysis='decoding_across_sampling_rates_n_layers',
         envs=envs,
         movement_modes=movement_modes,
         model_names=model_names,
