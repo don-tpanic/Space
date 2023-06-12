@@ -262,7 +262,7 @@ def _single_env_viz_units_ranked_by_coef(
                 # 1 for heatmap, 1 for distribution
                 fig, axes = plt.subplots(
                     nrows=n_units_filtering, 
-                    ncols=3,
+                    ncols=2,
                     figsize=(5, 600)
                 )
                 for unit_rank, unit_index in enumerate(filtered_n_units_indices):
@@ -278,15 +278,15 @@ def _single_env_viz_units_ranked_by_coef(
                             # ref: tests/testReshape_forHeatMap.py
                             heatmap = np.rot90(heatmap, k=1, axes=(0, 1))
 
-                            # compute fields info and write them on the heatmap
-                            num_clusters, num_pixels_in_clusters, max_value_in_clusters, \
-                                mean_value_in_clusters, var_value_in_clusters, \
-                                    bounds_heatmap = \
-                                        _compute_single_heatmap_fields_info(
-                                            heatmap=heatmap,
-                                            pixel_min_threshold=10,
-                                            pixel_max_threshold=int(heatmap.shape[0]*heatmap.shape[1]*0.5)
-                                        )
+                            # # compute fields info and write them on the heatmap
+                            # num_clusters, num_pixels_in_clusters, max_value_in_clusters, \
+                            #     mean_value_in_clusters, var_value_in_clusters, \
+                            #         bounds_heatmap = \
+                            #             _compute_single_heatmap_fields_info(
+                            #                 heatmap=heatmap,
+                            #                 pixel_min_threshold=10,
+                            #                 pixel_max_threshold=int(heatmap.shape[0]*heatmap.shape[1]*0.5)
+                            #             )
                             
                             # plot heatmap on the left column.
                             axes[unit_rank, 0].imshow(heatmap)
@@ -294,21 +294,22 @@ def _single_env_viz_units_ranked_by_coef(
                             axes[-1, 0].set_ylabel('Unity z-axis')
                             axes[unit_rank, 0].set_xticks([])
                             axes[unit_rank, 0].set_yticks([])
-                            axes[unit_rank, 0].set_title(
-                                f'rank{unit_rank},u{unit_index}\n'\
-                                f'coef{coef[target_index, unit_index]:.1f}'\
-                                f'{num_clusters},{num_pixels_in_clusters},{max_value_in_clusters} '\
-                            )
+                            # axes[unit_rank, 0].set_title(
+                            #     f'rank{unit_rank},u{unit_index}\n'\
+                            #     f'coef{coef[target_index, unit_index]:.1f}'\
+                            #     f'{num_clusters},{num_pixels_in_clusters},{max_value_in_clusters} '\
+                            # )
+                            axes[unit_rank, 0].set_title(f'rank{unit_rank},u{unit_index}')
 
-                            # plot heatmap contour on the middle column.
-                            axes[unit_rank, 1].imshow(bounds_heatmap)
+                            # # plot heatmap contour on the middle column.
+                            # axes[unit_rank, 1].imshow(bounds_heatmap)
 
                             # plot distribution on the right column.
-                            axes[unit_rank, 2].hist(
+                            axes[unit_rank, 1].hist(
                                 model_reps_summed[:, rotation, unit_index],
                                 bins=10,
                             )
-                            axes[-1, 2].set_xlabel('Activation intensity')
+                            axes[-1, 1].set_xlabel('Activation intensity')
 
                 sup_title = f"{filtering_order},{targets[target_index]},"\
                             f"{config['unity_env']},{movement_mode},"\
@@ -1072,6 +1073,10 @@ def _single_env_viz_gridness_ranked_by_unit_chart(
         moving_trajectory=moving_trajectory,
     )
     unit_chart_info = np.load(f'{results_path}/unit_chart.npy', allow_pickle=True)
+
+    # TODO: potentially we should first select based on num_clusters >= 4+
+    # and then sort by gridness.
+
     gridnesses = unit_chart_info[:, 8]
     
     # visualize top_n, mid_n, random_n units' gridness
@@ -1533,28 +1538,31 @@ if __name__ == '__main__':
     # ======================================== #
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 4     
-    experiment = 'unit_chart'
-    reference_experiment = None
+    experiment = 'viz'
+    reference_experiment = 'loc_n_rot'
     envs = ['env28_r24']
     movement_modes = ['2d']
     sampling_rates = [0.3]
     random_seeds = [42]
     model_names = ['vgg16']
     moving_trajectories = ['uniform']
-    decoding_model_choices = []
-    feature_selections = []
-    filterings = []
+    decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
+    feature_selections = ['l2']
+    filterings = [
+        {'filtering_order': 'top_n', 'n_units_filtering': 400},
+        {'filtering_order': 'random_n', 'n_units_filtering': 400},
+    ]
     # ======================================== #
     
     multi_envs_inspect_units_GPU(
     # multi_envs_inspect_units_CPU(
-        # target_func=_single_env_viz_units_ranked_by_coef,             # set experiment='viz'
+        target_func=_single_env_viz_units_ranked_by_coef,             # set experiment='viz'
         # target_func=_single_env_produce_fields_info_ranked_by_coef,   # set experiment='fields_info'
         # target_func=_single_env_viz_fields_info_ranked_by_coef,       # set experiment='fields_info'
         # target_func=_single_env_produce_unit_chart,                     # set experiment='unit_chart'
         # target_func=_single_env_viz_gridness_ranked_by_unit_chart,      # set experiment='unit_chart'
         # target_func=_single_env_viz_borderness_ranked_by_unit_chart,    # set experiment='unit_chart'
-        target_func=_single_env_viz_unit_chart,                          # set experiment='unit_chart'
+        # target_func=_single_env_viz_unit_chart,                          # set experiment='unit_chart'
         envs=envs,
         model_names=model_names,
         experiment=experiment,
