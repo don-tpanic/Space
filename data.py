@@ -145,6 +145,70 @@ def load_decoding_targets(
     return np.array(targets_true)
 
 
+def load_decoding_targets_border_distance(
+        movement_mode,
+        env_x_min,
+        env_x_max,
+        env_y_min,
+        env_y_max,
+        multiplier,
+        n_rotations
+    ):
+    """
+    Produce distance to nearest wall as targets for training/testing
+
+    return:
+        A list of lists, where each sublist is the nearest distance
+        to a wall. Notice, given a location, the nearest distance
+        to a wall is computed regardless of the direction of the
+        agent. In other words, while there might be multiple walls 
+        with the same distance to the agent, the nearest distance 
+        should still be unique and the same.
+    """
+    targets_true = []
+    if movement_mode == '1d':
+        raise NotImplementedError()
+
+    elif movement_mode == '2d':
+        # The 2D env is a square grid (X-Z plane in Unity)
+        # Both X and Y axes are from -5 to 5 (inc. walls).
+        # The agent's furthest reachable position on the grid 
+        # are between [-env_x_min, env_x_max] inclusive along each axis.
+        # More specifically, the agent can move to any position
+        # on each axis in range(env_x_min*multiplier, env_x_max*multiplier+1), if x-axis.
+        # The agent also rotates itself a number of times.
+
+        # For a given position, the nearest distance to a wall can be computed 
+        # and is unique regardless of the direction of the agent (there might be multiple
+        # walls with the same distance to the agent, but the nearest distance should still
+        # be unique and the same).
+
+        # We compute and collect the nearest distance to a wall for each position
+        # on the grid and for each rotation of the agent.
+        env_x_min_wall = env_x_min - 1
+        env_x_max_wall = env_x_max + 1
+        env_y_min_wall = env_y_min - 1
+        env_y_max_wall = env_y_max + 1
+        totalLen = env_x_max_wall - env_x_min_wall
+        for i in range(env_x_min*multiplier, env_x_max*multiplier+1):
+            for j in range(env_y_min*multiplier, env_y_max*multiplier+1):
+                for k in range(n_rotations):
+                    # along each axis, we compute the distance to the nearest wall
+                    # and take the minimum of the two.
+                    nearest_wall_x = min(
+                        abs(i/multiplier - env_x_min_wall), 
+                        abs(i/multiplier - env_x_max_wall)
+                    )
+                    nearest_wall_y = min(
+                        abs(j/multiplier - env_y_min_wall), 
+                        abs(j/multiplier - env_y_max_wall)
+                    )
+                    nearest_wall = min(nearest_wall_x, nearest_wall_y)
+                    targets_true.append([nearest_wall])
+
+    return np.array(targets_true)
+
+
 def load_full_dataset_model_reps(
         config, model, preprocessed_data
     ):
@@ -207,9 +271,9 @@ def load_model_layers(model_name):
         'vgg16':
             [   
                 'fc2',
-                # 'block5_pool',
-                # 'block4_pool',
-                # 'block2_pool',
+                'block5_pool',
+                'block4_pool',
+                'block2_pool',
             ],
         'resnet50':
             [
@@ -231,3 +295,12 @@ def load_model_layers(model_name):
 
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+    targets_true = load_decoding_targets_border_distance(
+        movement_mode='2d',
+        env_x_min=-4,
+        env_x_max=4,
+        env_y_min=-4,
+        env_y_max=4,
+        multiplier=2,
+        n_rotations=24
+    )
