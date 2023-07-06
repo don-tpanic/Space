@@ -501,6 +501,51 @@ def _compute_single_heatmap_border_scores(activation_map, db=3):
     return np.max(wall_scores)
 
 
+def _compute_single_heatmap_directional_scores(activation_maps):
+    """
+    Args:
+        `activation_maps` correspond to the un-summed activation maps
+        for a single unit across rotations \in (n_locations, n_rotations)
+
+    - num of angular bins in Banino here becomes `n_rotations`.
+    - based on Banino eq, we need to convert each n_rotations to 
+        `alpha_i` which is angle.
+    - the intensity `beta_i` of an angle is the average activation 
+        across all locations for that angle.
+    """
+    # model_reps \in (n_locations, n_rotations, n_features)
+    # activation_maps \in (n_locations, n_rotations)
+    num_bins = activation_maps.shape[1]
+    alphas = np.linspace(0, 2*np.pi, num=num_bins, endpoint=False)
+    betas = np.mean(activation_maps, axis=0)
+
+    # given a rotation, we can compute alpha_i and beta_i
+    # which are used to compute r_i in the eq.
+    # we collect r_i for each rotation and compute the mean
+    # vector, whose length is used as the directional score.
+    polar_plot_coords = []
+    for alpha_i, beta_i in zip(alphas, betas):
+        polar_plot_coords.append(
+            [beta_i*np.cos(alpha_i), beta_i*np.sin(alpha_i)]
+        )
+    
+    # to compute mean vector length,
+    # first we compute the sum of r_i normed by sum of beta_i
+    r_normed_by_beta = np.sum(
+        np.array(polar_plot_coords), axis=0
+    ) / np.sum(betas)
+
+    logging.info(f'[Check] polar_plot_coords.shape: {np.array(polar_plot_coords).shape}')
+    logging.info(f'[Check] polar_plot_coords: {polar_plot_coords}')
+    logging.info(f'[Check] r_normed_by_beta.shape: {r_normed_by_beta.shape}')
+    logging.info(f'[Check] r_normed_by_beta: {r_normed_by_beta}')
+
+    # then we compute the length of the mean vector
+    mean_vector_length = np.linalg.norm(r_normed_by_beta)
+    logging.info(f'[Check] mean_vector_length: {mean_vector_length}')
+    return mean_vector_length, polar_plot_coords
+
+
 def _single_env_produce_fields_info_ranked_by_coef(
         config_version, 
         experiment,
@@ -911,18 +956,21 @@ def _single_env_produce_unit_chart(
     Unit chart is intended to capture characteristics of each 
     unit (no filtering; ALL units). Currently, the chart includes:
         0. if dead (if true, continue to next unit)
-        1. fields info - [
-                            num_clusters, 
-                            num_pixels_in_clusters, 
-                            max_value_in_clusters, 
-                            mean_value_in_clusters, 
-                            var_value_in_clusters,
-                            entire_map_mean,
-                            entire_map_var,
-                        ]
-        2. gridness
-        3. borderness
-        4. directioness TODO: but how to separate from the rest as it is rotation specific?
+        .  fields info - [
+                1. num_clusters, 
+                2. num_pixels_in_clusters, 
+                3. max_value_in_clusters, 
+                4. mean_value_in_clusters, 
+                5. var_value_in_clusters,
+                6. entire_map_mean,
+                7. entire_map_var,
+            ]
+        8. gridness - gridness score
+        9. borderness - border score
+        .  directioness - [
+                10. mean_vector_length,
+                11. polar_plot_coords,
+            ]
     """
     os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
@@ -940,6 +988,7 @@ def _single_env_produce_unit_chart(
     # charted info:
     charted_info = [
                     'dead',
+                    # --- fields info
                     'num_clusters', 
                     'num_pixels_in_clusters', 
                     'max_value_in_clusters', 
@@ -947,9 +996,14 @@ def _single_env_produce_unit_chart(
                     'var_value_in_clusters',
                     'entire_map_mean',
                     'entire_map_var',
+                    # ---
                     'gridness',
+                    # ---
                     'borderness',
-                    # 'coef', # TODO: coef not charted but can be combined later.
+                    # --- directioness
+                    'mean_vector_length',
+                    'polar_plot_coords',
+                    # ---
                 ]
     
     # initialize unit chart collector
@@ -965,52 +1019,62 @@ def _single_env_produce_unit_chart(
     )
 
     for unit_index in range(model_reps_summed.shape[2]):
-        for rotation in range(model_reps_summed.shape[1]):
-            logging.info(f'[Charting] unit_index: {unit_index}')
-            if movement_mode == '2d':
-                # reshape to (n_locations, n_rotations, n_features)
-                heatmap = model_reps_summed[:, rotation, unit_index].reshape(
-                    (env_x_max*multiplier-env_x_min*multiplier+1, 
-                    env_y_max*multiplier-env_y_min*multiplier+1) )
-                # rotate heatmap to match Unity coordinate system
-                # ref: tests/testReshape_forHeatMap.py
-                heatmap = np.rot90(heatmap, k=1, axes=(0, 1))
+        logging.info(f'[Charting] unit_index: {unit_index}')
 
-                ###### Go thru each required info, maybe modularise later.
-                if _is_dead_unit(heatmap):
-                    logging.info(f'Unit {unit_index} dead.')
-                    unit_chart_info[unit_index, 0] = np.array([0])
-                    continue
-                else:
-                    logging.info(f'Unit {unit_index} active')
-                    unit_chart_info[unit_index, 0] = np.array([1])
-                    # compute, collect and save unit chart info
-                    # 1. fields info
-                    num_clusters, num_pixels_in_clusters, max_value_in_clusters, \
-                        mean_value_in_clusters, var_value_in_clusters, \
-                            bounds_heatmap = \
-                                _compute_single_heatmap_fields_info(
-                                    heatmap=heatmap,
-                                    pixel_min_threshold=10,
-                                    pixel_max_threshold=\
-                                    int(heatmap.shape[0]*heatmap.shape[1]*0.5)
-                                )
-                    unit_chart_info[unit_index, 1] = num_clusters
-                    unit_chart_info[unit_index, 2] = num_pixels_in_clusters
-                    unit_chart_info[unit_index, 3] = max_value_in_clusters
-                    unit_chart_info[unit_index, 4] = mean_value_in_clusters
-                    unit_chart_info[unit_index, 5] = var_value_in_clusters
-                    unit_chart_info[unit_index, 6] = np.array([np.mean(heatmap)])
-                    unit_chart_info[unit_index, 7] = np.array([np.var(heatmap)])
+        if movement_mode == '2d':
+            # reshape to (n_locations, n_rotations, n_features)
+            # but rotation dimension is 1 after summing, so 
+            # we just hard code 0.
+            heatmap = model_reps_summed[:, 0, unit_index].reshape(
+                (env_x_max*multiplier-env_x_min*multiplier+1, 
+                env_y_max*multiplier-env_y_min*multiplier+1) )
+            # rotate heatmap to match Unity coordinate system
+            # ref: tests/testReshape_forHeatMap.py
+            heatmap = np.rot90(heatmap, k=1, axes=(0, 1))
 
-                    # 2. gridness
-                    score_60_, _, _, _, sac, scorer = \
-                                _compute_single_heatmap_grid_scores(heatmap)
-                    unit_chart_info[unit_index, 8] = score_60_
+            ###### Go thru each required info, maybe modularise later.
+            if _is_dead_unit(heatmap):
+                logging.info(f'Unit {unit_index} dead.')
+                unit_chart_info[unit_index, 0] = np.array([0])
+                continue
+            else:
+                logging.info(f'Unit {unit_index} active')
+                unit_chart_info[unit_index, 0] = np.array([1])
+                # compute, collect and save unit chart info
+                # 1. fields info
+                num_clusters, num_pixels_in_clusters, max_value_in_clusters, \
+                    mean_value_in_clusters, var_value_in_clusters, \
+                        bounds_heatmap = \
+                            _compute_single_heatmap_fields_info(
+                                heatmap=heatmap,
+                                pixel_min_threshold=10,
+                                pixel_max_threshold=\
+                                int(heatmap.shape[0]*heatmap.shape[1]*0.5)
+                            )
+                unit_chart_info[unit_index, 1] = num_clusters
+                unit_chart_info[unit_index, 2] = num_pixels_in_clusters
+                unit_chart_info[unit_index, 3] = max_value_in_clusters
+                unit_chart_info[unit_index, 4] = mean_value_in_clusters
+                unit_chart_info[unit_index, 5] = var_value_in_clusters
+                unit_chart_info[unit_index, 6] = np.array([np.mean(heatmap)])
+                unit_chart_info[unit_index, 7] = np.array([np.var(heatmap)])
 
-                    # 3. borderness
-                    border_score = _compute_single_heatmap_border_scores(heatmap)
-                    unit_chart_info[unit_index, 9] = border_score
+                # 2. gridness
+                score_60_, _, _, _, sac, scorer = \
+                            _compute_single_heatmap_grid_scores(heatmap)
+                unit_chart_info[unit_index, 8] = score_60_
+
+                # 3. borderness
+                border_score = _compute_single_heatmap_border_scores(heatmap)
+                unit_chart_info[unit_index, 9] = border_score
+
+                # 4. directioness (use model_reps instead of model_reps_summed)
+                directional_score, polar_plot_coords = \
+                    _compute_single_heatmap_directional_scores(
+                        activation_maps=model_reps[:, :, unit_index]
+                    )
+                unit_chart_info[unit_index, 10] = directional_score
+                unit_chart_info[unit_index, 11] = polar_plot_coords
         
     results_path = utils.load_results_path(
         config=config,
@@ -1259,6 +1323,25 @@ def _single_env_viz_borderness_ranked_by_unit_chart(
         logging.info(
             f'[Saved] {figs_path}/borderness_sorted_from_unit_chart_{filtering_order}.png'
         )
+
+
+def _single_env_viz_directioness_ranked_by_unit_chart(
+        config_version,
+        experiment,
+        moving_trajectory,
+        reference_experiment=None,
+        feature_selection=None,
+        decoding_model_choice=None,
+        sampling_rate=None,
+        random_seed=None,
+        filterings=\
+            [{'filtering_order': 'top_n', 'n_units_filtering': 400},
+                {'filtering_order': 'mid_n', 'n_units_filtering': 400},
+                {'filtering_order': 'random_n', 'n_units_filtering': 400},
+                ]
+    ):
+    # TODO: plot polar plots as in Banino 2018.
+    raise NotImplementedError()
 
 
 def _single_env_viz_unit_chart(
@@ -1538,8 +1621,8 @@ if __name__ == '__main__':
     # ======================================== #
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 4     
-    experiment = 'viz'
-    reference_experiment = 'loc_n_rot'
+    experiment = 'unit_chart'
+    reference_experiment = None
     envs = ['env28_r24']
     movement_modes = ['2d']
     sampling_rates = [0.3]
@@ -1556,10 +1639,10 @@ if __name__ == '__main__':
     
     multi_envs_inspect_units_GPU(
     # multi_envs_inspect_units_CPU(
-        target_func=_single_env_viz_units_ranked_by_coef,             # set experiment='viz'
+        # target_func=_single_env_viz_units_ranked_by_coef,             # set experiment='viz'
         # target_func=_single_env_produce_fields_info_ranked_by_coef,   # set experiment='fields_info'
         # target_func=_single_env_viz_fields_info_ranked_by_coef,       # set experiment='fields_info'
-        # target_func=_single_env_produce_unit_chart,                     # set experiment='unit_chart'
+        target_func=_single_env_produce_unit_chart,                     # set experiment='unit_chart'
         # target_func=_single_env_viz_gridness_ranked_by_unit_chart,      # set experiment='unit_chart'
         # target_func=_single_env_viz_borderness_ranked_by_unit_chart,    # set experiment='unit_chart'
         # target_func=_single_env_viz_unit_chart,                          # set experiment='unit_chart'
@@ -1573,7 +1656,7 @@ if __name__ == '__main__':
         decoding_model_choices=decoding_model_choices,
         random_seeds=random_seeds,
         filterings=filterings,
-        cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
+        cuda_id_list=[0],
     )
 
     # print time elapsed
