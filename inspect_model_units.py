@@ -524,26 +524,24 @@ def _compute_single_heatmap_directional_scores(activation_maps):
     # we collect r_i for each rotation and compute the mean
     # vector, whose length is used as the directional score.
     polar_plot_coords = []
+    per_rotation_vector_length = []
     for alpha_i, beta_i in zip(alphas, betas):
         polar_plot_coords.append(
             [beta_i*np.cos(alpha_i), beta_i*np.sin(alpha_i)]
+        )
+        per_rotation_vector_length.append(
+            np.linalg.norm([beta_i*np.cos(alpha_i), beta_i*np.sin(alpha_i)])
         )
     
     # to compute mean vector length,
     # first we compute the sum of r_i normed by sum of beta_i
     r_normed_by_beta = np.sum(
-        np.array(polar_plot_coords), axis=0
-    ) / np.sum(betas)
-
-    logging.info(f'[Check] polar_plot_coords.shape: {np.array(polar_plot_coords).shape}')
-    logging.info(f'[Check] polar_plot_coords: {polar_plot_coords}')
-    logging.info(f'[Check] r_normed_by_beta.shape: {r_normed_by_beta.shape}')
-    logging.info(f'[Check] r_normed_by_beta: {r_normed_by_beta}')
+        np.array(polar_plot_coords), axis=0) / np.sum(betas)
 
     # then we compute the length of the mean vector
     mean_vector_length = np.linalg.norm(r_normed_by_beta)
     logging.info(f'[Check] mean_vector_length: {mean_vector_length}')
-    return mean_vector_length, polar_plot_coords
+    return mean_vector_length, per_rotation_vector_length
 
 
 def _single_env_produce_fields_info_ranked_by_coef(
@@ -969,7 +967,7 @@ def _single_env_produce_unit_chart(
         9. borderness - border score
         .  directioness - [
                 10. mean_vector_length,
-                11. polar_plot_coords,
+                11. per_rotation_vector_length,
             ]
     """
     os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
@@ -1002,7 +1000,7 @@ def _single_env_produce_unit_chart(
                     'borderness',
                     # --- directioness
                     'mean_vector_length',
-                    'polar_plot_coords',
+                    'per_rotation_vector_length',
                     # ---
                 ]
     
@@ -1069,12 +1067,12 @@ def _single_env_produce_unit_chart(
                 unit_chart_info[unit_index, 9] = border_score
 
                 # 4. directioness (use model_reps instead of model_reps_summed)
-                directional_score, polar_plot_coords = \
+                directional_score, per_rotation_vector_length = \
                     _compute_single_heatmap_directional_scores(
                         activation_maps=model_reps[:, :, unit_index]
                     )
                 unit_chart_info[unit_index, 10] = directional_score
-                unit_chart_info[unit_index, 11] = polar_plot_coords
+                unit_chart_info[unit_index, 11] = per_rotation_vector_length
         
     results_path = utils.load_results_path(
         config=config,
@@ -1340,9 +1338,115 @@ def _single_env_viz_directioness_ranked_by_unit_chart(
                 {'filtering_order': 'random_n', 'n_units_filtering': 400},
                 ]
     ):
-    # TODO: plot polar plots as in Banino 2018.
-    raise NotImplementedError()
+    os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
+    os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+    config = utils.load_config(config_version)
+    movement_mode=config['movement_mode']
+    env_x_min=config['env_x_min']
+    env_x_max=config['env_x_max']
+    env_y_min=config['env_y_min']
+    env_y_max=config['env_y_max']
+    multiplier=config['multiplier']
+    
+    # load model outputs
+    model_reps = _single_model_reps(config)
+    model_reps_summed = np.sum(model_reps, axis=1, keepdims=True)
+    
+    # load unit chart info
+    results_path = utils.load_results_path(
+        config=config,
+        experiment=experiment,
+        moving_trajectory=moving_trajectory,
+    )
+    unit_chart_info = np.load(f'{results_path}/unit_chart.npy', allow_pickle=True)
+    mean_vector_length = unit_chart_info[:, 10]
+    per_rotation_vector_length = unit_chart_info[:, 11]
 
+    # filter out dead units, by return unit_index that are active
+    # we will then sort based on the active unit_index
+    active_unit_indices = np.where(unit_chart_info[:, 0] == 1)[0]
+    # NOTE(ken): we need this to sort but we must keep the original 
+    # mean_vector_length when we want to extract (index in native space)
+    mean_vector_length_shrunk = unit_chart_info[active_unit_indices, 10]
+    
+    # visualize top_n, mid_n, random_n units' gridness
+    for filtering in filterings:
+        n_units_filtering = filtering['n_units_filtering']
+        filtering_order = filtering['filtering_order']
+
+        logging.info(f'directioness.shape: {mean_vector_length_shrunk.shape}')
+        logging.info(f'filtering_order: {filtering_order}')
+
+        if filtering_order == 'top_n':
+            filtered_n_units_indices = active_unit_indices[  # NOTE(ken): this ensures unit index in native space
+                np.argsort(mean_vector_length_shrunk)[::-1][:n_units_filtering]
+            ]
+
+        elif filtering_order == 'mid_n':
+            filtered_n_units_indices = active_unit_indices[
+                np.argsort(mean_vector_length_shrunk)[::-1][
+                    int(mean_vector_length_shrunk.shape[0]/2)-int(n_units_filtering/2):
+                    int(mean_vector_length_shrunk.shape[0]/2)+int(n_units_filtering/2)]
+            ]
+            
+        elif filtering_order == 'random_n':
+            # randomly sample n_units_filtering units
+            # but excluding the top_n (also n_units_filtering)
+            np.random.seed(random_seed)
+            filtered_n_units_indices = active_unit_indices[
+                np.random.choice(
+                np.argsort(mean_vector_length_shrunk)[::-1][n_units_filtering:],
+                    n_units_filtering,
+                    replace=False)
+            ]   
+        else:
+            raise NotImplementedError
+
+        # plotter
+        fig = plt.figure(figsize=(5, 600))
+
+        for row_index, unit_index in enumerate(filtered_n_units_indices):
+            for rotation in range(model_reps_summed.shape[1]):
+                if movement_mode == '2d':
+                    # reshape to (n_locations, n_rotations, n_features)
+                    heatmap = model_reps_summed[:, rotation, unit_index].reshape(
+                        (env_x_max*multiplier-env_x_min*multiplier+1, 
+                        env_y_max*multiplier-env_y_min*multiplier+1) )
+                    # rotate heatmap to match Unity coordinate system
+                    # ref: tests/testReshape_forHeatMap.py
+                    heatmap = np.rot90(heatmap, k=1, axes=(0, 1))
+
+                    ax = fig.add_subplot(n_units_filtering, 2, row_index*2+1)
+                    ax.imshow(heatmap)
+                    ax.set_title(f'unit:{unit_index}')
+                    ax.set_xticks([])
+                    ax.set_yticks([])
+
+                    # plot polar plot
+                    ax = fig.add_subplot(n_units_filtering, 2, row_index*2+2, projection='polar')
+                    ax.set_title(f'directioness:{mean_vector_length[unit_index]:.2f}')
+                    theta = np.linspace(0, 2*np.pi, model_reps.shape[1], endpoint=False)
+                    
+                    ax.plot(theta, per_rotation_vector_length[unit_index])
+                    ax.set_theta_zero_location("N")
+                    ax.set_theta_direction(-1)
+                    ax.set_thetagrids([0, 90, 180, 270], labels=['', '', '', ''])
+
+
+
+        figs_path = utils.load_figs_path(
+            config=config,
+            experiment=experiment,
+            moving_trajectory=moving_trajectory,
+        )
+        plt.savefig(
+            f'{figs_path}/directioness_sorted_from_unit_chart_{filtering_order}.png'
+        )
+        plt.close()
+        logging.info(
+            f'[Saved] {figs_path}/directioness_sorted_from_unit_chart_{filtering_order}.png'
+        )
+    
 
 def _single_env_viz_unit_chart(
         config_version, 
@@ -1642,9 +1746,10 @@ if __name__ == '__main__':
         # target_func=_single_env_viz_units_ranked_by_coef,             # set experiment='viz'
         # target_func=_single_env_produce_fields_info_ranked_by_coef,   # set experiment='fields_info'
         # target_func=_single_env_viz_fields_info_ranked_by_coef,       # set experiment='fields_info'
-        target_func=_single_env_produce_unit_chart,                     # set experiment='unit_chart'
+        # target_func=_single_env_produce_unit_chart,                     # set experiment='unit_chart'
         # target_func=_single_env_viz_gridness_ranked_by_unit_chart,      # set experiment='unit_chart'
         # target_func=_single_env_viz_borderness_ranked_by_unit_chart,    # set experiment='unit_chart'
+        target_func=_single_env_viz_directioness_ranked_by_unit_chart,  # set experiment='unit_chart'
         # target_func=_single_env_viz_unit_chart,                          # set experiment='unit_chart'
         envs=envs,
         model_names=model_names,
