@@ -678,6 +678,144 @@ def _single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts(
         raise NotImplementedError()
 
 
+def _single_env_viz_units_by_type_ranked_by_coef(
+        config_version, 
+        experiment,
+        reference_experiment,
+        feature_selection, 
+        decoding_model_choice,
+        sampling_rate,
+        moving_trajectory,
+        random_seed,
+        filterings,
+    ):
+    """
+    `_single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts`
+    produces unit_chart_by_coef where it is a subset of 
+    units from the general unit_chart sorted by coef.
+
+    The coef-specific unit_chart has 1 more column than the general unit_chart,
+    where the last column is the ranked coef values.
+
+    Here, we can plot units by their types against the coefs.
+    e.g. we can plot how the top n coef units' gridness compare 
+    to the mid n coef units' gridness.
+    """
+
+    # TODO: improve
+    unit_type = 'place_cell'
+    unit_type_to_column_index_in_unit_chart = {
+        'place_cell': {
+            'num_clusters': 1,
+            # 'num_pixels_in_clusters': 2,
+            # 'max_value_in_clusters': 3,
+            # 'mean_value_in_clusters': 4,
+            # 'var_value_in_clusters': 5,
+            # 'entire_map_mean': 6,
+            # 'entire_map_var': 7,
+        },
+        'grid_cell': {
+            'gridness': 8,
+        },
+        'border_cell': {
+            'borderness': 9,
+        },
+        'direction_cell': {
+            'mean_vector_length': 10,
+        },
+    }
+
+    targets = ['loc', 'rot']
+    tracked_metrics = list(
+        unit_type_to_column_index_in_unit_chart[unit_type].keys()
+    )
+    
+    config = utils.load_config(config_version)
+    results_path = utils.load_results_path(
+        config=config,
+        experiment=experiment,
+        reference_experiment=reference_experiment,
+        feature_selection=feature_selection,
+        decoding_model_choice=decoding_model_choice,
+        sampling_rate=sampling_rate,
+        moving_trajectory=moving_trajectory,
+        random_seed=random_seed,
+    )
+
+    if results_path is None:
+        logging.info(
+            f'Mismatch between feature '\
+            f'selection and decoding model, skip.'
+        )
+        return
+    
+    for target_index in range(len(targets)):
+        fig, axes = plt.subplots(
+            nrows=len(tracked_metrics), 
+            ncols=2, 
+            figsize=(10, 5)
+        )
+
+        for metric_index, metric in enumerate(tracked_metrics):
+            for filtering in filterings:
+                filtering_order = filtering['filtering_order']
+
+                unit_chart_info = np.load(
+                    f'{results_path}/unit_chart_{targets[target_index]}_{filtering_order}.npy', 
+                    allow_pickle=True
+                )
+
+                # plot distribution of metric and coef based on filtering_order
+                type_id = unit_type_to_column_index_in_unit_chart[unit_type][metric]
+
+                if metric == 'num_clusters':
+                    unit_chart_info[:, type_id] = [int(x) for x in unit_chart_info[:, type_id]]
+
+                sns.kdeplot(
+                    unit_chart_info[:, type_id], 
+                    label=filtering_order, 
+                    ax=axes[0], 
+                    alpha=0.5
+                )
+
+                axes[0].set_xlabel(f'{metric}')
+                axes[0].set_ylabel(f'pdf')
+
+                # plot scatter of coef and metric based on filtering_order
+                axes[1].scatter(
+                    unit_chart_info[:, -1], 
+                    unit_chart_info[:, type_id], 
+                    label=filtering_order, 
+                    alpha=0.5
+                )
+                axes[1].set_xlabel(f'coef')
+                axes[1].set_ylabel(f'{metric}')
+
+        sup_title = f"{targets[target_index]},"\
+                    f"{config['unity_env']},"\
+                    f"{config['model_name']},{feature_selection}"\
+                    f"({decoding_model_choice['hparams']}),"\
+                    f"sr{sampling_rate},seed{random_seed}"
+        
+        figs_path = utils.load_figs_path(
+            config=config,
+            experiment=experiment,
+            reference_experiment=reference_experiment,
+            feature_selection=feature_selection,
+            decoding_model_choice=decoding_model_choice,
+            sampling_rate=sampling_rate,
+            moving_trajectory=moving_trajectory,
+            random_seed=random_seed,
+        )
+
+        plt.legend()
+        plt.tight_layout()
+        plt.suptitle(sup_title)
+        plt.savefig(
+            f'{figs_path}/{unit_type}_{targets[target_index]}.png'
+        )
+
+
 def _compute_single_heatmap_fields_info(
         heatmap, 
         pixel_min_threshold, 
