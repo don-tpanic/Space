@@ -1084,7 +1084,7 @@ def _single_env_produce_unit_chart(
     logging.info(f'[Saved] {fpath}')
 
 
-def _single_env_viz_gridness_ranked_by_unit_chart(
+def _single_env_viz_units_ranked_by_unit_chart(
         config_version, 
         experiment,
         moving_trajectory,
@@ -1093,6 +1093,7 @@ def _single_env_viz_gridness_ranked_by_unit_chart(
         decoding_model_choice=None,
         sampling_rate=None,
         random_seed=None,
+        sorted_by='gridness',
         filterings=\
             [{'filtering_order': 'top_n', 'n_units_filtering': 400},
              {'filtering_order': 'mid_n', 'n_units_filtering': 400},
@@ -1101,18 +1102,15 @@ def _single_env_viz_gridness_ranked_by_unit_chart(
     ):
     """
     Based on unit chart info produced by `_single_env_produce_unit_chart`,
-    We can load the chart and sort by unit gridness and visualize the
-    top_n, mid_n,  gridness units in terms of ratemaps and autocorrelagrams.
+    We can load the chart and sort by `gridness | border | directioness | etc.` 
+    and visualize the top_n, mid_n sorted units in terms of 
+    `ratemaps | autocorrelagrams | polar plots`.
 
     Notice the postfix `sorted_from_unit_chart` is to distinguish from 
     `*viz_fields_info*` and `*viz_units*` which are based on coef ranking 
     which are based on specific combination of feature selection, sampling rate,
     etc. Whereas here the visualization is general to all the settings and are
     not coef-based but gridness-based (i.e. filtering is based on gridness).
-
-    We could replace coef-based viz for fields_info and switch to `fields`-based
-    ranking but that would require a specific selection criterion such as `num_clusters`
-    which we might get to at a later stage.
     """
     os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
@@ -1148,22 +1146,34 @@ def _single_env_viz_gridness_ranked_by_unit_chart(
     # filter out dead units, by return unit_index that are active
     # we will then sort based on the active unit_index
     active_unit_indices = np.where(unit_chart_info[:, 0] == 1)[0]
-    # the shrunk version is wrt active units and we perform 
-    # sorting on shrunk version; however, the sorting indices
-    # must be mapped back to native model index space so we 
-    # extract the correct units.
-    gridness_shrunk = unit_chart_info[active_unit_indices, 8]
 
-    # to keep the rest of the sorting and plotting code general,
-    # we load in metric of interest (gridness) as a general variable.
-    metric_of_interest = gridness
-    metric_of_interest_shrunk = gridness_shrunk
+    # metric of interest is the one we sort based on `sorted_by`
+    if sorted_by == 'num_clusters':
+        metric_of_interest = num_clusters
+        # (ken): the shrunk version is wrt active units and we perform 
+        # sorting on shrunk version; however, the sorting indices
+        # must be mapped back to native model index space so we 
+        # extract the correct units.
+        metric_of_interest_shrunk = metric_of_interest[active_unit_indices]
+
+    elif sorted_by == 'gridness':
+        metric_of_interest = gridness
+        metric_of_interest_shrunk = metric_of_interest[active_unit_indices]
+
+    elif sorted_by == 'borderness':
+        metric_of_interest = borderness
+        metric_of_interest_shrunk = metric_of_interest[active_unit_indices]
+    
+    elif sorted_by == 'directioness':
+        metric_of_interest = mean_vector_length
+        metric_of_interest_shrunk = metric_of_interest[active_unit_indices]
     
     # visualize top_n, mid_n, random_n units' gridness
     for filtering in filterings:
         n_units_filtering = filtering['n_units_filtering']
         filtering_order = filtering['filtering_order']
 
+        logging.info(f'metric_of_interest.shape: {metric_of_interest.shape}')
         logging.info(f'metric_of_interest_shrunk.shape: {metric_of_interest_shrunk.shape}')
         logging.info(f'filtering_order: {filtering_order}')
 
@@ -1207,7 +1217,7 @@ def _single_env_viz_gridness_ranked_by_unit_chart(
                     # ref: tests/testReshape_forHeatMap.py
                     heatmap = np.rot90(heatmap, k=1, axes=(0, 1))
 
-                    # subplot1: plot heatmap for the selected units
+                    # --- subplot1: plot heatmap for the selected units ---
                     ax = fig.add_subplot(n_units_filtering, 3, row_index*3+1)
                     ax.imshow(heatmap)
                     ax.set_title(f'u{unit_index}, '\
@@ -1216,7 +1226,7 @@ def _single_env_viz_gridness_ranked_by_unit_chart(
                     ax.set_xticks([])
                     ax.set_yticks([])
 
-                    # subplot2: plot autocorrelagram for the selected units
+                    # --- subplot2: plot autocorrelagram for the selected units ---
                     _, _, _, _, sac, scorer = \
                                 _compute_single_heatmap_grid_scores(heatmap)
                     
@@ -1227,7 +1237,7 @@ def _single_env_viz_gridness_ranked_by_unit_chart(
                     ax.set_xticks([])
                     ax.set_yticks([])
 
-                    # subplot3: plot polar plot for the selected units
+                    # --- subplot3: plot polar plot for the selected units ---
                     ax = fig.add_subplot(n_units_filtering, 3, row_index*3+3, projection='polar')
                     ax.set_title(f'direction:{mean_vector_length[unit_index]:.2f}')
                     theta = np.linspace(0, 2*np.pi, model_reps.shape[1], endpoint=False)
@@ -1243,12 +1253,12 @@ def _single_env_viz_gridness_ranked_by_unit_chart(
             moving_trajectory=moving_trajectory,
         )
         plt.savefig(
-            f'{figs_path}/gridness_sorted_from_unit_chart_{filtering_order}.png'
+            f'{figs_path}/{sorted_by}_sorted_from_unit_chart_{filtering_order}.png'
         )
         plt.close()
         plt.tight_layout()
         logging.info(
-            f'[Saved] {figs_path}/gridness_sorted_from_unit_chart_{filtering_order}.png'
+            f'[Saved] {figs_path}/{sorted_by}_sorted_from_unit_chart_{filtering_order}.png'
         )
     
 
@@ -1453,6 +1463,7 @@ def multi_envs_inspect_units_GPU(
         feature_selections,
         decoding_model_choices,
         random_seeds,
+        sorted_by,
         filterings,
         cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
     ):
@@ -1466,8 +1477,10 @@ def multi_envs_inspect_units_GPU(
                 if experiment == 'unit_chart':
                     single_entry = {}
                     single_entry['config_version'] = config_version
-                    single_entry['moving_trajectory'] = moving_trajectory
                     single_entry['experiment'] = experiment
+                    single_entry['moving_trajectory'] = moving_trajectory
+                    single_entry['sorted_by'] = sorted_by
+                    single_entry['filterings'] = filterings
                     args_list.append(single_entry)
                 else:
                     for sampling_rate in sampling_rates:
@@ -1539,6 +1552,7 @@ if __name__ == '__main__':
     moving_trajectories = ['uniform']
     decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
     feature_selections = ['l2']
+    sorted_by = 'num_clusters'
     filterings = [
         {'filtering_order': 'top_n', 'n_units_filtering': 400},
         {'filtering_order': 'random_n', 'n_units_filtering': 400},
@@ -1551,7 +1565,7 @@ if __name__ == '__main__':
         # target_func=_single_env_produce_fields_info_ranked_by_coef,   # set experiment='fields_info'
         # target_func=_single_env_viz_fields_info_ranked_by_coef,       # set experiment='fields_info'
         # target_func=_single_env_produce_unit_chart,                     # set experiment='unit_chart'
-        target_func=_single_env_viz_gridness_ranked_by_unit_chart,      # set experiment='unit_chart'
+        target_func=_single_env_viz_units_ranked_by_unit_chart,      # set experiment='unit_chart'
         # target_func=_single_env_viz_unit_chart,                          # set experiment='unit_chart'
         envs=envs,
         model_names=model_names,
@@ -1562,6 +1576,7 @@ if __name__ == '__main__':
         feature_selections=feature_selections,
         decoding_model_choices=decoding_model_choices,
         random_seeds=random_seeds,
+        sorted_by=sorted_by,
         filterings=filterings,
         cuda_id_list=[0],
     )
