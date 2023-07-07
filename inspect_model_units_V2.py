@@ -499,6 +499,12 @@ def _single_env_viz_units_ranked_by_coef(
     )
     unit_chart_info = np.load(f'{unit_chart_results_path}/unit_chart.npy', allow_pickle=True)
     num_clusters = unit_chart_info[:, 1]
+    num_pixels_in_clusters = unit_chart_info[:, 2]
+    max_value_in_clusters = unit_chart_info[:, 3] 
+    mean_value_in_clusters = unit_chart_info[:, 4]
+    var_value_in_clusters = unit_chart_info[:, 5]
+    entire_map_mean = unit_chart_info[:, 6]
+    entire_map_var = unit_chart_info[:, 7]
     gridness = unit_chart_info[:, 8]
     borderness = unit_chart_info[:, 9]
     mean_vector_length = unit_chart_info[:, 10]
@@ -630,6 +636,26 @@ def _single_env_viz_units_ranked_by_coef(
                     f'[Saved] units heatmaps {targets[target_index]} {filtering_order} '\
                     f'(summed) to {figs_path}')
 
+                # save the filtered units to disk for further statistical analyses
+                results_path = utils.load_results_path(
+                    config=config,
+                    experiment=experiment,
+                    reference_experiment=reference_experiment,
+                    feature_selection=feature_selection,
+                    decoding_model_choice=decoding_model_choice,
+                    sampling_rate=sampling_rate,
+                    moving_trajectory=moving_trajectory,
+                    random_seed=random_seed,
+                )
+
+                np.save(
+                    f'{results_path}/unit_chart_{targets[target_index]}_'\
+                    f'{filtering_order}.npy', unit_chart_info[filtered_n_units_indices, :]
+                )
+                logging.info(
+                    f'[Saved] unit_chart_{targets[target_index]}_{filtering_order} '\
+                    f'to {results_path}'
+                )
     else:
         # metric-based feature selection.
         raise NotImplementedError()
@@ -834,397 +860,6 @@ def _compute_single_heatmap_directional_scores(activation_maps):
     mean_vector_length = np.linalg.norm(r_normed_by_beta)
     logging.info(f'[Check] mean_vector_length: {mean_vector_length}')
     return mean_vector_length, per_rotation_vector_length
-
-
-def _single_env_produce_fields_info_ranked_by_coef(
-        config_version, 
-        experiment,
-        reference_experiment,
-        feature_selection, 
-        decoding_model_choice,
-        sampling_rate,
-        moving_trajectory,
-        random_seed,
-        filterings,
-    ):
-    """
-    Produce fields info for each unit and save to disk, which 
-    will be used for plotting by `_single_env_viz_fields_info`.
-    """
-    os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
-    os.environ["TF_NUM_INTEROP_THREADS"] = "1"
-
-    config = utils.load_config(config_version)
-    reference_experiment_results_path = \
-            utils.load_results_path(
-                config=config,
-                experiment=reference_experiment,  # Dirty but coef is saved in loc_n_rot
-                feature_selection=feature_selection,
-                decoding_model_choice=decoding_model_choice,
-                sampling_rate=sampling_rate,
-                moving_trajectory=moving_trajectory,
-                random_seed=random_seed,
-    )
-    logging.info(
-        f'Loading results (for coef) from {reference_experiment_results_path}'
-    )
-    if reference_experiment_results_path is None:
-        logging.info(
-            f'Mismatch between feature '\
-            f'selection and decoding model, skip.'
-        )
-        return
-
-    movement_mode=config['movement_mode']
-    env_x_min=config['env_x_min']
-    env_x_max=config['env_x_max']
-    env_y_min=config['env_y_min']
-    env_y_max=config['env_y_max']
-    multiplier=config['multiplier']
-    
-    # load model outputs
-    model_reps = _single_model_reps(config)
-    
-    # TODO: feature selection based on rob metric or l1/l2
-    # notice, one complexity is coef is x, y, rot
-    # whereas rob metric may not be differentiating (x, y)
-    # one idea is to separately plot for x, y, rot 
-    if feature_selection in ['l1', 'l2']:
-        # load regression coefs as selection criteria
-        # for model_reps (per unit)
-        targets = ['x', 'y', 'rot']
-        coef = \
-            np.load(
-                f'{reference_experiment_results_path}/res.npy', 
-                allow_pickle=True).item()['coef']  # (n_targets, n_features)
-        logging.info(f'Loaded coef.shape: {coef.shape}')
-
-        # Due to meeting 24-May-2023, we use absolute
-        # values of coef for filtering.
-        coef = np.abs(coef)
-        for target_index in range(coef.shape[0]):
-            # filter columns of `model_reps` 
-            # based on each coef of each target
-            # based on `n_units_filtering` and `filtering_order`
-            for filtering in filterings:
-                n_units_filtering = filtering['n_units_filtering']
-                filtering_order = filtering['filtering_order']
-
-                if filtering_order == 'top_n':
-                    filtered_n_units_indices = np.argsort(
-                        coef[target_index, :])[::-1][:n_units_filtering]
-
-                elif filtering_order == 'mid_n':
-                    filtered_n_units_indices = np.argsort(
-                        coef[target_index, :])[::-1][
-                            int(coef.shape[1]/2)-int(n_units_filtering/2):
-                            int(coef.shape[1]/2)+int(n_units_filtering/2)]
-                    
-                elif filtering_order == 'random_n':
-                    # randomly sample n_units_filtering units
-                    # but excluding the top_n (also n_units_filtering)
-                    np.random.seed(random_seed)
-                    filtered_n_units_indices = np.random.choice(
-                        np.argsort(
-                            coef[target_index, :])[::-1][n_units_filtering:],
-                            n_units_filtering,
-                            replace=False)
-                else:
-                    raise NotImplementedError
-
-                # fields info for each unit is computed on the summed heatmap 
-                # across rotations.
-                model_reps_summed = np.sum(model_reps, axis=1, keepdims=True)
-                for unit_rank, unit_index in enumerate(filtered_n_units_indices):
-                    for rotation in range(model_reps_summed.shape[1]):
-                        if movement_mode == '2d':
-                            # reshape to (n_locations, n_rotations, n_features)
-                            heatmap = model_reps_summed[:, rotation, unit_index].reshape(
-                                (env_x_max*multiplier-env_x_min*multiplier+1, 
-                                env_y_max*multiplier-env_y_min*multiplier+1)
-                            )
-
-                            # rotate heatmap to match Unity coordinate system
-                            # ref: tests/testReshape_forHeatMap.py
-                            heatmap = np.rot90(heatmap, k=1, axes=(0, 1))
-                            
-                            # compute, collect and save fields info
-                            unit_fields_info = []
-                            num_clusters, num_pixels_in_clusters, max_value_in_clusters, \
-                                mean_value_in_clusters, var_value_in_clusters, \
-                                    bounds_heatmap = \
-                                        _compute_single_heatmap_fields_info(
-                                            heatmap=heatmap,
-                                            pixel_min_threshold=10,
-                                            pixel_max_threshold=int(heatmap.shape[0]*heatmap.shape[1]*0.5)
-                                        )
-                            unit_fields_info.append(num_clusters)
-                            unit_fields_info.append(num_pixels_in_clusters)
-                            unit_fields_info.append(max_value_in_clusters)
-                            unit_fields_info.append(mean_value_in_clusters)
-                            unit_fields_info.append(var_value_in_clusters)
-                            unit_fields_info.append(np.array([np.mean(heatmap)]))
-                            unit_fields_info.append(np.array([np.var(heatmap)]))
-
-                            # NOTE: we then save this unit's coef per target dimension
-                            # as the last item in the list of fields info. 
-                            # by doing this, we can easily access the coef of this saved
-                            # ranked unit without having to load `coef.npy` which is 
-                            # quite cumbersome.
-                            # NOTE: in order to plot coef(x-axis) v fields info(y-axis), we need to 
-                            # make sure coef is repeated the same number of times as the number of
-                            # clusters.
-                            if num_clusters[0] > 1:
-                                unit_fields_info.append(
-                                    np.array(
-                                        coef[target_index, unit_index].repeat(num_clusters[0])
-                                    )
-                                )
-                            else:
-                                unit_fields_info.append(
-                                    np.array(
-                                        [coef[target_index, unit_index]])
-                                )
-                            
-                            unit_fields_info = np.array(
-                                unit_fields_info, dtype=object
-                            )
-
-                            # save each unit fields info to disk
-                            results_path = utils.load_results_path(
-                                config=config,
-                                experiment='fields_info',
-                                reference_experiment=reference_experiment,
-                                feature_selection=feature_selection,
-                                decoding_model_choice=decoding_model_choice,
-                                sampling_rate=sampling_rate,
-                                moving_trajectory=moving_trajectory,
-                                random_seed=random_seed,
-                            )
-                            fpath = f'{results_path}/'\
-                                    f'{filtering_order}'\
-                                    f'_rank{unit_rank}'\
-                                    f'_{targets[target_index]}.npy'
-                            logging.info(f'Saving unit fields info to {fpath}')
-                            np.save(fpath, unit_fields_info)
-
-
-def _single_env_viz_fields_info_ranked_by_coef(
-        config_version, 
-        experiment,
-        reference_experiment,
-        feature_selection, 
-        decoding_model_choice,
-        sampling_rate,
-        moving_trajectory,
-        random_seed,
-        filterings,
-    ):
-    """
-    Visualize fields info across units using fields info of units 
-    produced by `_single_env_produce_fields_info`.
-    
-    1. So far we are tracking the following info related to each unit: 
-        tracked_fields_info = [
-            'num_clusters', 'num_pixels_in_clusters', 
-            'max_value_in_clusters', 'mean_value_in_clusters', 'var_value_in_clusters', 
-            'entire_map_mean', 'entire_map_var'
-        ]
-
-    2. The fields info for each unit is stored in a list of lists:
-        fields_info = [[num_clusters], [num_pixels_in_clusters], [max_value_in_clusters], ...]
-
-    3. As we created separate groups of units based on top_n based 
-        on units' corresponding coef (abs due to Meeting 25-May-2023). 
-        We can plot these units using their fields info as representations, 
-        and see if there are patterns associated with
-        whether these units are from the top_n or other groups (random_n, mid_n, etc.)
-
-        We can look at a few things:
-            1. num_clusters across top_n vs bottom_n
-            2. num_pixels_in_clusters across top_n vs bottom_n
-            3. max_value_in_clusters across top_n vs bottom_n
-            4. ...
-    
-    4. Also perhaps across layers these fields info differ and can help 
-        us understand the difference in decoding performance.
-    """
-    targets = ['x', 'y', 'rot']
-    tracked_fields_info = [
-        'num_clusters', 'num_pixels_in_clusters', 
-        'max_value_in_clusters', 'mean_value_in_clusters', 'var_value_in_clusters', 
-        'entire_map_mean', 'entire_map_var']
-    n_units_filtering = filterings[0]['n_units_filtering']
-    filtering_types = [f['filtering_order'] for f in filterings]
-    
-    config = utils.load_config(config_version)
-    results_path = utils.load_results_path(
-        config=config,
-        experiment=experiment,
-        reference_experiment=reference_experiment,
-        feature_selection=feature_selection,
-        decoding_model_choice=decoding_model_choice,
-        sampling_rate=sampling_rate,
-        moving_trajectory=moving_trajectory,
-        random_seed=random_seed,
-    )
-
-    if results_path is None:
-        logging.info(
-            f'Mismatch between feature '\
-            f'selection and decoding model, skip.'
-        )
-        return
-    
-    for target in targets:
-        fig, axes = plt.subplots(
-            nrows=len(tracked_fields_info), 
-            ncols=3, 
-            figsize=(14, 14)
-        )
-        for info_index, info in enumerate(tracked_fields_info):
-            top_n_stats = []
-            top_n_coef = []
-            random_n_stats = []
-            random_n_coef = []
-            mid_n_stats = []
-            mid_n_coef = []
-            for filtering in filtering_types:
-                for unit_rank in range(n_units_filtering):
-                    fname = f'{results_path}/{filtering}_rank{unit_rank}_{target}.npy'
-                    try:
-                        fields_info = np.load(fname, allow_pickle=True)
-                    except FileNotFoundError:
-                        logging.info(
-                            f'File {fname} not found, must `_single_env_viz_units`'\
-                            f'to save the units fields info first.'
-                        )
-                        exit
-                    
-                    if info == 'num_clusters':
-                        stats = fields_info[0]
-                    elif info == 'num_pixels_in_clusters':
-                        stats = fields_info[1]
-                    elif info == 'max_value_in_clusters':
-                        stats = fields_info[2]
-                    elif info == 'mean_value_in_clusters':
-                        stats = fields_info[3]
-                    elif info == 'var_value_in_clusters':
-                        stats = fields_info[4]
-                    elif info == 'entire_map_mean':
-                        stats = fields_info[5]
-                    elif info == 'entire_map_var':
-                        stats = fields_info[6]
-
-                    if filtering == 'top_n':
-                        top_n_stats.extend(stats)
-                        if info in ['num_clusters', 
-                                    'entire_map_mean', 
-                                    'entire_map_var']:
-                            # HACK: due to coef is repeated the same number of times
-                            # as the number of clusters during saving, but when 
-                            # info == 'num_clusters', there is only one value for 
-                            # one coef, we need to extract the first coef from the list
-                            # of coef (first coef is the same as the rest though)
-                            top_n_coef.append(fields_info[-1][0])
-                        else:
-                            top_n_coef.extend(fields_info[-1])
-                    
-                    elif filtering == 'mid_n':
-                        mid_n_stats.extend(stats)
-                        if info in ['num_clusters', 
-                                    'entire_map_mean', 
-                                    'entire_map_var']:
-                            mid_n_coef.append(fields_info[-1][0])
-                        else:
-                            mid_n_coef.extend(fields_info[-1])
-                    
-                    elif filtering == 'random_n':
-                        random_n_stats.extend(stats)
-                        if info in ['num_clusters', 
-                                    'entire_map_mean', 
-                                    'entire_map_var']:
-                            random_n_coef.append(fields_info[-1][0])
-                        else:
-                            random_n_coef.extend(fields_info[-1])
-                    
-            # plot for each info, how units/fields differ
-            # set x-axis correctly as they differ for different info
-            # e.g. num_clusters are wrt units, whereas max_value_in_clusters
-            # are wrt clusters (longer axis due to each unit may have multiple clusters)
-            if info in ['num_clusters', 'entire_map_mean', 'entire_map_var']:
-                axes[info_index, 0].set_xlabel('units')
-            elif info in ['num_pixels_in_clusters', 'max_value_in_clusters', 
-                          'mean_value_in_clusters', 'var_value_in_clusters']:
-                axes[info_index, 0].set_xlabel('fields')
-
-            axes[info_index, 0].set_title(info)
-            axes[info_index, 0].plot(
-                np.arange(len(top_n_stats)), top_n_stats, label='top_n', alpha=0.5
-            )
-            axes[info_index, 0].plot(
-                np.arange(len(mid_n_stats)), mid_n_stats, label='mid_n', alpha=0.5,
-            )
-            axes[info_index, 0].plot(
-                np.arange(len(random_n_stats)), random_n_stats, label='random_n', alpha=0.5,
-                c='gray'
-            )
-            
-            # kdeplot for each info, how units (distribution) differ
-            axes[info_index, 1].set_title(info)
-            sns.kdeplot(
-                top_n_stats, label='top_n', ax=axes[info_index, 1], alpha=0.5
-            )
-            sns.kdeplot(
-                mid_n_stats, label='mid_n', ax=axes[info_index, 1], alpha=0.5,
-            )
-            sns.kdeplot(
-                random_n_stats, label='random_n', ax=axes[info_index, 1], alpha=0.5,
-                color='gray'
-            )
-
-            # scatterplot for each info, how unit coef and info correlate
-            axes[info_index, 2].set_title(info)
-            axes[info_index, 2].scatter(
-                top_n_coef, top_n_stats, label='top_n', alpha=0.1
-            )
-            axes[info_index, 2].scatter(
-                mid_n_coef, mid_n_stats, label='mid_n', alpha=0.1,
-            )
-            axes[info_index, 2].scatter(
-                random_n_coef, random_n_stats, label='random_n', alpha=0.3,
-                c='gray', marker='x'
-            )
-            axes[info_index, 2].set_xlabel('coef')
-
-
-        sup_title = f"{target},"\
-                    f"{config['unity_env']},"\
-                    f"{config['model_name']},{feature_selection}"\
-                    f"({decoding_model_choice['hparams']}),"\
-                    f"sr{sampling_rate},seed{random_seed}"
-                
-        figs_path = utils.load_figs_path(
-            config=config,
-            experiment=experiment,
-            reference_experiment=reference_experiment,
-            feature_selection=feature_selection,
-            decoding_model_choice=decoding_model_choice,
-            sampling_rate=sampling_rate,
-            moving_trajectory=moving_trajectory,
-            random_seed=random_seed,
-        )
-
-        plt.legend()
-        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-        plt.suptitle(sup_title)
-        plt.savefig(
-            f'{figs_path}/units_fields_info'\
-            f'_{target}_groupedByFilteringN.png')
-        plt.close()
-        logging.info(
-            f'[Saved] {figs_path}/units_fields_info'\
-            f'_{target}_groupedByFilteringN.png')
 
 
 def _single_env_produce_unit_chart(
@@ -1803,8 +1438,8 @@ if __name__ == '__main__':
     # ======================================== #
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 4     
-    experiment = 'unit_chart'
-    reference_experiment = None
+    experiment = 'unit_chart_by_coef'
+    reference_experiment = 'loc_n_rot'
     envs = ['env28_r24']
     movement_modes = ['2d']
     sampling_rates = [0.3]
@@ -1822,12 +1457,10 @@ if __name__ == '__main__':
     
     multi_envs_inspect_units_GPU(
     # multi_envs_inspect_units_CPU(
-        # target_func=_single_env_viz_units_ranked_by_coef,             # set experiment='viz'
-        # target_func=_single_env_produce_fields_info_ranked_by_coef,   # set experiment='fields_info'
-        # target_func=_single_env_viz_fields_info_ranked_by_coef,       # set experiment='fields_info'
-        # target_func=_single_env_produce_unit_chart,                     # set experiment='unit_chart'
-        target_func=_single_env_viz_units_ranked_by_unit_chart,      # set experiment='unit_chart'
-        # target_func=_single_env_viz_unit_chart,                          # set experiment='unit_chart'
+        # target_func=_single_env_produce_unit_chart,                       # set experiment='unit_chart'
+        # target_func=_single_env_viz_units_ranked_by_unit_chart,           # set experiment='unit_chart'
+        # target_func=_single_env_viz_unit_chart,                           # set experiment='unit_chart'
+        target_func=_single_env_viz_units_ranked_by_coef,                   # set experiment='unit_chart_by_coef'
         envs=envs,
         model_names=model_names,
         experiment=experiment,
