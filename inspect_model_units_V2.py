@@ -648,9 +648,26 @@ def _single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts(
                     random_seed=random_seed,
                 )
 
+                filtered_unit_chart_info = unit_chart_info[filtered_n_units_indices, :]
+                logging.info(
+                    f'[Check, before add coef] filtered_unit_chart_info.shape: {filtered_unit_chart_info.shape}'
+                )
+
+                # we add extra entry to store coef as later we plot coef against 
+                # unit chart metrics.
+                filtered_unit_chart_info = np.hstack(
+                    ((filtered_unit_chart_info, 
+                      coef[target_index, filtered_n_units_indices].T.reshape(-1, 1)
+                    ))
+                )
+
+                logging.info(
+                    f'[Check, after add coef] filtered_unit_chart_info.shape: {filtered_unit_chart_info.shape}'
+                )
+
                 np.save(
                     f'{results_path}/unit_chart_{targets[target_index]}_'\
-                    f'{filtering_order}.npy', unit_chart_info[filtered_n_units_indices, :]
+                    f'{filtering_order}.npy', filtered_unit_chart_info
                 )
                 logging.info(
                     f'[Saved] unit_chart_{targets[target_index]}_{filtering_order} '\
