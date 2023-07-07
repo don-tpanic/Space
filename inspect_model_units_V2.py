@@ -438,7 +438,7 @@ def _single_env_viz_units_ranked_by_coef_V1(
         raise NotImplementedError
     
 
-def _single_env_viz_units_ranked_by_coef(
+def _single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts(
         config_version, 
         experiment,
         reference_experiment,
@@ -1460,7 +1460,7 @@ if __name__ == '__main__':
         # target_func=_single_env_produce_unit_chart,                       # set experiment='unit_chart'
         # target_func=_single_env_viz_units_ranked_by_unit_chart,           # set experiment='unit_chart'
         # target_func=_single_env_viz_unit_chart,                           # set experiment='unit_chart'
-        target_func=_single_env_viz_units_ranked_by_coef,                   # set experiment='unit_chart_by_coef'
+        target_func=_single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts,                   # set experiment='unit_chart_by_coef'
         envs=envs,
         model_names=model_names,
         experiment=experiment,
