@@ -520,24 +520,30 @@ def _single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts(
     if feature_selection in ['l1', 'l2']:
         # load regression coefs as selection criteria
         # for model_reps (per unit)
-        targets = ['loc', 'rot']  # 'loc' is mean(abs(x) + abs(y))
+
         coef = \
             np.load(
                 f'{reference_experiment_results_path}/res.npy', 
                 allow_pickle=True).item()['coef']  # (n_targets, n_features)
+        
         logging.info(f'Loaded coef.shape: {coef.shape}')
 
         # Due to meeting 24-May-2023, we use absolute
         # values of coef for filtering.
         coef = np.abs(coef)
-        # (rob): take the average over x and y columns but keep rot 
-        # column as is, so coef \in (2, n_features)
-        coef_loc = np.mean(coef[:2, :], axis=0)
-        coef_rot = coef[2, :]
-        coef = np.vstack((coef_loc, coef_rot))
-        logging.info(f'coef_loc.shape: {coef_loc.shape}')
-        logging.info(f'coef_rot.shape: {coef_rot.shape}')
-        logging.info(f'coef.shape: {coef.shape}')
+
+        if reference_experiment == 'loc_n_rot':
+            targets = ['loc', 'rot']  # 'loc' is mean(abs(x) + abs(y))
+            # (rob): take the average over x and y columns but keep rot 
+            # column as is, so coef \in (2, n_features)
+            coef_loc = np.mean(coef[:2, :], axis=0)
+            coef_rot = coef[2, :]
+            coef = np.vstack((coef_loc, coef_rot))
+            logging.info(f'coef_loc.shape: {coef_loc.shape}')
+            logging.info(f'coef_rot.shape: {coef_rot.shape}')
+            logging.info(f'coef.shape: {coef.shape}')
+        else:
+            targets = ['border_dist']
 
         # metric of interest is the one we sort based on `sorted_by`
         if sorted_by == 'coef':
@@ -703,7 +709,7 @@ def _single_env_viz_units_by_type_ranked_by_coef(
     """
 
     # TODO: improve
-    unit_type = 'place_cell'
+    unit_type = 'border_cell'
     unit_type_to_column_index_in_unit_chart = {
         'place_cell': {
             'num_clusters': 1,
@@ -725,7 +731,11 @@ def _single_env_viz_units_by_type_ranked_by_coef(
         },
     }
 
-    targets = ['loc', 'rot']
+    if reference_experiment == 'loc_n_rot':
+        targets = ['loc', 'rot']
+    else:
+        targets = ['border_dist']
+
     tracked_metrics = list(
         unit_type_to_column_index_in_unit_chart[unit_type].keys()
     )
@@ -1594,7 +1604,7 @@ if __name__ == '__main__':
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 4     
     experiment = 'unit_chart_by_coef'
-    reference_experiment = 'loc_n_rot'
+    reference_experiment = 'border_dist'
     envs = ['env28_r24']
     movement_modes = ['2d']
     sampling_rates = [0.3]
@@ -1615,7 +1625,8 @@ if __name__ == '__main__':
         # target_func=_single_env_produce_unit_chart,                       # set experiment='unit_chart'
         # target_func=_single_env_viz_units_ranked_by_unit_chart,           # set experiment='unit_chart'
         # target_func=_single_env_viz_unit_chart,                           # set experiment='unit_chart'
-        target_func=_single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts,                   # set experiment='unit_chart_by_coef'
+        # target_func=_single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts,                   # set experiment='unit_chart_by_coef'
+        target_func=_single_env_viz_units_by_type_ranked_by_coef,
         envs=envs,
         model_names=model_names,
         experiment=experiment,
