@@ -102,7 +102,7 @@ def _single_model_reps(config):
         return model_reps
 
 
-def _single_env_viz_units_ranked_by_coef(
+def _single_env_viz_units_ranked_by_coef_V1(
         config_version, 
         experiment,
         reference_experiment,
@@ -341,6 +341,244 @@ def _single_env_viz_units_ranked_by_coef(
     else:
         # TODO: metric-based feature selection.
         raise NotImplementedError
+    
+
+def _single_env_viz_units_ranked_by_coef(
+        config_version, 
+        experiment,
+        reference_experiment,
+        feature_selection, 
+        decoding_model_choice,
+        sampling_rate,
+        moving_trajectory,
+        random_seed,
+        sorted_by='coef',  # dummy, for consistency.
+        filterings=[],    
+    ):
+    """
+    Plot individual model units in 
+    ratemap | autocoorelagram | polar plot.
+
+    Plot the units are sorted by abs(coef).
+
+    Notice the difference to `_single_env_viz_units_ranked_by_unit_chart`
+    where in there the units are sorted by a unit_chart metric such as 
+    `gridness | borderness | etc.`.
+
+    We separate these two analyses is due to ranked by coef is downstream
+    task dependent (i.e. sampling rate, feature selection make a difference.)
+    """
+    os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
+    os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+
+    config = utils.load_config(config_version)
+    reference_experiment_results_path = \
+            utils.load_results_path(
+                config=config,
+                experiment=reference_experiment,  # Dirty but coef is saved in loc_n_rot
+                feature_selection=feature_selection,
+                decoding_model_choice=decoding_model_choice,
+                sampling_rate=sampling_rate,
+                moving_trajectory=moving_trajectory,
+                random_seed=random_seed,
+    )
+    logging.info(
+        f'Loading results (for coef) from {reference_experiment_results_path}'
+    )
+    if reference_experiment_results_path is None:
+        logging.info(
+            f'Mismatch between feature '\
+            f'selection and decoding model, skip.'
+        )
+        return
+
+    # also load unit_chart so we do not repeatedly compute metrics when 
+    # plotting unit based on ranked coef.
+    # load unit chart info.
+    # remember, unit_chart is general so do not supply downstream
+    # task specific args such as sampling_rate, feature_selection, etc.
+    unit_chart_results_path = utils.load_results_path(
+        config=config,
+        experiment='unit_chart',
+        moving_trajectory=moving_trajectory,
+    )
+    unit_chart_info = np.load(f'{unit_chart_results_path}/unit_chart.npy', allow_pickle=True)
+    num_clusters = unit_chart_info[:, 1]
+    gridness = unit_chart_info[:, 8]
+    borderness = unit_chart_info[:, 9]
+    mean_vector_length = unit_chart_info[:, 10]
+    per_rotation_vector_length = unit_chart_info[:, 11]
+    # filter out dead units, by return unit_index that are active
+    # we will then sort based on the active unit_index
+    active_unit_indices = np.where(unit_chart_info[:, 0] == 1)[0]
+    # ------------------------------------------------------------------------
+
+    movement_mode=config['movement_mode']
+    env_x_min=config['env_x_min']
+    env_x_max=config['env_x_max']
+    env_y_min=config['env_y_min']
+    env_y_max=config['env_y_max']
+    multiplier=config['multiplier']
+    
+    # load model outputs
+    model_reps = _single_model_reps(config)
+    
+    if feature_selection in ['l1', 'l2']:
+        # load regression coefs as selection criteria
+        # for model_reps (per unit)
+        targets = ['loc', 'rot']  # 'loc' is mean(abs(x) + abs(y))
+        coef = \
+            np.load(
+                f'{reference_experiment_results_path}/res.npy', 
+                allow_pickle=True).item()['coef']  # (n_targets, n_features)
+        logging.info(f'Loaded coef.shape: {coef.shape}')
+
+        # Due to meeting 24-May-2023, we use absolute
+        # values of coef for filtering.
+        coef = np.abs(coef)
+        # (rob): take the average over x and y columns but keep rot 
+        # column as is, so coef \in (2, n_features)
+        coef_loc = np.mean(coef[:2, :], axis=0)
+        coef_rot = coef[2, :]
+        coef = np.vstack((coef_loc, coef_rot))
+        logging.info(f'coef_loc.shape: {coef_loc.shape}')
+        logging.info(f'coef_rot.shape: {coef_rot.shape}')
+        logging.info(f'coef.shape: {coef.shape}')
+
+        # metric of interest is the one we sort based on `sorted_by`
+        if sorted_by == 'coef':
+            metric_of_interest = coef
+            # (ken): the shrunk version is wrt active units and we perform 
+            # sorting on shrunk version; however, the sorting indices
+            # must be mapped back to native model index space so we 
+            # extract the correct units.
+            metric_of_interest_shrunk = metric_of_interest[:, active_unit_indices]
+            logging.info(
+                f'metric_of_interest_shrunk.shape: {metric_of_interest_shrunk.shape}'
+            )
+
+        for target_index in range(metric_of_interest_shrunk.shape[0]):
+            # filter columns of `model_reps` 
+            # based on each coef of each target
+            # based on `n_units_filtering` and `filtering_order`
+            for filtering in filterings:
+                n_units_filtering = filtering['n_units_filtering']
+                filtering_order = filtering['filtering_order']
+
+                if filtering_order == 'top_n':
+                    filtered_n_units_indices = active_unit_indices[
+                        np.argsort(
+                            metric_of_interest_shrunk[target_index, :])[::-1][:n_units_filtering]
+                    ]
+
+                elif filtering_order == 'mid_n':
+                    filtered_n_units_indices = active_unit_indices[
+                        np.argsort(
+                            metric_of_interest_shrunk[target_index, :])[::-1][
+                                int(metric_of_interest_shrunk.shape[1]/2)-int(n_units_filtering/2):
+                                int(metric_of_interest_shrunk.shape[1]/2)+int(n_units_filtering/2)]
+                    ]
+                    
+                elif filtering_order == 'random_n':
+                    # randomly sample n_units_filtering units
+                    # but excluding the top_n (also n_units_filtering)
+                    np.random.seed(random_seed)
+                    filtered_n_units_indices = active_unit_indices[
+                        np.random.choice(
+                        np.argsort(
+                            metric_of_interest_shrunk[target_index, :])[::-1][n_units_filtering:],
+                            n_units_filtering,
+                            replace=False)
+                    ]
+                else:
+                    raise NotImplementedError
+
+                # plot summed over rotation heatmap and distribution of loc-wise
+                # activation intensities.
+                model_reps_summed = np.sum(
+                    model_reps, axis=1, keepdims=True)
+
+                # plotter
+                # ratemap | autocorrelagram | polar plot
+                fig = plt.figure(figsize=(10, 600))
+                logging.info(f'[Check] Init plotting..')
+                for row_index, unit_index in enumerate(filtered_n_units_indices):
+                    for rotation in range(model_reps_summed.shape[1]):
+                        if movement_mode == '2d':
+                            # reshape to (n_locations, n_rotations, n_features)
+                            heatmap = model_reps_summed[:, rotation, unit_index].reshape(
+                                (env_x_max*multiplier-env_x_min*multiplier+1, 
+                                env_y_max*multiplier-env_y_min*multiplier+1) )
+                            # rotate heatmap to match Unity coordinate system
+                            # ref: tests/testReshape_forHeatMap.py
+                            heatmap = np.rot90(heatmap, k=1, axes=(0, 1))
+
+                            # --- subplot1: plot heatmap for the selected units ---
+                            ax = fig.add_subplot(n_units_filtering, 3, row_index*3+1)
+                            ax.imshow(heatmap)
+                            if sorted_by == 'coef':
+                                coef_val = f'{coef[target_index, unit_index]:.2f}'
+                            else:
+                                # no coef if sort by any unit chart metrics
+                                # as it is task independent.
+                                coef_val = 'null'
+                            ax.set_title(f'u{unit_index}, '\
+                                         f'coef:{coef_val}, '\
+                                         f'nfields:{num_clusters[unit_index][0]}, '\
+                                         f'border:{borderness[unit_index]:.2f}')
+                            ax.set_xticks([])
+                            ax.set_yticks([])
+
+                            # --- subplot2: plot autocorrelagram for the selected units ---
+                            _, _, _, _, sac, scorer = \
+                                        _compute_single_heatmap_grid_scores(heatmap)
+                            
+                            useful_sac = sac * scorer._plotting_sac_mask
+                            ax = fig.add_subplot(n_units_filtering, 3, row_index*3+2)
+                            ax.imshow(useful_sac)
+                            ax.set_title(f'grid:{gridness[unit_index]:.2f}')
+                            ax.set_xticks([])
+                            ax.set_yticks([])
+
+                            # --- subplot3: plot polar plot for the selected units ---
+                            ax = fig.add_subplot(n_units_filtering, 3, row_index*3+3, projection='polar')
+                            ax.set_title(f'direction:{mean_vector_length[unit_index]:.2f}')
+                            theta = np.linspace(0, 2*np.pi, model_reps.shape[1], endpoint=False)
+                            
+                            ax.plot(theta, per_rotation_vector_length[unit_index])
+                            ax.set_theta_zero_location("N")
+                            ax.set_theta_direction(-1)
+                            ax.set_thetagrids([0, 90, 180, 270], labels=['', '', '', ''])
+
+                sup_title = f"{filtering_order},{targets[target_index]},"\
+                            f"{config['unity_env']},{movement_mode},"\
+                            f"{config['model_name']},{feature_selection}"\
+                            f"({decoding_model_choice['hparams']}),"\
+                            f"sr{sampling_rate},seed{random_seed}"
+                
+                figs_path = utils.load_figs_path(
+                    config=config,
+                    experiment=experiment,
+                    reference_experiment=reference_experiment,
+                    feature_selection=feature_selection,
+                    decoding_model_choice=decoding_model_choice,
+                    sampling_rate=sampling_rate,
+                    moving_trajectory=moving_trajectory,
+                    random_seed=random_seed,
+                )
+                plt.tight_layout()
+                plt.suptitle(sup_title)
+                plt.savefig(
+                    f'{figs_path}/units_heatmaps_{targets[target_index]}_'\
+                    f'{filtering_order}_summed.png')
+                plt.close()
+                logging.info(
+                    f'[Saved] units heatmaps {targets[target_index]} {filtering_order} '\
+                    f'(summed) to {figs_path}')
+
+    else:
+        # metric-based feature selection.
+        raise NotImplementedError()
 
 
 def _compute_single_heatmap_fields_info(
@@ -1542,8 +1780,8 @@ if __name__ == '__main__':
     # ======================================== #
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 4     
-    experiment = 'unit_chart'
-    reference_experiment = None
+    experiment = 'viz'
+    reference_experiment = 'loc_n_rot'
     envs = ['env28_r24']
     movement_modes = ['2d']
     sampling_rates = [0.3]
@@ -1561,11 +1799,11 @@ if __name__ == '__main__':
     
     multi_envs_inspect_units_GPU(
     # multi_envs_inspect_units_CPU(
-        # target_func=_single_env_viz_units_ranked_by_coef,             # set experiment='viz'
+        target_func=_single_env_viz_units_ranked_by_coef,             # set experiment='viz'
         # target_func=_single_env_produce_fields_info_ranked_by_coef,   # set experiment='fields_info'
         # target_func=_single_env_viz_fields_info_ranked_by_coef,       # set experiment='fields_info'
         # target_func=_single_env_produce_unit_chart,                     # set experiment='unit_chart'
-        target_func=_single_env_viz_units_ranked_by_unit_chart,      # set experiment='unit_chart'
+        # target_func=_single_env_viz_units_ranked_by_unit_chart,      # set experiment='unit_chart'
         # target_func=_single_env_viz_unit_chart,                          # set experiment='unit_chart'
         envs=envs,
         model_names=model_names,
