@@ -47,7 +47,7 @@ def load_results_path(
             f'{decoding_model_name}_{decoding_model_hparams}/'\
             f'{output_layer}/sr{sampling_rate}/seed{random_seed}'
         
-    elif experiment in ['viz', 'fields_info', 'gridness'] \
+    elif experiment in ['unit_chart_by_coef'] \
             and reference_experiment in ['loc_n_rot', 'border_dist']:
         decoding_model_name = decoding_model_choice['name']
         decoding_model_hparams = decoding_model_choice['hparams']
@@ -124,7 +124,7 @@ def load_figs_path(
             f'{decoding_model_name}_{decoding_model_hparams}/'\
             f'{output_layer}/sr{sampling_rate}/seed{random_seed}'
         
-    elif experiment in ['viz', 'fields_info', 'gridness'] \
+    elif experiment in ['unit_chart_by_coef'] \
             and reference_experiment in ['loc_n_rot', 'border_dist']:
         decoding_model_name = decoding_model_choice['name']
         decoding_model_hparams = decoding_model_choice['hparams']
