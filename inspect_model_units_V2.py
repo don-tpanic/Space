@@ -102,6 +102,101 @@ def _single_model_reps(config):
         return model_reps
 
 
+def _plot_units_various_ways(
+        config,
+        filtered_n_units_indices,
+        n_units_filtering,
+        model_reps,
+        model_reps_summed,
+        # --------
+        sorted_by,
+        num_clusters,
+        borderness,
+        gridness,
+        mean_vector_length,
+        per_rotation_vector_length,
+        coef,
+        target_index,
+    ):
+    """
+    A general plotter used by 
+        `_single_env_viz_units_ranked_by_coef`
+        `_single_env_viz_units_ranked_by_unit_chart`
+    where it plots filtered units (based on either 
+    coef or a unit chart metric) in a variety of ways.
+    
+    For now, it plots:
+        ratemap | histogram | autocorrelagram | polar plot
+    """
+    movement_mode=config['movement_mode']
+    env_x_min=config['env_x_min']
+    env_x_max=config['env_x_max']
+    env_y_min=config['env_y_min']
+    env_y_max=config['env_y_max']
+    multiplier=config['multiplier']
+
+    fig = plt.figure(figsize=(15, 600))
+    logging.info(f'[Check] Init plotting..')
+    for row_index, unit_index in enumerate(filtered_n_units_indices):
+        for rotation in range(model_reps_summed.shape[1]):
+            if movement_mode == '2d':
+                # reshape to (n_locations, n_rotations, n_features)
+                heatmap = model_reps_summed[:, rotation, unit_index].reshape(
+                    (env_x_max*multiplier-env_x_min*multiplier+1, 
+                    env_y_max*multiplier-env_y_min*multiplier+1) )
+                # rotate heatmap to match Unity coordinate system
+                # ref: tests/testReshape_forHeatMap.py
+                heatmap = np.rot90(heatmap, k=1, axes=(0, 1))
+
+                # --- subplot1: plot heatmap for the selected units ---
+                ax = fig.add_subplot(n_units_filtering, 4, row_index*4+1)
+                ax.imshow(heatmap)
+                if sorted_by == 'coef':
+                    coef_val = f'{coef[target_index, unit_index]:.2f}'
+                else:
+                    # no coef if sort by any unit chart metrics
+                    # as it is task independent.
+                    coef_val = 'null'
+                ax.set_title(f'u{unit_index}, '\
+                                f'coef:{coef_val}, '\
+                                f'nfields:{num_clusters[unit_index][0]}, '\
+                                f'border:{borderness[unit_index]:.2f}')
+                ax.set_xticks([])
+                ax.set_yticks([])
+
+                # --- subplot2: plot histogram for the selected units ---
+                ax = fig.add_subplot(n_units_filtering, 4, row_index*4+2)
+                ax.hist(
+                    model_reps_summed[:, rotation, unit_index],
+                    bins=10,
+                )
+                ax.set_xlabel('Activation intensity')
+                ax.set_ylabel('Frequency')
+
+                # --- subplot3: plot autocorrelagram for the selected units ---
+                _, _, _, _, sac, scorer = \
+                            _compute_single_heatmap_grid_scores(heatmap)
+                
+                useful_sac = sac * scorer._plotting_sac_mask
+                ax = fig.add_subplot(n_units_filtering, 4, row_index*4+3)
+                ax.imshow(useful_sac)
+                ax.set_title(f'grid:{gridness[unit_index]:.2f}')
+                ax.set_xticks([])
+                ax.set_yticks([])
+
+                # --- subplot4: plot polar plot for the selected units ---
+                ax = fig.add_subplot(n_units_filtering, 4, row_index*4+4, projection='polar')
+                ax.set_title(f'direction:{mean_vector_length[unit_index]:.2f}')
+                theta = np.linspace(0, 2*np.pi, model_reps.shape[1], endpoint=False)
+                
+                ax.plot(theta, per_rotation_vector_length[unit_index])
+                ax.set_theta_zero_location("N")
+                ax.set_theta_direction(-1)
+                ax.set_thetagrids([0, 90, 180, 270], labels=['', '', '', ''])
+    
+    return fig
+
+
 def _single_env_viz_units_ranked_by_coef_V1(
         config_version, 
         experiment,
@@ -413,13 +508,6 @@ def _single_env_viz_units_ranked_by_coef(
     active_unit_indices = np.where(unit_chart_info[:, 0] == 1)[0]
     # ------------------------------------------------------------------------
 
-    movement_mode=config['movement_mode']
-    env_x_min=config['env_x_min']
-    env_x_max=config['env_x_max']
-    env_y_min=config['env_y_min']
-    env_y_max=config['env_y_max']
-    multiplier=config['multiplier']
-    
     # load model outputs
     model_reps = _single_model_reps(config)
     
@@ -499,59 +587,25 @@ def _single_env_viz_units_ranked_by_coef(
                     model_reps, axis=1, keepdims=True)
 
                 # plotter
-                # ratemap | autocorrelagram | polar plot
-                fig = plt.figure(figsize=(10, 600))
-                logging.info(f'[Check] Init plotting..')
-                for row_index, unit_index in enumerate(filtered_n_units_indices):
-                    for rotation in range(model_reps_summed.shape[1]):
-                        if movement_mode == '2d':
-                            # reshape to (n_locations, n_rotations, n_features)
-                            heatmap = model_reps_summed[:, rotation, unit_index].reshape(
-                                (env_x_max*multiplier-env_x_min*multiplier+1, 
-                                env_y_max*multiplier-env_y_min*multiplier+1) )
-                            # rotate heatmap to match Unity coordinate system
-                            # ref: tests/testReshape_forHeatMap.py
-                            heatmap = np.rot90(heatmap, k=1, axes=(0, 1))
-
-                            # --- subplot1: plot heatmap for the selected units ---
-                            ax = fig.add_subplot(n_units_filtering, 3, row_index*3+1)
-                            ax.imshow(heatmap)
-                            if sorted_by == 'coef':
-                                coef_val = f'{coef[target_index, unit_index]:.2f}'
-                            else:
-                                # no coef if sort by any unit chart metrics
-                                # as it is task independent.
-                                coef_val = 'null'
-                            ax.set_title(f'u{unit_index}, '\
-                                         f'coef:{coef_val}, '\
-                                         f'nfields:{num_clusters[unit_index][0]}, '\
-                                         f'border:{borderness[unit_index]:.2f}')
-                            ax.set_xticks([])
-                            ax.set_yticks([])
-
-                            # --- subplot2: plot autocorrelagram for the selected units ---
-                            _, _, _, _, sac, scorer = \
-                                        _compute_single_heatmap_grid_scores(heatmap)
-                            
-                            useful_sac = sac * scorer._plotting_sac_mask
-                            ax = fig.add_subplot(n_units_filtering, 3, row_index*3+2)
-                            ax.imshow(useful_sac)
-                            ax.set_title(f'grid:{gridness[unit_index]:.2f}')
-                            ax.set_xticks([])
-                            ax.set_yticks([])
-
-                            # --- subplot3: plot polar plot for the selected units ---
-                            ax = fig.add_subplot(n_units_filtering, 3, row_index*3+3, projection='polar')
-                            ax.set_title(f'direction:{mean_vector_length[unit_index]:.2f}')
-                            theta = np.linspace(0, 2*np.pi, model_reps.shape[1], endpoint=False)
-                            
-                            ax.plot(theta, per_rotation_vector_length[unit_index])
-                            ax.set_theta_zero_location("N")
-                            ax.set_theta_direction(-1)
-                            ax.set_thetagrids([0, 90, 180, 270], labels=['', '', '', ''])
+                fig = _plot_units_various_ways(
+                    config=config,
+                    filtered_n_units_indices=filtered_n_units_indices,
+                    n_units_filtering=n_units_filtering,
+                    model_reps=model_reps,
+                    model_reps_summed=model_reps_summed,
+                    # --------
+                    sorted_by=sorted_by,
+                    coef=coef,
+                    target_index=target_index,
+                    num_clusters=num_clusters,
+                    borderness=borderness,
+                    gridness=gridness,
+                    mean_vector_length=mean_vector_length,
+                    per_rotation_vector_length=per_rotation_vector_length,
+                )
 
                 sup_title = f"{filtering_order},{targets[target_index]},"\
-                            f"{config['unity_env']},{movement_mode},"\
+                            f"{config['unity_env']},{config['movement_mode']},"\
                             f"{config['model_name']},{feature_selection}"\
                             f"({decoding_model_choice['hparams']}),"\
                             f"sr{sampling_rate},seed{random_seed}"
@@ -1353,12 +1407,6 @@ def _single_env_viz_units_ranked_by_unit_chart(
     os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
     config = utils.load_config(config_version)
-    movement_mode=config['movement_mode']
-    env_x_min=config['env_x_min']
-    env_x_max=config['env_x_max']
-    env_y_min=config['env_y_min']
-    env_y_max=config['env_y_max']
-    multiplier=config['multiplier']
     
     # load model outputs
     model_reps = _single_model_reps(config)
@@ -1441,49 +1489,24 @@ def _single_env_viz_units_ranked_by_unit_chart(
             raise NotImplementedError
 
         # plotter
-        # ratemap | autocorrelagram | polar plot
-        fig = plt.figure(figsize=(10, 600))
+        fig = _plot_units_various_ways(
+            config,
+            filtered_n_units_indices,
+            n_units_filtering,
+            model_reps,
+            model_reps_summed,
+            # --------
+            sorted_by,
+            num_clusters,
+            borderness,
+            gridness,
+            mean_vector_length,
+            per_rotation_vector_length,
+            # --------
+            coef=None,          # not applicable
+            target_index=None,  # not applicable
 
-        for row_index, unit_index in enumerate(filtered_n_units_indices):
-            for rotation in range(model_reps_summed.shape[1]):
-                if movement_mode == '2d':
-                    # reshape to (n_locations, n_rotations, n_features)
-                    heatmap = model_reps_summed[:, rotation, unit_index].reshape(
-                        (env_x_max*multiplier-env_x_min*multiplier+1, 
-                        env_y_max*multiplier-env_y_min*multiplier+1) )
-                    # rotate heatmap to match Unity coordinate system
-                    # ref: tests/testReshape_forHeatMap.py
-                    heatmap = np.rot90(heatmap, k=1, axes=(0, 1))
-
-                    # --- subplot1: plot heatmap for the selected units ---
-                    ax = fig.add_subplot(n_units_filtering, 3, row_index*3+1)
-                    ax.imshow(heatmap)
-                    ax.set_title(f'u{unit_index}, '\
-                                 f'nfields:{num_clusters[unit_index][0]}, '\
-                                 f'border:{borderness[unit_index]:.2f}')
-                    ax.set_xticks([])
-                    ax.set_yticks([])
-
-                    # --- subplot2: plot autocorrelagram for the selected units ---
-                    _, _, _, _, sac, scorer = \
-                                _compute_single_heatmap_grid_scores(heatmap)
-                    
-                    useful_sac = sac * scorer._plotting_sac_mask
-                    ax = fig.add_subplot(n_units_filtering, 3, row_index*3+2)
-                    ax.imshow(useful_sac)
-                    ax.set_title(f'grid:{gridness[unit_index]:.2f}')
-                    ax.set_xticks([])
-                    ax.set_yticks([])
-
-                    # --- subplot3: plot polar plot for the selected units ---
-                    ax = fig.add_subplot(n_units_filtering, 3, row_index*3+3, projection='polar')
-                    ax.set_title(f'direction:{mean_vector_length[unit_index]:.2f}')
-                    theta = np.linspace(0, 2*np.pi, model_reps.shape[1], endpoint=False)
-                    
-                    ax.plot(theta, per_rotation_vector_length[unit_index])
-                    ax.set_theta_zero_location("N")
-                    ax.set_theta_direction(-1)
-                    ax.set_thetagrids([0, 90, 180, 270], labels=['', '', '', ''])
+        )
 
         figs_path = utils.load_figs_path(
             config=config,
@@ -1780,8 +1803,8 @@ if __name__ == '__main__':
     # ======================================== #
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 4     
-    experiment = 'viz'
-    reference_experiment = 'loc_n_rot'
+    experiment = 'unit_chart'
+    reference_experiment = None
     envs = ['env28_r24']
     movement_modes = ['2d']
     sampling_rates = [0.3]
@@ -1799,11 +1822,11 @@ if __name__ == '__main__':
     
     multi_envs_inspect_units_GPU(
     # multi_envs_inspect_units_CPU(
-        target_func=_single_env_viz_units_ranked_by_coef,             # set experiment='viz'
+        # target_func=_single_env_viz_units_ranked_by_coef,             # set experiment='viz'
         # target_func=_single_env_produce_fields_info_ranked_by_coef,   # set experiment='fields_info'
         # target_func=_single_env_viz_fields_info_ranked_by_coef,       # set experiment='fields_info'
         # target_func=_single_env_produce_unit_chart,                     # set experiment='unit_chart'
-        # target_func=_single_env_viz_units_ranked_by_unit_chart,      # set experiment='unit_chart'
+        target_func=_single_env_viz_units_ranked_by_unit_chart,      # set experiment='unit_chart'
         # target_func=_single_env_viz_unit_chart,                          # set experiment='unit_chart'
         envs=envs,
         model_names=model_names,
