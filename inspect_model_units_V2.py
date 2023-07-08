@@ -709,7 +709,7 @@ def _single_env_viz_units_by_type_ranked_by_coef(
     """
 
     # TODO: improve
-    unit_type = 'border_cell'
+    unit_type = 'direction_cell'
     unit_type_to_column_index_in_unit_chart = {
         'place_cell': {
             'num_clusters': 1,
@@ -1036,6 +1036,7 @@ def _single_env_produce_unit_chart(
         decoding_model_choice=None,
         sampling_rate=None,
         random_seed=None,
+        sorted_by=None,
         filterings=None,  
         # charting all units, use Nones to maintain API consistency
     ):
@@ -1613,10 +1614,11 @@ if __name__ == '__main__':
     moving_trajectories = ['uniform']
     decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
     feature_selections = ['l2']
-    sorted_by = 'num_clusters'
+    sorted_by = 'coef'
     filterings = [
         {'filtering_order': 'top_n', 'n_units_filtering': 400},
         {'filtering_order': 'random_n', 'n_units_filtering': 400},
+        {'filtering_order': 'mid_n', 'n_units_filtering': 400},
     ]
     # ======================================== #
     
@@ -1638,7 +1640,7 @@ if __name__ == '__main__':
         random_seeds=random_seeds,
         sorted_by=sorted_by,
         filterings=filterings,
-        cuda_id_list=[0],
+        cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
     )
 
     # print time elapsed
