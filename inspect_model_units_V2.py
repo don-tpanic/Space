@@ -1273,7 +1273,7 @@ def multi_envs_inspect_units_CPU(
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     with multiprocessing.Pool(processes=CPU_NUM_PROCESSES) as pool:
         for model_name in model_names:
-            envs_dict = load_envs_dict(model_name, envs)
+            envs_dict = data.load_envs_dict(model_name, envs)
             config_versions=list(envs_dict.keys())
             for config_version in config_versions:
                 for moving_trajectory in moving_trajectories:
@@ -1317,7 +1317,7 @@ def multi_envs_inspect_units_GPU(
     ):
     args_list = []
     for model_name in model_names:
-        envs_dict = load_envs_dict(model_name, envs)
+        envs_dict = data.load_envs_dict(model_name, envs)
         config_versions=list(envs_dict.keys())
         # args_list = []
         for config_version in config_versions:
@@ -1354,31 +1354,6 @@ def multi_envs_inspect_units_GPU(
     )
 
 
-def load_envs_dict(model_name, envs):
-    model_layers = data.load_model_layers(model_name)
-    # gradient cmap in warm colors in a list
-    cmaps = sns.color_palette("Reds", len(model_layers)).as_hex()[::-1]
-    if len(envs) == 1:
-        prefix = f'{envs[0]}'
-    else:
-        raise NotImplementedError
-        # TODO: 
-        # 1. env28 is not flexible.
-        # 2. cannot work with across different envs (e.g. decorations.)
-
-    envs_dict = {}
-    for output_layer in model_layers:
-        envs_dict[
-            f'{prefix}_2d_{model_name}_{output_layer}'
-        ] = {
-            'name': f'{prefix}',
-            'n_walls': 4,
-            'output_layer': output_layer,
-            'color': cmaps.pop(0),
-        }
-    return envs_dict
-
-
 if __name__ == '__main__':
     start_time = time.time()
     logging_level = 'info'
@@ -1407,7 +1382,23 @@ if __name__ == '__main__':
         {'filtering_order': 'mid_n', 'n_units_filtering': 400},
     ]
     # ======================================== #
-    
+    ###  How to run ###
+    # 1. run `_single_env_produce_unit_chart` to produce downstream task independent 
+    #       unit chart for each unit and save to disk.
+    #       set `experiment='unit_chart'` and `reference_experiment=None`
+    # 2a. run `_single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts` to
+    #      produce task depedent unit chart filtered by coef.
+    #      set `experiment='unit_chart_by_coef'` and `reference_experiment='loc_n_rot|border_dist'`
+    # 2b. run `_single_env_viz_units_by_type_ranked_by_coef` to plot unit_chart metric against coef.
+    #      set `experiment='unit_chart_by_coef'` and `reference_experiment='loc_n_rot|border_dist'`
+    # 3. run `_single_env_viz_unit_chart` to plot aggregate unit chart info.
+    #       set `experiment='unit_chart'` and `reference_experiment=None`
+    # 4. run `_single_env_viz_units_ranked_by_unit_chart` to plot unit chart info ranked by a unit_chart metric.
+    #       set `experiment='unit_chart'` and `reference_experiment=None`
+    # NOTE: 2a, 2b, 3, 4 all require 1 to be run first.
+    # NOTE: 2b requires 2a
+    # NOTE: 3, 4 less interesting than 2b which compares unit chart info againt coef.
+
     multi_envs_inspect_units_GPU(
     # multi_envs_inspect_units_CPU(
         # target_func=_single_env_produce_unit_chart,                       # set experiment='unit_chart'

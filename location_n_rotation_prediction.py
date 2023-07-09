@@ -429,7 +429,7 @@ def multi_envs_across_dimensions_CPU(
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     with multiprocessing.Pool(processes=CPU_NUM_PROCESSES) as pool:
         for model_name in model_names:
-            envs_dict = load_envs_dict(model_name, envs)
+            envs_dict = data.load_envs_dict(model_name, envs)
             config_versions=list(envs_dict.keys())
             for config_version in config_versions:
                 for moving_trajectory in moving_trajectories:
@@ -467,7 +467,7 @@ def multi_envs_across_dimensions_GPU(
         cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
     ):
     for model_name in model_names:
-        envs_dict = load_envs_dict(model_name, envs)
+        envs_dict = data.load_envs_dict(model_name, envs)
         config_versions=list(envs_dict.keys())
         args_list = []
         for config_version in config_versions:
@@ -633,7 +633,7 @@ def cross_dimension_analysis(
                                         # for non-baseline layer performance,
                                         # we label each layer and use layer-specific color.
                                         label = output_layer
-                                        color = load_envs_dict(model_name, envs)[
+                                        color = data.load_envs_dict(model_name, envs)[
                                             f'{envs[0]}_{movement_mode}_{model_name}_{output_layer}']['color']
                                     
                                     # either baseline or non-baseline layer performance,
@@ -755,7 +755,7 @@ def cross_dimension_analysis(
                                             # for non-baseline layer performance,
                                             # we label each layer and use layer-specific color.
                                             label = output_layer
-                                            color = load_envs_dict(model_name, envs)[
+                                            color = data.load_envs_dict(model_name, envs)[
                                                 f'{envs[0]}_{movement_mode}_{model_name}_{output_layer}']['color']
                                         
                                         # either baseline or non-baseline layer performance,
@@ -920,7 +920,7 @@ def cross_dimension_analysis(
                                         # for non-baseline layer performance,
                                         # we label each layer and use layer-specific color.
                                         label = output_layer
-                                        color = load_envs_dict(model_name, envs)[
+                                        color = data.load_envs_dict(model_name, envs)[
                                             f'{envs[0]}_{movement_mode}_{model_name}_{output_layer}']['color']
                                     
                                     # either baseline or non-baseline layer performance,
@@ -1140,7 +1140,7 @@ def cross_dimension_analysis(
                                 sampling_rates,
                                 results_collector[output_layer][corr_type]['avg'],
                                 label=output_layer,
-                                color=load_envs_dict(model_name, envs)[
+                                color=data.load_envs_dict(model_name, envs)[
                                     f'{envs[0]}_{movement_mode}_{model_name}_{output_layer}']['color']
                             )
                             axes[i].fill_between(
@@ -1150,7 +1150,7 @@ def cross_dimension_analysis(
                                 np.array(results_collector[output_layer][corr_type]['avg']) + \
                                     np.array(results_collector[output_layer][corr_type]['std']),
                                 alpha=0.2,
-                                color=load_envs_dict(model_name, envs)[
+                                color=data.load_envs_dict(model_name, envs)[
                                     f'{envs[0]}_{movement_mode}_{model_name}_{output_layer}']['color']
                             )
                         axes[i].set_xlabel('sampling rates')
@@ -1171,31 +1171,6 @@ def cross_dimension_analysis(
                     plt.close()
             
                             
-def load_envs_dict(model_name, envs):
-    model_layers = data.load_model_layers(model_name)
-    # gradient cmap in warm colors in a list
-    cmaps = sns.color_palette("Reds", len(model_layers)).as_hex()[::-1]
-    if len(envs) == 1:
-        prefix = f'{envs[0]}'
-    else:
-        raise NotImplementedError
-        # TODO: 
-        # 1. env28 is not flexible.
-        # 2. cannot work with across different envs (e.g. decorations.)
-
-    envs_dict = {}
-    for output_layer in model_layers:
-        envs_dict[
-            f'{prefix}_2d_{model_name}_{output_layer}'
-        ] = {
-            'name': f'{prefix}',
-            'n_walls': 4,
-            'output_layer': output_layer,
-            'color': cmaps.pop(0),
-        }
-    return envs_dict
-
-
 if __name__ == '__main__':
     start_time = time.time()
     logging_level = 'info'

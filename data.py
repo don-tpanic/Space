@@ -3,9 +3,8 @@ os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = "3"
 
 import numpy as np
-import matplotlib.pyplot as plt
+import seaborn as sns
 from PIL import Image
-import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.preprocessing.image \
     import load_img, img_to_array
@@ -273,7 +272,7 @@ def load_model_layers(model_name):
                 'fc2',
                 'block5_pool',
                 'block4_pool',
-                'block2_pool',
+                # 'block2_pool',
             ],
         'resnet50':
             [
@@ -292,6 +291,31 @@ def load_model_layers(model_name):
     }
     return models_and_layers[model_name]
     
+
+def load_envs_dict(model_name, envs):
+    model_layers = load_model_layers(model_name)
+    # gradient cmap in warm colors in a list
+    cmaps = sns.color_palette("Reds", len(model_layers)).as_hex()[::-1]
+    if len(envs) == 1:
+        prefix = f'{envs[0]}'
+    else:
+        raise NotImplementedError
+        # TODO: 
+        # 1. env28 is not flexible.
+        # 2. cannot work with across different envs (e.g. decorations.)
+
+    envs_dict = {}
+    for output_layer in model_layers:
+        envs_dict[
+            f'{prefix}_2d_{model_name}_{output_layer}'
+        ] = {
+            'name': f'{prefix}',
+            'n_walls': 4,
+            'output_layer': output_layer,
+            'color': cmaps.pop(0),
+        }
+    return envs_dict
+
 
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
