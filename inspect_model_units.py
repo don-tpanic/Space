@@ -22,8 +22,7 @@ if there are any patterns (e.g., place cells.)
 
 def _single_model_reps(config):
     """
-    Produce model_reps either directly computing if the first time,
-    or load from disk if already computed.
+    Produce model_reps.
 
     return:
         model_reps: \in (n_locations, n_rotations, n_features)
@@ -81,11 +80,6 @@ def _single_model_reps(config):
             model_reps.shape[1])                            # all units
         )
 
-        # save to disk  
-        # # TODO: slow to save but is it benefitcial as we do it only once?
-        # logging.info(f'Saving model_reps to {model_reps_fname}...')
-        # np.save(model_reps_fname, model_reps)
-        # logging.info(f'[Saved] model_reps to {model_reps_fname}')
         return model_reps
 
 
