@@ -1117,28 +1117,20 @@ def _single_env_viz_unit_chart(
         decoding_model_choice=None,
         sampling_rate=None,
         random_seed=None,
+        sorted_by=None,
         filterings=None,
     ):
     """
     Visualize unit chart info produced by `_single_env_produce_unit_chart`.
-
-    For now, we chart:
-        1. % units dead
-        2. % units (place-cells) with 1, 2, .., max num_clusters
-        3. % units (border-cells) with border firings..  # TODO: wait for border scoring.
     """
-    # charted info
     charted_info = [
                     'dead',
                     'num_clusters', 
                     'num_pixels_in_clusters', 
                     'max_value_in_clusters', 
-                    'mean_value_in_clusters', 
-                    'var_value_in_clusters',
-                    'entire_map_mean',
-                    'entire_map_var',
                     'gridness',
                     'borderness',
+                    # 'directioness',
                 ]
     
     config = utils.load_config(config_version)
@@ -1167,10 +1159,11 @@ def _single_env_viz_unit_chart(
     #   For `% borderness`, we iterate through unit_chart_info and count
     # the borderness of qualified units (w borderness>0.5).
     dead_units = 0
-    max_num_clusters = np.max(unit_chart_info[:, 1])
+    max_num_clusters = np.max(unit_chart_info[:, 1])  # global max used for setting xaxis.
     num_clusters = np.zeros(max_num_clusters+1)
     cluster_sizes = []
     cluster_peaks = []
+    grid_cells = 0
     border_cells = 0
 
     for unit_index in range(unit_chart_info.shape[0]):
@@ -1180,13 +1173,16 @@ def _single_env_viz_unit_chart(
             num_clusters[int(unit_chart_info[unit_index, 1])] += 1
             cluster_sizes.extend(unit_chart_info[unit_index, 2])
             cluster_peaks.extend(unit_chart_info[unit_index, 3])
+            if unit_chart_info[unit_index, 8] > 0.37:
+                grid_cells += 1
             if unit_chart_info[unit_index, 9] > 0.5:
                 border_cells += 1
 
-    
     # plot
     fig, axes = plt.subplots(
-        nrows=5, ncols=1, figsize=(5, 10)
+        nrows=len(charted_info), 
+        ncols=1, 
+        figsize=(5, 5*len(charted_info))
     )
 
     # 0-each bar is % of dead/active units
@@ -1203,6 +1199,7 @@ def _single_env_viz_unit_chart(
     axes[0].set_ylabel('% units')
     axes[0].set_title(f'% units dead/active')
     axes[0].set_ylim([-.05, 1.05])
+    axes[0].grid()
 
     # 1-each bar is % of a num_clusters
     axes[1].bar(
@@ -1213,6 +1210,7 @@ def _single_env_viz_unit_chart(
     axes[1].set_ylabel('% units')
     axes[1].set_title(f'% units with 1, 2, .., {max_num_clusters[0]} clusters')
     axes[1].set_ylim([-.05, 1.05])
+    axes[1].grid()
 
     # 2-each bar is % of a cluster size (bined)
     axes[2].hist(
@@ -1221,6 +1219,7 @@ def _single_env_viz_unit_chart(
     axes[2].set_xlabel('cluster size')
     axes[2].set_ylabel('density')
     axes[2].set_title(f'cluster size distribution')
+    axes[2].grid()
 
     # 3-each bar is % of a cluster peak (bined)
     axes[3].hist(
@@ -1229,20 +1228,37 @@ def _single_env_viz_unit_chart(
     axes[3].set_xlabel('cluster peak')
     axes[3].set_ylabel('density')
     axes[3].set_title(f'cluster peak distribution')
+    axes[3].grid()
 
-    # 4-each bar is % of a borderness
-    # non-border left, border right
+    # 4-each bar is % of a gridness
+    # non-grid left, grid right
     axes[4].bar(
+        np.arange(2),
+        [1-grid_cells/unit_chart_info.shape[0],
+            grid_cells/unit_chart_info.shape[0]],
+        color=['grey', 'blue']
+    )
+    axes[4].set_xticks(np.arange(2))
+    axes[4].set_xticklabels(['non-grid', 'grid'])
+    axes[4].set_ylabel('% units')
+    axes[4].set_title(f'% units grid/non-grid')
+    axes[4].set_ylim([-.05, 1.05])
+    axes[4].grid()
+
+    # 5-each bar is % of a borderness
+    # non-border left, border right
+    axes[5].bar(
         np.arange(2),
         [1-border_cells/unit_chart_info.shape[0],
             border_cells/unit_chart_info.shape[0]],
         color=['grey', 'blue']
     )
-    axes[4].set_xticks(np.arange(2))
-    axes[4].set_xticklabels(['non-border', 'border'])
-    axes[4].set_ylabel('% units')
-    axes[4].set_title(f'% units border/non-border')
-    axes[4].set_ylim([-.05, 1.05])
+    axes[5].set_xticks(np.arange(2))
+    axes[5].set_xticklabels(['non-border', 'border'])
+    axes[5].set_ylabel('% units')
+    axes[5].set_title(f'% units border/non-border')
+    axes[5].set_ylim([-.05, 1.05])
+    axes[5].grid()
     
     figs_path = utils.load_figs_path(
         config=config,
@@ -1363,8 +1379,8 @@ if __name__ == '__main__':
     # ======================================== #
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 4     
-    experiment = 'unit_chart_by_coef'
-    reference_experiment = 'border_dist'
+    experiment = 'unit_chart'
+    reference_experiment = None
     envs = ['env28_r24']
     movement_modes = ['2d']
     sampling_rates = [0.3]
@@ -1401,9 +1417,9 @@ if __name__ == '__main__':
     # multi_envs_inspect_units_CPU(
         # target_func=_single_env_produce_unit_chart,                       # set experiment='unit_chart'
         # target_func=_single_env_viz_units_ranked_by_unit_chart,           # set experiment='unit_chart'
-        # target_func=_single_env_viz_unit_chart,                           # set experiment='unit_chart'
+        target_func=_single_env_viz_unit_chart,                           # set experiment='unit_chart'
         # target_func=_single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts,    # set experiment='unit_chart_by_coef'
-        target_func=_single_env_viz_units_by_type_ranked_by_coef,
+        # target_func=_single_env_viz_units_by_type_ranked_by_coef,
         envs=envs,
         model_names=model_names,
         experiment=experiment,
