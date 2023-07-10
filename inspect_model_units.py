@@ -1130,7 +1130,7 @@ def _single_env_viz_unit_chart(
                     'max_value_in_clusters', 
                     'gridness',
                     'borderness',
-                    # 'directioness',
+                    'directioness',
                 ]
     
     config = utils.load_config(config_version)
@@ -1259,6 +1259,15 @@ def _single_env_viz_unit_chart(
     axes[5].set_title(f'% units border/non-border')
     axes[5].set_ylim([-.05, 1.05])
     axes[5].grid()
+
+    # 6-each bar is % of a directioness
+    axes[6].hist(
+        unit_chart_info[:, 10], bins=20, density=True
+    )
+    axes[6].set_xlabel('directioness')
+    axes[6].set_ylabel('density')
+    axes[6].set_title(f'directioness distribution')
+    axes[6].grid()
     
     figs_path = utils.load_figs_path(
         config=config,
