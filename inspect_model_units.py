@@ -674,6 +674,7 @@ def _single_env_viz_units_by_type_ranked_by_coef(
         sampling_rate,
         moving_trajectory,
         random_seed,
+        sorted_by,  # dummy, for consistency.
         filterings,
     ):
     """
@@ -1284,13 +1285,14 @@ def multi_envs_inspect_units_CPU(
         target_func,
         envs,
         model_names,
-        experiment,
+        experiment, 
         reference_experiment,
         moving_trajectories,
         sampling_rates,
         feature_selections,
         decoding_model_choices,
         random_seeds,
+        sorted_by,
         filterings,
     ):
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
@@ -1300,24 +1302,37 @@ def multi_envs_inspect_units_CPU(
             config_versions=list(envs_dict.keys())
             for config_version in config_versions:
                 for moving_trajectory in moving_trajectories:
-                    for sampling_rate in sampling_rates:
-                        for feature_selection in feature_selections:
-                            for decoding_model_choice in decoding_model_choices:
-                                for random_seed in random_seeds:
-                                    res = pool.apply_async(
-                                        target_func,
-                                        args=(
-                                            config_version, 
-                                            experiment,
-                                            reference_experiment,
-                                            feature_selection, 
-                                            decoding_model_choice,
-                                            sampling_rate,
-                                            moving_trajectory,
-                                            random_seed,
-                                            filterings,
+                    if experiment == 'unit_chart':
+                        res = pool.apply_async(
+                            target_func,
+                            args=(
+                                config_version, 
+                                experiment,
+                                moving_trajectory,
+                                sorted_by,
+                                filterings,
+                            )
+                        )
+                    else:
+                        for sampling_rate in sampling_rates:
+                            for feature_selection in feature_selections:
+                                for decoding_model_choice in decoding_model_choices:
+                                    for random_seed in random_seeds:
+                                        res = pool.apply_async(
+                                            target_func,
+                                            args=(
+                                                config_version, 
+                                                experiment,
+                                                reference_experiment,
+                                                feature_selection, 
+                                                decoding_model_choice,
+                                                sampling_rate,
+                                                moving_trajectory,
+                                                random_seed,
+                                                sorted_by,
+                                                filterings,
+                                            )
                                         )
-                                    )
         logging.info(res.get())
         pool.close()
         pool.join()
@@ -1394,7 +1409,7 @@ if __name__ == '__main__':
     movement_modes = ['2d']
     sampling_rates = [0.3]
     random_seeds = [42]
-    model_names = ['vgg16']
+    model_names = ['vit_b16', 'simclrv2_r50_1x_sk0']
     moving_trajectories = ['uniform']
     decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
     feature_selections = ['l2']
@@ -1422,8 +1437,8 @@ if __name__ == '__main__':
     # NOTE: 2b requires 2a
     # NOTE: 3, 4 less interesting than 2b which compares unit chart info againt coef.
 
-    multi_envs_inspect_units_GPU(
-    # multi_envs_inspect_units_CPU(
+    # multi_envs_inspect_units_GPU(
+    multi_envs_inspect_units_CPU(
         # target_func=_single_env_produce_unit_chart,                       # set experiment='unit_chart'
         # target_func=_single_env_viz_units_ranked_by_unit_chart,           # set experiment='unit_chart'
         target_func=_single_env_viz_unit_chart,                           # set experiment='unit_chart'
@@ -1440,7 +1455,7 @@ if __name__ == '__main__':
         random_seeds=random_seeds,
         sorted_by=sorted_by,
         filterings=filterings,
-        cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
+        # cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
     )
 
     # print time elapsed
