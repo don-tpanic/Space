@@ -25,7 +25,10 @@ def lesion(
         moving_trajectory, 
         feature_selection,
         model_reps,
-        experiment='unit_chart'
+        reference_experiment,
+        decoding_model_choice,
+        sampling_rate,
+        random_seed,
     ):
     """
     Lesion `model_reps` according to `feature_selection`
@@ -56,7 +59,8 @@ def lesion(
         change, for example, we might decide that we need to chart units based 
         on their firing conditioned on sampled locations not the entire space.
     """
-    if experiment == 'unit_chart':
+    logging.info(f'[Check] Initializing lesioning...')
+    if reference_experiment == 'unit_chart':
         charted_info = [
                         'dead',
                         'num_clusters', 
@@ -73,7 +77,7 @@ def lesion(
         # load unit chart info
         results_path = utils.load_results_path(
             config=config,
-            experiment=experiment,
+            experiment=reference_experiment,
             moving_trajectory=moving_trajectory,
         )
         unit_chart_info = np.load(
@@ -107,7 +111,7 @@ def lesion(
                 # sort from high to slow
                 units_to_lesion_indices = units_to_lesion_indices[np.argsort(units_to_lesion_scores)][::-1]
                 num_units_to_lesion = int(len(units_to_lesion_indices) * ratio)
-                units_to_lesion_indices = units_to_lesion_indices[num_units_to_lesion:]
+                units_to_lesion_indices = units_to_lesion_indices[:num_units_to_lesion]
             
         elif 'borderness' in feature_selection:
             thr = float(feature_selection.split('_')[2])
@@ -128,17 +132,101 @@ def lesion(
                 # sort from high to slow
                 units_to_lesion_indices = units_to_lesion_indices[np.argsort(units_to_lesion_scores)][::-1]
                 num_units_to_lesion = int(len(units_to_lesion_indices) * ratio)
-                units_to_lesion_indices = units_to_lesion_indices[num_units_to_lesion:]
+                units_to_lesion_indices = units_to_lesion_indices[:num_units_to_lesion]
     
-    elif experiment == 'loc_n_rot' or experiment == 'border_dist':
-        # load coef info
-        results_path = utils.load_results_path(
-            config=config,
-            experiment=experiment,
-            moving_trajectory=moving_trajectory,
-        )
-        raise NotImplementedError
+    elif reference_experiment == 'loc_n_rot' or reference_experiment == 'border_dist':
+        if 'coef' in feature_selection:
+            # NOTE(ken) e.g. For `l2+lesion_coef_thr_top_0.1_loc`
+            # the reference experiment uses l2 as feature selection,
+            # and we should load this corresponding coefs
+            # so we can lesion some of them.
+            reference_experiment_feature_selection = \
+                feature_selection.split('+')[0]
+            logging.info(
+                f'feature_selection: {feature_selection}'
+            )
+            logging.info(
+                f'reference_experiment_feature_selection: '\
+                f'{reference_experiment_feature_selection}'
+            )
+            # load task-specific decoding model coefs
+            reference_experiment_results_path = \
+                utils.load_results_path(
+                    config=config,
+                    experiment=reference_experiment,
+                    feature_selection=reference_experiment_feature_selection,
+                    decoding_model_choice=decoding_model_choice,
+                    sampling_rate=sampling_rate,
+                    moving_trajectory=moving_trajectory,
+                    random_seed=random_seed,
+            )
+            logging.info(
+                f'Loading results (for coef) from {reference_experiment_results_path}'
+            )
+            if reference_experiment_results_path is None:
+                logging.info(
+                    f'Mismatch between feature '\
+                    f'selection and decoding model, skip.'
+                )
+                return
 
+            coef = \
+                np.load(
+                    f'{reference_experiment_results_path}/res.npy', 
+                    allow_pickle=True).item()['coef']  # (n_targets, n_features)
+            
+            logging.info(f'Loaded coef.shape: {coef.shape}')
+
+            # Due to meeting 24-May-2023, we use absolute
+            # values of coef for filtering.
+            coef = np.abs(coef)
+
+            if reference_experiment == 'loc_n_rot':
+                targets = ['loc', 'rot']  # 'loc' is mean(abs(x) + abs(y))
+                # (rob): take the average over x and y columns but keep rot 
+                # column as is, so coef \in (2, n_features)
+                coef_loc = np.mean(coef[:2, :], axis=0)
+                coef_rot = coef[2, :]
+                coef = np.vstack((coef_loc, coef_rot))
+                logging.info(f'coef_loc.shape: {coef_loc.shape}')
+                logging.info(f'coef_rot.shape: {coef_rot.shape}')
+                logging.info(f'coef.shape: {coef.shape}')
+            else:
+                targets = ['border_dist']
+                raise NotImplementedError
+            
+            # ================================
+            # apply feature selection criteria
+            # e.g. For `l2+lesion_coef_thr_top_0.1_loc`
+            #       we extract the thr (dummy), rank=top, and ratio=0.1
+            #       lesion the top 10% of them. 
+            #       Right now due to loc and rot coef saved together,
+            #       we further specify which coef to lesion.
+            #       here, _loc means we lesion the coef for loc (x,y averaged)
+            rank = feature_selection.split('_')[3]
+            ratio = float(feature_selection.split('_')[4])
+            target = feature_selection.split('_')[5]
+            logging.info(
+                f'rank: {rank}, ratio: {ratio}, target: {target}'
+            )
+            if target == 'loc':
+                coef = coef[0, :]
+            elif target == 'rot':
+                coef = coef[1, :]
+
+            units_to_lesion_scores = coef
+            units_to_lesion_indices = np.arange(len(coef))
+            logging.info(
+                f'units_to_lesion_scores.shape: {units_to_lesion_scores.shape}, '\
+                f'units_to_lesion_indices.shape: {units_to_lesion_indices.shape}'
+            )
+                        
+            # lesion the top ratio% of units
+            if rank == 'top':
+                # sort from high to slow
+                units_to_lesion_indices = units_to_lesion_indices[np.argsort(units_to_lesion_scores)][::-1]
+                num_units_to_lesion = int(len(units_to_lesion_indices) * ratio)
+                units_to_lesion_indices = units_to_lesion_indices[:num_units_to_lesion]
 
     # lesion based on `units_to_lesion_indices`
     # keep the rest columns
