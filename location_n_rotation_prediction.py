@@ -95,6 +95,7 @@ def _load_train_test_data(
         moving_trajectory,
         sampling_rate,
         feature_selection,
+        decoding_model_choice,
         results_path,
         random_seed,
     ):
@@ -121,6 +122,10 @@ def _load_train_test_data(
             moving_trajectory=moving_trajectory,
             feature_selection=feature_selection,
             model_reps=model_reps,
+            reference_experiment=reference_experiment,
+            decoding_model_choice=decoding_model_choice,
+            sampling_rate=sampling_rate,
+            random_seed=random_seed,
         )
 
     X_train, X_test, y_train, y_test = \
@@ -339,7 +344,7 @@ def _single_env_decoding_error(
         return
     else:
         logging.info(
-            f'[Running] {config_version}, {sampling_rate},'\
+            f'[Begin job] {config_version}, {sampling_rate},'\
             f'{feature_selection}, {decoding_model_choice}, {random_seed}'
         )
         if config['model_name'] == 'none':
@@ -384,6 +389,7 @@ def _single_env_decoding_error(
                 moving_trajectory=moving_trajectory,
                 sampling_rate=sampling_rate,
                 feature_selection=feature_selection,
+                decoding_model_choice=decoding_model_choice,
                 results_path=results_path,
                 random_seed=random_seed,
             )
@@ -1183,21 +1189,29 @@ if __name__ == '__main__':
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 5
     experiment = 'loc_n_rot'
+    reference_experiment = 'loc_n_rot'   # for lesioning, or 'unit_chart'
     envs = ['env28_r24']
     movement_modes = ['2d']
-    sampling_rates = [0.01, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
-    random_seeds = [42, 1234, 999]
+    sampling_rates = [0.1, 0.3, 0.5]
+    random_seeds = [42]
     # model_names = ['simclrv2_r50_1x_sk0', 'resnet50', 'vgg16', 'vit_b16']
     model_names = ['vgg16']
     moving_trajectories = ['uniform']
     decoding_model_choices = [
         {'name': 'ridge_regression', 'hparams': 1.0},
     ]
-    feature_selections = ['l2+lesion_borderness_0.5_top_0.1']
+    feature_selections = [
+        'l2+lesion_coef_thr_top_0.1_rot',
+        'l2+lesion_coef_thr_top_0.3_rot',
+        'l2+lesion_coef_thr_top_0.5_rot',
+        'l2+lesion_coef_thr_top_0.7_rot',
+        'l2+lesion_coef_thr_top_0.9_rot',
+        'l2+lesion_coef_thr_top_0.95_rot',
+    ]
     # =================================================================== #
 
-    multi_envs_across_dimensions_CPU(
-    # multi_envs_across_dimensions_GPU(
+    # multi_envs_across_dimensions_CPU(
+    multi_envs_across_dimensions_GPU(
         target_func=_single_env_decoding_error,
         envs=envs,
         experiment=experiment,
@@ -1207,7 +1221,7 @@ if __name__ == '__main__':
         decoding_model_choices=decoding_model_choices,
         feature_selections=feature_selections,
         random_seeds=random_seeds,
-        # cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
+        cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
     )
 
     cross_dimension_analysis(
