@@ -1176,7 +1176,140 @@ def cross_dimension_analysis(
                     )
                     plt.close()
             
+    elif analysis == 'decoding_across_lesion_ratios_n_layers':
+        env = envs[0]
+        moving_trajectory = moving_trajectories[0]
+        movement_mode = movement_modes[0]
+        sampling_rate = 0.3
+        
+        # get lesion info
+        ref = feature_selections[-1].split('_')[1]   # coef | gridness | borderness | ...
+        rank = feature_selections[-1].split('_')[3]
+        target = feature_selections[-1].split('_')[5]
+        lesion_setting = f'{ref}_{rank}_{target}'
+        lesion_ratios = [
+            float(feature_selection.split('_')[4]) \
+                for feature_selection in feature_selections[1:]  # exclude baseline lesion=0
+        ]
+        lesion_ratios = [0] + lesion_ratios  # add baseline lesion=0
+
+        for model_name in model_names:
+            output_layers = data.load_model_layers(model_name)
+
+            for decoding_model_choice in decoding_model_choices:
+                decoding_model_name = decoding_model_choice['name']
+                decoding_model_hparams = decoding_model_choice['hparams']
+
+                # collect results across dimensions
+                # from base-case results.
+                results_collector = \
+                    defaultdict(                            # key - error_type
+                        lambda: defaultdict(                # key - output_layer
+                            lambda: defaultdict(list)       # key - metric
+                        )
+                    )
+                
+                for error_type in error_types:
+                    for output_layer in output_layers:
+                        for feature_selection in feature_selections:
+                            # sampling rate would be the base dimension where 
+                            # we accumulate results in a list to plot at once.
+                            to_average_over_seeds = defaultdict(list)
+                            for random_seed in random_seeds:
+                                results_path = \
+                                    f'results/{env}/{movement_mode}/{moving_trajectory}/'\
+                                    f'{model_name}/{experiment}/{feature_selection}/'\
+                                    f'{decoding_model_name}_{decoding_model_hparams}/'\
+                                    f'{output_layer}/sr{sampling_rate}/seed{random_seed}'
+                                results = np.load(f'{results_path}/res.npy', allow_pickle=True).item()[error_type]
+                                for metric in tracked_metrics:
+                                    to_average_over_seeds[metric].append(results[metric])
                             
+                            # per metric per output layer 
+                            # across sampling rates averaged over seeds
+                            for metric in tracked_metrics:
+                                # a special case is when metric=='ci' where 
+                                # ..res[metric] is a list of 2 elements
+                                # so we need to average wrt each element across seeds
+                                # and save them back as 2 elements for later plotting.
+                                if metric == 'ci':
+                                    ci_low_avg = np.mean(
+                                        [ci[0] for ci in to_average_over_seeds[metric]])
+                                    ci_high_avg = np.mean(
+                                        [ci[1] for ci in to_average_over_seeds[metric]])
+                                    avg_res = [ci_low_avg, ci_high_avg]
+                                else:
+                                    avg_res = np.mean(to_average_over_seeds[metric])
+                                results_collector[error_type][output_layer][metric].append(avg_res)
+                
+                # plot collected results.
+                # left subplot for loc error, right subplot for rot error.
+                # x-axis is lesion ratio, y-axis is decoding error.
+                fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+                for i, error_type in enumerate(error_types):
+                    for output_layer in output_layers:
+                        for metric in tracked_metrics:
+                            # when metric is about confidence interval, 
+                            # instead of plot, we fill_between
+                            if metric == 'ci':
+                                ci_low = np.array(
+                                    results_collector[error_type][output_layer][metric])[:, 0]
+                                ci_high = np.array(
+                                    results_collector[error_type][output_layer][metric])[:, 1]
+                                axes[i].fill_between(
+                                    lesion_ratios,
+                                    ci_low,
+                                    ci_high,
+                                    alpha=0.2,
+                                    color='grey',
+                                )
+                            else:
+                                if 'baseline' in metric:
+                                    # no need to label baseline for each layer
+                                    # we only going to label baseline when we plot
+                                    # the last layer.
+                                    if output_layer == output_layers[-1]:
+                                        label = metric
+                                    else:
+                                        label = None  
+                                    if 'mid' in metric: 
+                                        color = 'cyan'
+                                    else: 
+                                        color = 'blue'
+                                else:
+                                    # for non-baseline layer performance,
+                                    # we label each layer and use layer-specific color.
+                                    label = output_layer
+                                    color = data.load_envs_dict(model_name, envs)[
+                                        f'{envs[0]}_{movement_mode}_{model_name}_{output_layer}']['color']
+                                
+                                # either baseline or non-baseline layer performance,
+                                # we always plot them.
+                                axes[i].plot(
+                                    lesion_ratios,
+                                    results_collector[error_type][output_layer][metric],
+                                    label=label,
+                                    color=color,
+                                )
+                    axes[i].set_xlabel('lesion ratios')
+                    axes[i].set_xticks(lesion_ratios)
+                    axes[i].set_title(error_type)
+                sup_title = f'{[lesion_setting]}, {envs[0]},{movement_mode},'\
+                            f'{model_name},'\
+                            f'{decoding_model_name}({decoding_model_hparams})'
+                # for across layers and feature selections (lesion only), 
+                # we save the plot at the same level as layers.
+                figs_path = f'figs/{env}/{movement_mode}/{moving_trajectory}/'\
+                                f'{model_name}/{experiment}'
+                if not os.path.exists(figs_path):
+                    os.makedirs(figs_path)
+                plt.legend()
+                plt.suptitle(sup_title)
+                plt.savefig(f'{figs_path}/decoding_across_lesion_ratios_n_layers_{lesion_setting}.png')
+                plt.close()
+                logging.info(f'[Saved] {figs_path}/decoding_across_lesion_ratios_n_layers_{lesion_setting}.png')
+
+
 if __name__ == '__main__':
     start_time = time.time()
     logging_level = 'info'
@@ -1192,7 +1325,7 @@ if __name__ == '__main__':
     reference_experiment = 'loc_n_rot'   # for lesioning, or 'unit_chart'
     envs = ['env28_r24']
     movement_modes = ['2d']
-    sampling_rates = [0.1, 0.3, 0.5]
+    sampling_rates = [0.3]
     random_seeds = [42]
     # model_names = ['simclrv2_r50_1x_sk0', 'resnet50', 'vgg16', 'vit_b16']
     model_names = ['vgg16']
@@ -1201,12 +1334,12 @@ if __name__ == '__main__':
         {'name': 'ridge_regression', 'hparams': 1.0},
     ]
     feature_selections = [
-        'l2+lesion_coef_thr_top_0.1_rot',
-        'l2+lesion_coef_thr_top_0.3_rot',
-        'l2+lesion_coef_thr_top_0.5_rot',
-        'l2+lesion_coef_thr_top_0.7_rot',
-        'l2+lesion_coef_thr_top_0.9_rot',
-        'l2+lesion_coef_thr_top_0.95_rot',
+        'l2',
+        'l2+lesion_coef_thr_top_0.1_loc',
+        'l2+lesion_coef_thr_top_0.3_loc',
+        'l2+lesion_coef_thr_top_0.5_loc',
+        'l2+lesion_coef_thr_top_0.7_loc',
+        'l2+lesion_coef_thr_top_0.9_loc',
     ]
     # =================================================================== #
 
@@ -1225,7 +1358,7 @@ if __name__ == '__main__':
     )
 
     cross_dimension_analysis(
-        analysis='decoding_across_sampling_rates_n_layers',
+        analysis='decoding_across_lesion_ratios_n_layers',
         envs=envs,
         movement_modes=movement_modes,
         model_names=model_names,
