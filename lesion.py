@@ -227,6 +227,15 @@ def lesion(
                 units_to_lesion_indices = units_to_lesion_indices[np.argsort(units_to_lesion_scores)][::-1]
                 num_units_to_lesion = int(len(units_to_lesion_indices) * ratio)
                 units_to_lesion_indices = units_to_lesion_indices[:num_units_to_lesion]
+            elif rank == 'random':
+                # randomly select ratio% of units
+                num_units_to_lesion = int(len(units_to_lesion_indices) * ratio)
+                np.random.seed(random_seed)
+                units_to_lesion_indices = np.random.choice(
+                    units_to_lesion_indices, 
+                    num_units_to_lesion, 
+                    replace=False
+                )
 
     # lesion based on `units_to_lesion_indices`
     # keep the rest columns
