@@ -1294,6 +1294,7 @@ def cross_dimension_analysis(
                     axes[i].set_xlabel('lesion ratios')
                     axes[i].set_xticks(lesion_ratios)
                     axes[i].set_title(error_type)
+                    axes[i].grid()
                 sup_title = f'{[lesion_setting]}, {envs[0]},{movement_mode},'\
                             f'{model_name},'\
                             f'{decoding_model_name}({decoding_model_hparams})'
@@ -1335,11 +1336,11 @@ if __name__ == '__main__':
     ]
     feature_selections = [
         'l2',
-        'l2+lesion_coef_thr_top_0.1_loc',
-        'l2+lesion_coef_thr_top_0.3_loc',
-        'l2+lesion_coef_thr_top_0.5_loc',
-        'l2+lesion_coef_thr_top_0.7_loc',
-        'l2+lesion_coef_thr_top_0.9_loc',
+        'l2+lesion_coef_thr_random_0.1_rot',
+        'l2+lesion_coef_thr_random_0.3_rot',
+        'l2+lesion_coef_thr_random_0.5_rot',
+        'l2+lesion_coef_thr_random_0.7_rot',
+        'l2+lesion_coef_thr_random_0.9_rot',
     ]
     # =================================================================== #
 
