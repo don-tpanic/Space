@@ -1185,8 +1185,13 @@ def cross_dimension_analysis(
         # get lesion info
         ref = feature_selections[-1].split('_')[1]   # coef | gridness | borderness | ...
         rank = feature_selections[-1].split('_')[3]
-        target = feature_selections[-1].split('_')[5]
-        lesion_setting = f'{ref}_{rank}_{target}'
+        lesion_setting = f'{ref}_{rank}'
+        # if not lesion by chart, we must specify the task target
+        # being `loc | rot | border_dist`
+        if reference_experiment != 'unit_chart':
+            target = feature_selections[-1].split('_')[5]
+            lesion_setting = f'{ref}_{rank}_{target}'
+
         lesion_ratios = [
             float(feature_selection.split('_')[4]) \
                 for feature_selection in feature_selections[1:]  # exclude baseline lesion=0
@@ -1322,25 +1327,25 @@ if __name__ == '__main__':
     # =================================================================== #
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 5
-    experiment = 'loc_n_rot'
-    reference_experiment = 'loc_n_rot'   # for lesioning, or 'unit_chart'
     envs = ['env28_r24']
     movement_modes = ['2d']
     sampling_rates = [0.3]
     random_seeds = [42]
-    # model_names = ['simclrv2_r50_1x_sk0', 'resnet50', 'vgg16', 'vit_b16']
     model_names = ['vgg16']
     moving_trajectories = ['uniform']
-    decoding_model_choices = [
-        {'name': 'ridge_regression', 'hparams': 1.0},
-    ]
+    decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
+    experiment = 'loc_n_rot'
+    reference_experiment = 'loc_n_rot'   # for lesioning, or 'unit_chart'
+    metric = 'coef'
+    thr = 'thr'
+    rank = 'top'
+    target = '_rot'
     feature_selections = [
         'l2',
-        'l2+lesion_coef_thr_random_0.1_rot',
-        'l2+lesion_coef_thr_random_0.3_rot',
-        'l2+lesion_coef_thr_random_0.5_rot',
-        'l2+lesion_coef_thr_random_0.7_rot',
-        'l2+lesion_coef_thr_random_0.9_rot',
+        f'l2+lesion_{metric}_{thr}_{rank}_0.1{target}',
+        f'l2+lesion_{metric}_{thr}_{rank}_0.3{target}',
+        f'l2+lesion_{metric}_{thr}_{rank}_0.5{target}',
+        f'l2+lesion_{metric}_{thr}_{rank}_0.7{target}',
     ]
     # =================================================================== #
 
