@@ -1335,11 +1335,11 @@ if __name__ == '__main__':
     moving_trajectories = ['uniform']
     decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
     experiment = 'loc_n_rot'
-    reference_experiment = 'loc_n_rot'   # for lesioning, or 'unit_chart'
-    metric = 'coef'
-    thr = 'thr'
+    reference_experiment = 'unit_chart'   # for lesioning, or 'unit_chart'
+    metric = 'borderness'
+    thr = '0'
     rank = 'top'
-    target = '_rot'
+    target = ''
     feature_selections = [
         'l2',
         f'l2+lesion_{metric}_{thr}_{rank}_0.1{target}',
