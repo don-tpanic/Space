@@ -251,8 +251,13 @@ def _single_env_viz_units_ranked_by_coef_V1(
             # based on `n_units_filtering` and `filtering_order`
             for filtering in filterings:
                 n_units_filtering = filtering['n_units_filtering']
+                p_units_filtering = filtering['p_unit_filtering']
                 filtering_order = filtering['filtering_order']
-
+                # if we filter by percentage, 
+                # we overide n_units_filtering
+                if p_units_filtering:
+                    n_units_filtering = int(coef.shape[1] * p_units_filtering)
+                
                 if filtering_order == 'top_n':
                     filtered_n_units_indices = np.argsort(
                         coef[target_index, :])[::-1][:n_units_filtering]
@@ -406,14 +411,21 @@ def _single_env_viz_units_ranked_by_coef_V1(
                 # fig.tight_layout(rect=[0, 0.03, 1, 0.95])
                 plt.tight_layout()
                 plt.suptitle(sup_title)
-                plt.savefig(
-                    f'{figs_path}/units_heatmaps_{targets[target_index]}_'\
-                    f'{filtering_order}_summed.png')
-                plt.close()
-                logging.info(
-                    f'[Saved] units heatmaps {targets[target_index]} {filtering_order} '\
+                if p_units_filtering:
+                    plt.savefig(
+                        f'{figs_path}/units_heatmaps_{targets[target_index]}_'\
+                        f'{filtering_order}_{p_units_filtering}_summed.png')
+                    logging.info(
+                    f'[Saved] units heatmaps {targets[target_index]} {filtering_order} {p_units_filtering}'\
                     f'(summed) to {figs_path}')
-
+                else:
+                    plt.savefig(
+                        f'{figs_path}/units_heatmaps_{targets[target_index]}_'\
+                        f'{filtering_order}_{n_units_filtering}_summed.png')
+                    logging.info(
+                    f'[Saved] units heatmaps {targets[target_index]} {filtering_order} {n_units_filtering}'\
+                    f'(summed) to {figs_path}')
+                plt.close()
     else:
         # TODO: metric-based feature selection.
         raise NotImplementedError
@@ -541,10 +553,15 @@ def _single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts(
         for target_index in range(metric_of_interest_shrunk.shape[0]):
             # filter columns of `model_reps` 
             # based on each coef of each target
-            # based on `n_units_filtering` and `filtering_order`
+            # based on `n_units_filtering|p_units_filtering` and `filtering_order`
             for filtering in filterings:
                 n_units_filtering = filtering['n_units_filtering']
+                p_units_filtering = filtering['p_unit_filtering']
                 filtering_order = filtering['filtering_order']
+                # if we filter by percentage,
+                # we overide n_units_filtering
+                if p_units_filtering:
+                    n_units_filtering = int(metric_of_interest_shrunk.shape[1] * p_units_filtering)
 
                 if filtering_order == 'top_n':
                     filtered_n_units_indices = active_unit_indices[
@@ -615,14 +632,21 @@ def _single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts(
                 )
                 plt.tight_layout()
                 plt.suptitle(sup_title)
-                plt.savefig(
-                    f'{figs_path}/units_heatmaps_{targets[target_index]}_'\
-                    f'{filtering_order}_summed.png')
-                plt.close()
-                logging.info(
-                    f'[Saved] units heatmaps {targets[target_index]} {filtering_order} '\
+                if p_units_filtering:
+                    plt.savefig(
+                        f'{figs_path}/units_heatmaps_{targets[target_index]}_'\
+                        f'{filtering_order}_{p_units_filtering}_summed.png')
+                    logging.info(
+                    f'[Saved] units heatmaps {targets[target_index]} {filtering_order} {p_units_filtering}'\
                     f'(summed) to {figs_path}')
-
+                else:
+                    plt.savefig(
+                        f'{figs_path}/units_heatmaps_{targets[target_index]}_'\
+                        f'{filtering_order}_{n_units_filtering}_summed.png')
+                    logging.info(
+                    f'[Saved] units heatmaps {targets[target_index]} {filtering_order} {n_units_filtering}'\
+                    f'(summed) to {figs_path}')
+                
                 # save the filtered units to disk for further statistical analyses
                 results_path = utils.load_results_path(
                     config=config,
@@ -652,14 +676,24 @@ def _single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts(
                     f'[Check, after add coef] filtered_unit_chart_info.shape: {filtered_unit_chart_info.shape}'
                 )
 
-                np.save(
-                    f'{results_path}/unit_chart_{targets[target_index]}_'\
-                    f'{filtering_order}.npy', filtered_unit_chart_info
-                )
-                logging.info(
-                    f'[Saved] unit_chart_{targets[target_index]}_{filtering_order} '\
-                    f'to {results_path}'
-                )
+                if p_units_filtering:
+                    np.save(
+                        f'{results_path}/unit_chart_{targets[target_index]}_'\
+                        f'{filtering_order}_{p_units_filtering}.npy', filtered_unit_chart_info
+                    )
+                    logging.info(
+                        f'[Saved] unit_chart_{targets[target_index]}_{filtering_order} {p_units_filtering}'\
+                        f'to {results_path}'
+                    )
+                else:
+                    np.save(
+                        f'{results_path}/unit_chart_{targets[target_index]}_'\
+                        f'{filtering_order}_{n_units_filtering}.npy', filtered_unit_chart_info
+                    )
+                    logging.info(
+                        f'[Saved] unit_chart_{targets[target_index]}_{filtering_order} {n_units_filtering}'\
+                        f'to {results_path}'
+                    )
     else:
         # metric-based feature selection.
         raise NotImplementedError()
@@ -674,8 +708,8 @@ def _single_env_viz_units_by_type_ranked_by_coef(
         sampling_rate,
         moving_trajectory,
         random_seed,
-        sorted_by,  # dummy, for consistency.
-        filterings,
+        sorted_by='coef',  # dummy, for consistency.
+        filterings=[],
     ):
     """
     `_single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts`
@@ -754,12 +788,20 @@ def _single_env_viz_units_by_type_ranked_by_coef(
                 )
                 
                 for filtering in filterings:
+                    n_units_filtering = filtering['n_units_filtering']
+                    p_units_filtering = filtering['p_unit_filtering']
                     filtering_order = filtering['filtering_order']
-
-                    unit_chart_info = np.load(
-                        f'{results_path}/unit_chart_{targets[target_index]}_{filtering_order}.npy', 
-                        allow_pickle=True
-                    )
+                    
+                    if p_units_filtering:
+                        unit_chart_info = np.load(
+                            f'{results_path}/unit_chart_{targets[target_index]}_{filtering_order}_{p_units_filtering}.npy', 
+                            allow_pickle=True
+                        )
+                    else:
+                        unit_chart_info = np.load(
+                            f'{results_path}/unit_chart_{targets[target_index]}_{filtering_order}_{n_units_filtering}.npy', 
+                            allow_pickle=True
+                        )
 
                     # plot distribution of metric and coef based on filtering_order
                     # `type_id` is the column index in unit_chart_info
@@ -807,9 +849,14 @@ def _single_env_viz_units_by_type_ranked_by_coef(
 
             plt.legend()
             plt.suptitle(sup_title)
-            plt.savefig(
-                f'{figs_path}/{unit_type}_{targets[target_index]}.png'
-            )
+            if p_units_filtering:
+                plt.savefig(
+                    f'{figs_path}/{unit_type}_{targets[target_index]}_{p_units_filtering}.png'
+                )
+            else:
+                plt.savefig(
+                    f'{figs_path}/{unit_type}_{targets[target_index]}_{n_units_filtering}.png'
+                )
 
 
 def _single_env_produce_unit_chart(
@@ -972,11 +1019,7 @@ def _single_env_viz_units_ranked_by_unit_chart(
         sampling_rate=None,
         random_seed=None,
         sorted_by='gridness',
-        filterings=\
-            [{'filtering_order': 'top_n', 'n_units_filtering': 400},
-             {'filtering_order': 'mid_n', 'n_units_filtering': 400},
-             {'filtering_order': 'random_n', 'n_units_filtering': 400},
-            ]
+        filterings=[]
     ):
     """
     Based on unit chart info produced by `_single_env_produce_unit_chart`,
@@ -1043,11 +1086,17 @@ def _single_env_viz_units_ranked_by_unit_chart(
     # visualize top_n, mid_n, random_n units' gridness
     for filtering in filterings:
         n_units_filtering = filtering['n_units_filtering']
+        p_units_filtering = filtering['p_unit_filtering']
         filtering_order = filtering['filtering_order']
+        # if we filter by percentage,
+        # we overide n_units_filtering
+        if p_units_filtering:
+            n_units_filtering = int(metric_of_interest_shrunk.shape[0] * p_units_filtering)
 
         logging.info(f'metric_of_interest.shape: {metric_of_interest.shape}')
         logging.info(f'metric_of_interest_shrunk.shape: {metric_of_interest_shrunk.shape}')
         logging.info(f'filtering_order: {filtering_order}')
+        logging.info(f'n_units_filtering: {n_units_filtering}')
 
         if filtering_order == 'top_n':
             filtered_n_units_indices = active_unit_indices[
@@ -1099,14 +1148,22 @@ def _single_env_viz_units_ranked_by_unit_chart(
             experiment=experiment,
             moving_trajectory=moving_trajectory,
         )
-        plt.savefig(
-            f'{figs_path}/{sorted_by}_sorted_from_unit_chart_{filtering_order}.png'
-        )
-        plt.close()
         plt.tight_layout()
-        logging.info(
-            f'[Saved] {figs_path}/{sorted_by}_sorted_from_unit_chart_{filtering_order}.png'
-        )
+        if p_units_filtering:
+            plt.savefig(
+                f'{figs_path}/{sorted_by}_sorted_from_unit_chart_{filtering_order}_{p_units_filtering}.png'
+            )
+            logging.info(
+                f'[Saved] {figs_path}/{sorted_by}_sorted_from_unit_chart_{filtering_order}_{p_units_filtering}.png'
+            )
+        else:
+            plt.savefig(
+                f'{figs_path}/{sorted_by}_sorted_from_unit_chart_{filtering_order}_{n_units_filtering}.png'
+            )
+            logging.info(
+                f'[Saved] {figs_path}/{sorted_by}_sorted_from_unit_chart_{filtering_order}_{n_units_filtering}.png'
+            )
+        plt.close()
     
 
 def _single_env_viz_unit_chart(
@@ -1403,21 +1460,21 @@ if __name__ == '__main__':
     # ======================================== #
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 4     
-    experiment = 'unit_chart'
-    reference_experiment = None
+    experiment = 'unit_chart_by_coef'
+    reference_experiment = 'loc_n_rot'
     envs = ['env28_r24']
     movement_modes = ['2d']
     sampling_rates = [0.3]
     random_seeds = [42]
-    model_names = ['vit_b16', 'simclrv2_r50_1x_sk0']
+    model_names = ['vgg16']
     moving_trajectories = ['uniform']
     decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
     feature_selections = ['l2']
     sorted_by = 'coef'
     filterings = [
-        {'filtering_order': 'top_n', 'n_units_filtering': 400},
-        {'filtering_order': 'random_n', 'n_units_filtering': 400},
-        {'filtering_order': 'mid_n', 'n_units_filtering': 400},
+        {'filtering_order': 'top_n', 'n_units_filtering': None, 'p_unit_filtering': 0.1},
+        {'filtering_order': 'random_n', 'n_units_filtering': None, 'p_unit_filtering': 0.1},
+        {'filtering_order': 'mid_n', 'n_units_filtering': None, 'p_unit_filtering': 0.1},
     ]
     # ======================================== #
     ###  How to run ###
@@ -1437,13 +1494,13 @@ if __name__ == '__main__':
     # NOTE: 2b requires 2a
     # NOTE: 3, 4 less interesting than 2b which compares unit chart info againt coef.
 
-    # multi_envs_inspect_units_GPU(
-    multi_envs_inspect_units_CPU(
+    multi_envs_inspect_units_GPU(
+    # multi_envs_inspect_units_CPU(
         # target_func=_single_env_produce_unit_chart,                       # set experiment='unit_chart'
         # target_func=_single_env_viz_units_ranked_by_unit_chart,           # set experiment='unit_chart'
-        target_func=_single_env_viz_unit_chart,                           # set experiment='unit_chart'
+        # target_func=_single_env_viz_unit_chart,                           # set experiment='unit_chart'
         # target_func=_single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts,    # set experiment='unit_chart_by_coef'
-        # target_func=_single_env_viz_units_by_type_ranked_by_coef,
+        target_func=_single_env_viz_units_by_type_ranked_by_coef,
         envs=envs,
         model_names=model_names,
         experiment=experiment,
@@ -1455,7 +1512,7 @@ if __name__ == '__main__':
         random_seeds=random_seeds,
         sorted_by=sorted_by,
         filterings=filterings,
-        # cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
+        cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
     )
 
     # print time elapsed
