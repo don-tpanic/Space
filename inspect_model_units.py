@@ -251,7 +251,7 @@ def _single_env_viz_units_ranked_by_coef_V1(
             # based on `n_units_filtering` and `filtering_order`
             for filtering in filterings:
                 n_units_filtering = filtering['n_units_filtering']
-                p_units_filtering = filtering['p_unit_filtering']
+                p_units_filtering = filtering['p_units_filtering']
                 filtering_order = filtering['filtering_order']
                 # if we filter by percentage, 
                 # we overide n_units_filtering
@@ -556,7 +556,7 @@ def _single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts(
             # based on `n_units_filtering|p_units_filtering` and `filtering_order`
             for filtering in filterings:
                 n_units_filtering = filtering['n_units_filtering']
-                p_units_filtering = filtering['p_unit_filtering']
+                p_units_filtering = filtering['p_units_filtering']
                 filtering_order = filtering['filtering_order']
                 # if we filter by percentage,
                 # we overide n_units_filtering
@@ -796,7 +796,7 @@ def _single_env_viz_units_by_type_ranked_by_coef(
                 
                 for filtering in filterings:
                     n_units_filtering = filtering['n_units_filtering']
-                    p_units_filtering = filtering['p_unit_filtering']
+                    p_units_filtering = filtering['p_units_filtering']
                     filtering_order = filtering['filtering_order']
                     
                     if p_units_filtering:
@@ -1093,7 +1093,7 @@ def _single_env_viz_units_ranked_by_unit_chart(
     # visualize top_n, mid_n, random_n units' gridness
     for filtering in filterings:
         n_units_filtering = filtering['n_units_filtering']
-        p_units_filtering = filtering['p_unit_filtering']
+        p_units_filtering = filtering['p_units_filtering']
         filtering_order = filtering['filtering_order']
         # if we filter by percentage,
         # we overide n_units_filtering
@@ -1479,9 +1479,9 @@ if __name__ == '__main__':
     feature_selections = ['l2']
     sorted_by = 'coef'
     filterings = [
-        {'filtering_order': 'top_n', 'n_units_filtering': None, 'p_unit_filtering': 0.1},
-        {'filtering_order': 'random_n', 'n_units_filtering': None, 'p_unit_filtering': 0.1},
-        {'filtering_order': 'mid_n', 'n_units_filtering': None, 'p_unit_filtering': 0.1},
+        {'filtering_order': 'top_n', 'n_units_filtering': None, 'p_units_filtering': 0.1},
+        {'filtering_order': 'random_n', 'n_units_filtering': None, 'p_units_filtering': 0.1},
+        {'filtering_order': 'mid_n', 'n_units_filtering': None, 'p_units_filtering': 0.1},
     ]
     # ======================================== #
     ###  How to run ###
