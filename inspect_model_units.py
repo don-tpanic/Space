@@ -441,7 +441,7 @@ def _single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts(
         moving_trajectory,
         random_seed,
         sorted_by='coef',  # dummy, for consistency.
-        filterings=[],    
+        filterings=[],
     ):
     """
     Plot individual model units in 
@@ -597,55 +597,62 @@ def _single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts(
                     model_reps, axis=1, keepdims=True)
 
                 # plotter
-                fig = _plot_units_various_ways(
-                    config=config,
-                    filtered_n_units_indices=filtered_n_units_indices,
-                    n_units_filtering=n_units_filtering,
-                    model_reps=model_reps,
-                    model_reps_summed=model_reps_summed,
-                    # --------
-                    sorted_by=sorted_by,
-                    coef=coef,
-                    target_index=target_index,
-                    num_clusters=num_clusters,
-                    borderness=borderness,
-                    gridness=gridness,
-                    mean_vector_length=mean_vector_length,
-                    per_rotation_vector_length=per_rotation_vector_length,
-                )
-
-                sup_title = f"{filtering_order},{targets[target_index]},"\
-                            f"{config['unity_env']},{config['movement_mode']},"\
-                            f"{config['model_name']},{feature_selection}"\
-                            f"({decoding_model_choice['hparams']}),"\
-                            f"sr{sampling_rate},seed{random_seed}"
-                
-                figs_path = utils.load_figs_path(
-                    config=config,
-                    experiment=experiment,
-                    reference_experiment=reference_experiment,
-                    feature_selection=feature_selection,
-                    decoding_model_choice=decoding_model_choice,
-                    sampling_rate=sampling_rate,
-                    moving_trajectory=moving_trajectory,
-                    random_seed=random_seed,
-                )
-                plt.tight_layout()
-                plt.suptitle(sup_title)
-                if p_units_filtering:
-                    plt.savefig(
-                        f'{figs_path}/units_heatmaps_{targets[target_index]}_'\
-                        f'{filtering_order}_{p_units_filtering}_summed.png')
-                    logging.info(
-                    f'[Saved] units heatmaps {targets[target_index]} {filtering_order} {p_units_filtering}'\
-                    f'(summed) to {figs_path}')
+                # only plot if there aren't too many units,
+                # otherwise takes forever..
+                if n_units_filtering > 400:
+                    plot_various_ways = False
                 else:
-                    plt.savefig(
-                        f'{figs_path}/units_heatmaps_{targets[target_index]}_'\
-                        f'{filtering_order}_{n_units_filtering}_summed.png')
-                    logging.info(
-                    f'[Saved] units heatmaps {targets[target_index]} {filtering_order} {n_units_filtering}'\
-                    f'(summed) to {figs_path}')
+                    plot_various_ways = True
+                if plot_various_ways:
+                    fig = _plot_units_various_ways(
+                        config=config,
+                        filtered_n_units_indices=filtered_n_units_indices,
+                        n_units_filtering=n_units_filtering,
+                        model_reps=model_reps,
+                        model_reps_summed=model_reps_summed,
+                        # --------
+                        sorted_by=sorted_by,
+                        coef=coef,
+                        target_index=target_index,
+                        num_clusters=num_clusters,
+                        borderness=borderness,
+                        gridness=gridness,
+                        mean_vector_length=mean_vector_length,
+                        per_rotation_vector_length=per_rotation_vector_length,
+                    )
+
+                    sup_title = f"{filtering_order},{targets[target_index]},"\
+                                f"{config['unity_env']},{config['movement_mode']},"\
+                                f"{config['model_name']},{feature_selection}"\
+                                f"({decoding_model_choice['hparams']}),"\
+                                f"sr{sampling_rate},seed{random_seed}"
+                    
+                    figs_path = utils.load_figs_path(
+                        config=config,
+                        experiment=experiment,
+                        reference_experiment=reference_experiment,
+                        feature_selection=feature_selection,
+                        decoding_model_choice=decoding_model_choice,
+                        sampling_rate=sampling_rate,
+                        moving_trajectory=moving_trajectory,
+                        random_seed=random_seed,
+                    )
+                    plt.tight_layout()
+                    plt.suptitle(sup_title)
+                    if p_units_filtering:
+                        plt.savefig(
+                            f'{figs_path}/units_heatmaps_{targets[target_index]}_'\
+                            f'{filtering_order}_{p_units_filtering}_summed.png')
+                        logging.info(
+                        f'[Saved] units heatmaps {targets[target_index]} {filtering_order} {p_units_filtering}'\
+                        f'(summed) to {figs_path}')
+                    else:
+                        plt.savefig(
+                            f'{figs_path}/units_heatmaps_{targets[target_index]}_'\
+                            f'{filtering_order}_{n_units_filtering}_summed.png')
+                        logging.info(
+                        f'[Saved] units heatmaps {targets[target_index]} {filtering_order} {n_units_filtering}'\
+                        f'(summed) to {figs_path}')
                 
                 # save the filtered units to disk for further statistical analyses
                 results_path = utils.load_results_path(
@@ -1499,8 +1506,8 @@ if __name__ == '__main__':
         # target_func=_single_env_produce_unit_chart,                       # set experiment='unit_chart'
         # target_func=_single_env_viz_units_ranked_by_unit_chart,           # set experiment='unit_chart'
         # target_func=_single_env_viz_unit_chart,                           # set experiment='unit_chart'
-        # target_func=_single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts,    # set experiment='unit_chart_by_coef'
-        target_func=_single_env_viz_units_by_type_ranked_by_coef,
+        target_func=_single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts,    # set experiment='unit_chart_by_coef'
+        # target_func=_single_env_viz_units_by_type_ranked_by_coef,
         envs=envs,
         model_names=model_names,
         experiment=experiment,
