@@ -689,7 +689,7 @@ def _single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts(
                         f'{filtering_order}_{p_units_filtering}.npy', filtered_unit_chart_info
                     )
                     logging.info(
-                        f'[Saved] unit_chart_{targets[target_index]}_{filtering_order} {p_units_filtering}'\
+                        f'[Saved] unit_chart_{targets[target_index]}_{filtering_order}_{p_units_filtering}'\
                         f'to {results_path}'
                     )
                 else:
@@ -698,7 +698,7 @@ def _single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts(
                         f'{filtering_order}_{n_units_filtering}.npy', filtered_unit_chart_info
                     )
                     logging.info(
-                        f'[Saved] unit_chart_{targets[target_index]}_{filtering_order} {n_units_filtering}'\
+                        f'[Saved] unit_chart_{targets[target_index]}_{filtering_order}_{n_units_filtering}'\
                         f'to {results_path}'
                     )
     else:
