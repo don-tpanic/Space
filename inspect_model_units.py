@@ -866,6 +866,160 @@ def _single_env_viz_units_by_type_ranked_by_coef(
                 )
 
 
+def _single_env_viz_units_by_type_pairs_ranked_by_coef(
+        config_version, 
+        experiment,
+        reference_experiment,
+        feature_selection, 
+        decoding_model_choice,
+        sampling_rate,
+        moving_trajectory,
+        random_seed,
+        sorted_by='coef',  # dummy, for consistency.
+        filterings=[],
+    ):
+    """
+    `_single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts`
+    produces unit_chart_by_coef where it is a subset of 
+    units from the general unit_chart sorted by coef.
+
+    The coef-specific unit_chart has 1 more column than the general unit_chart,
+    where the last column is the ranked coef values.
+
+    Here, we can plot units by their types against the coefs.
+    e.g. we can plot how the top n coef units' gridness compare 
+    to the mid n coef units' gridness.
+    """
+    unit_type_to_column_index_in_unit_chart = {
+        'place_cell': {
+            'num_clusters': 1,
+            'num_pixels_in_clusters': 2,
+            'max_value_in_clusters': 3,
+            'mean_value_in_clusters': 4,
+            'var_value_in_clusters': 5,
+            'entire_map_mean': 6,
+            'entire_map_var': 7,
+        },
+        'grid_cell': {
+            'gridness': 8,
+        },
+        'border_cell': {
+            'borderness': 9,
+        },
+        'direction_cell': {
+            'mean_vector_length': 10,
+        },
+    }
+
+    if reference_experiment == 'loc_n_rot':
+        targets = ['loc', 'rot']
+    else:
+        targets = ['border_dist']
+
+    pairs_to_plot = [
+        ('place_cell', 'num_clusters', 'direction_cell', 'mean_vector_length'),
+        ('place_cell', 'num_pixels_in_clusters', 'direction_cell', 'mean_vector_length'),
+        ('place_cell', 'max_value_in_clusters', 'direction_cell', 'mean_vector_length'),
+        ('border_cell', 'borderness', 'direction_cell', 'mean_vector_length')
+    ]
+
+    for pair in pairs_to_plot:
+        logging.info(f'Plotting {pair}')
+        x_unit_type, x_metric, y_unit_type, y_metric = pair
+        
+        x_column_index = unit_type_to_column_index_in_unit_chart[x_unit_type][x_metric]
+        y_column_index = unit_type_to_column_index_in_unit_chart[y_unit_type][y_metric]
+        
+        config = utils.load_config(config_version)
+        results_path = utils.load_results_path(
+            config=config,
+            experiment=experiment,
+            reference_experiment=reference_experiment,
+            feature_selection=feature_selection,
+            decoding_model_choice=decoding_model_choice,
+            sampling_rate=sampling_rate,
+            moving_trajectory=moving_trajectory,
+            random_seed=random_seed,
+        )
+
+        if results_path is None:
+            logging.info(
+                f'Mismatch between feature '\
+                f'selection and decoding model, skip.'
+            )
+            return
+        
+        for target_index in range(len(targets)):
+            fig = plt.figure(figsize=(7, 5), dpi=100)
+            ax = fig.add_subplot(1, 1, 1)
+
+            for filtering in filterings:
+                n_units_filtering = filtering['n_units_filtering']
+                p_units_filtering = filtering['p_units_filtering']
+                filtering_order = filtering['filtering_order']
+
+                if p_units_filtering:
+                    unit_chart_info = np.load(
+                        f'{results_path}/unit_chart_{targets[target_index]}_{filtering_order}_{p_units_filtering}.npy', 
+                        allow_pickle=True
+                    )
+                else:
+                    unit_chart_info = np.load(
+                        f'{results_path}/unit_chart_{targets[target_index]}_{filtering_order}_{n_units_filtering}.npy', 
+                        allow_pickle=True
+                    )
+
+                x_values = unit_chart_info[:, x_column_index]
+                y_values = unit_chart_info[:, y_column_index]
+                # NOTE(ken), for max_value_in_clusters, we need to unpack
+                # the array, but here we can't just unpack but take the max
+                # otherwise, we will have different number of x_values and y_values
+                # which will cause error in plotting. The maxing shouldnt affect
+                # columns of unit_chart_info that are single entries e.g. num_clusters|borderness
+                x_values = [np.max(x) for x in x_values]
+                y_values = [np.max(y) for y in y_values]
+
+                ax.scatter(
+                    x_values, y_values, label=filtering_order, 
+                    alpha=0.25, s=2
+                )
+
+                ax.set_xlabel(f'{x_metric}')
+                ax.set_ylabel(f'{y_metric}')
+                ax.grid()
+
+            sup_title = f"{targets[target_index]},"\
+                        f"{config['unity_env']},"\
+                        f"{config['model_name']},{feature_selection},"\
+                        f"({decoding_model_choice['hparams']}),"\
+                        f"{config['output_layer']},"\
+                        f"sr{sampling_rate},seed{random_seed}"
+            
+            figs_path = utils.load_figs_path(
+                config=config,
+                experiment=experiment,
+                reference_experiment=reference_experiment,
+                feature_selection=feature_selection,
+                decoding_model_choice=decoding_model_choice,
+                sampling_rate=sampling_rate,
+                moving_trajectory=moving_trajectory,
+                random_seed=random_seed,
+            )
+
+            plt.legend()
+            plt.suptitle(sup_title)
+
+            if p_units_filtering:
+                plt.savefig(
+                    f'{figs_path}/{x_unit_type}_{x_metric}_vs_{y_unit_type}_{y_metric}_{targets[target_index]}_{p_units_filtering}_scatter.png'
+                )
+            else:
+                plt.savefig(
+                    f'{figs_path}/{x_unit_type}_{x_metric}_vs_{y_unit_type}_{y_metric}_{targets[target_index]}_{n_units_filtering}_scatter.png'
+                )
+
+
+
 def _single_env_produce_unit_chart(
         config_version, 
         experiment,
@@ -1506,8 +1660,9 @@ if __name__ == '__main__':
         # target_func=_single_env_produce_unit_chart,                       # set experiment='unit_chart'
         # target_func=_single_env_viz_units_ranked_by_unit_chart,           # set experiment='unit_chart'
         # target_func=_single_env_viz_unit_chart,                           # set experiment='unit_chart'
-        target_func=_single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts,    # set experiment='unit_chart_by_coef'
+        # target_func=_single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts,    # set experiment='unit_chart_by_coef'
         # target_func=_single_env_viz_units_by_type_ranked_by_coef,
+        target_func=_single_env_viz_units_by_type_pairs_ranked_by_coef,
         envs=envs,
         model_names=model_names,
         experiment=experiment,
