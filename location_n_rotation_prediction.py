@@ -70,18 +70,28 @@ def _determine_moving_trajectory(
             train_sample_indices.extend(
                 [i*n_rotations + j for j in range(n_rotations)]
             )
-        
-        # now we can use the sampled indices to get the train/test data
-        X_train = model_reps[train_sample_indices, :]
-        y_train = targets_true[train_sample_indices, :]
-        X_test = np.delete(model_reps, train_sample_indices, axis=0)
-        y_test = np.delete(targets_true, train_sample_indices, axis=0)
 
-        if logging_level == 'debug':
-            # DEBUG: exploding coef at higher sampling rate
-            # save X_train to disk to `results_path` and named
-            # based on current sampling_rate
-            np.save(f'{results_path}/X_train_{sampling_rate}.npy', X_train)
+    elif moving_trajectory == 'uniform_loc_random_rot':
+        # sampled locations' rotations are randomly sampled
+        # into training.
+        np.random.seed(random_seed)
+        train_sample_indices = np.random.choice(
+            model_reps.shape[0],
+            size=int(sampling_rate * model_reps.shape[0]),
+            replace=False,
+        )
+        
+    # now we can use the sampled indices to get the train/test data
+    X_train = model_reps[train_sample_indices, :]
+    y_train = targets_true[train_sample_indices, :]
+    X_test = np.delete(model_reps, train_sample_indices, axis=0)
+    y_test = np.delete(targets_true, train_sample_indices, axis=0)
+
+    if logging_level == 'debug':
+        # DEBUG: exploding coef at higher sampling rate
+        # save X_train to disk to `results_path` and named
+        # based on current sampling_rate
+        np.save(f'{results_path}/X_train_{sampling_rate}.npy', X_train)
 
     del model_reps
     return X_train, X_test, y_train, y_test
@@ -1329,10 +1339,10 @@ if __name__ == '__main__':
     CPU_NUM_PROCESSES = 5
     envs = ['env28_r24']
     movement_modes = ['2d']
-    sampling_rates = [0.3]
+    sampling_rates = [0.1, 0.3, 0.5]
     random_seeds = [42]
     model_names = ['vgg16']
-    moving_trajectories = ['uniform']
+    moving_trajectories = ['uniform_loc_random_rot']
     decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
     experiment = 'loc_n_rot'
     reference_experiment = 'unit_chart'   # for lesioning, or 'unit_chart'
@@ -1342,10 +1352,10 @@ if __name__ == '__main__':
     target = ''
     feature_selections = [
         'l2',
-        f'l2+lesion_{metric}_{thr}_{rank}_0.1{target}',
-        f'l2+lesion_{metric}_{thr}_{rank}_0.3{target}',
-        f'l2+lesion_{metric}_{thr}_{rank}_0.5{target}',
-        f'l2+lesion_{metric}_{thr}_{rank}_0.7{target}',
+        # f'l2+lesion_{metric}_{thr}_{rank}_0.1{target}',
+        # f'l2+lesion_{metric}_{thr}_{rank}_0.3{target}',
+        # f'l2+lesion_{metric}_{thr}_{rank}_0.5{target}',
+        # f'l2+lesion_{metric}_{thr}_{rank}_0.7{target}',
     ]
     # =================================================================== #
 
@@ -1364,7 +1374,7 @@ if __name__ == '__main__':
     )
 
     cross_dimension_analysis(
-        analysis='decoding_across_lesion_ratios_n_layers',
+        analysis='decoding_across_sampling_rates_n_layers',
         envs=envs,
         movement_modes=movement_modes,
         model_names=model_names,
