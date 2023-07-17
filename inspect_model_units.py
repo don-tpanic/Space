@@ -984,6 +984,20 @@ def _single_env_viz_units_by_type_pairs_ranked_by_coef(
                     alpha=0.25, s=2
                 )
 
+                # Fit a linear regression line to the data
+                coefficients = np.polyfit(x_values, y_values, 1)
+                slope, intercept = coefficients[0], coefficients[1]
+                regression_line_x = np.array([min(x_values), max(x_values)])
+                regression_line_y = slope * regression_line_x + intercept
+
+                # Plot the regression line
+                ax.plot(
+                    regression_line_x, regression_line_y, 
+                    linestyle='--', 
+                    linewidth=2,
+                    label=f'{filtering_order} fit'
+                )
+
                 ax.set_xlabel(f'{x_metric}')
                 ax.set_ylabel(f'{y_metric}')
                 ax.grid()
