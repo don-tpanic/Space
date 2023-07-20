@@ -1,6 +1,6 @@
 import yaml
 import utils
-import data, data_v2
+import data
 
 
 def generate_config(
@@ -15,7 +15,7 @@ def generate_config(
         for n_rotations in n_rotations_list:
             for movement_mode in movement_modes:
                 for model_name in model_names:
-                    output_layers = data_v2.load_model_layers(model_name)
+                    output_layers = data.load_model_layers(model_name)
                     for output_layer in output_layers:
                         config_version = \
                             f'env{env_num}_r{n_rotations}_{movement_mode}_' \
@@ -34,8 +34,8 @@ def generate_config(
 if __name__ == "__main__":
     generate_config(
         template_config='env28_r24_2d_vgg16_fc2',
-        env_nums=['28'],
+        env_nums=['33'],
         n_rotations_list=[24],
         movement_modes=['2d'],
-        model_names=['vit_b16'],
+        model_names=['vgg16'],
     )
