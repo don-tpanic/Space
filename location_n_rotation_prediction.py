@@ -663,6 +663,7 @@ def cross_dimension_analysis(
                                     )
                         axes[i].set_xlabel('sampling rates')
                         axes[i].set_title(error_type)
+                        axes[i].grid()
                     sup_title = f'{envs[0]},{movement_mode},'\
                                 f'{model_name},{feature_selection},'\
                                 f'{decoding_model_name}({decoding_model_hparams})'
@@ -1338,7 +1339,7 @@ if __name__ == '__main__':
     # =================================================================== #
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 5
-    envs = ['env28_r24']
+    envs = ['env33_r24']
     movement_modes = ['2d']
     sampling_rates = [0.1, 0.3, 0.5]
     random_seeds = [42]
