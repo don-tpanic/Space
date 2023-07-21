@@ -1635,9 +1635,9 @@ if __name__ == '__main__':
     # ======================================== #
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 4     
-    experiment = 'unit_chart'
-    reference_experiment = None
-    envs = ['env33_r24']
+    experiment = 'unit_chart_by_coef'
+    reference_experiment = 'loc_n_rot'
+    envs = ['env35_r24']
     movement_modes = ['2d']
     sampling_rates = [0.3]
     random_seeds = [42]
@@ -1673,9 +1673,9 @@ if __name__ == '__main__':
     # multi_envs_inspect_units_CPU(
         # target_func=_single_env_produce_unit_chart,                       # set experiment='unit_chart'
         # target_func=_single_env_viz_units_ranked_by_unit_chart,           # set experiment='unit_chart'
-        target_func=_single_env_viz_unit_chart,                           # set experiment='unit_chart'
+        # target_func=_single_env_viz_unit_chart,                           # set experiment='unit_chart'
         # target_func=_single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts,    # set experiment='unit_chart_by_coef'
-        # target_func=_single_env_viz_units_by_type_ranked_by_coef,
+        target_func=_single_env_viz_units_by_type_ranked_by_coef,
         # target_func=_single_env_viz_units_by_type_pairs_ranked_by_coef,
         envs=envs,
         model_names=model_names,

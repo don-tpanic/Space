@@ -1339,7 +1339,7 @@ if __name__ == '__main__':
     # =================================================================== #
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 5
-    envs = ['env33_r24']
+    envs = ['env35_r24']
     movement_modes = ['2d']
     sampling_rates = [0.1, 0.3, 0.5]
     random_seeds = [42]
