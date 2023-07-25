@@ -1391,31 +1391,40 @@ def _single_env_viz_unit_chart(
     # the peak activation of fields of qualified units.
     #   For `% borderness`, we iterate through unit_chart_info and count
     # the borderness of qualified units (w borderness>0.5).
-    dead_units = 0
+    n_dead_units = 0
     max_num_clusters = np.max(unit_chart_info[:, 1])  # global max used for setting xaxis.
     num_clusters = np.zeros(max_num_clusters+1)
     cluster_sizes = []
     cluster_peaks = []
-    grid_cells = 0
-    border_cells = 0
+    grid_cell_indices = []
+    border_cell_indices = []
+    place_cells_indices = []
 
     for unit_index in range(unit_chart_info.shape[0]):
         if unit_chart_info[unit_index, 0] == 0:
-            dead_units += 1
+            n_dead_units += 1
         else:
             num_clusters[int(unit_chart_info[unit_index, 1])] += 1
             cluster_sizes.extend(unit_chart_info[unit_index, 2])
             cluster_peaks.extend(unit_chart_info[unit_index, 3])
+            if unit_chart_info[unit_index, 1] > 0:
+                place_cells_indices.append(unit_index)
             if unit_chart_info[unit_index, 8] > 0.37:
-                grid_cells += 1
+                grid_cell_indices.append(unit_index)
             if unit_chart_info[unit_index, 9] > 0.5:
-                border_cells += 1
+                border_cell_indices.append(unit_index)
 
     # plot
+    n_dead_units = n_dead_units
+    n_active_units = unit_chart_info.shape[0] - n_dead_units
+    n_place_cells = len(place_cells_indices)
+    n_grid_cells = len(grid_cell_indices)
+    n_border_cells = len(border_cell_indices)
+
     fig, axes = plt.subplots(
-        nrows=len(charted_info), 
+        nrows=8, 
         ncols=1, 
-        figsize=(5, 5*len(charted_info))
+        figsize=(5, 5*8)
     )
 
     # 0-each bar is % of dead/active units
@@ -1423,8 +1432,8 @@ def _single_env_viz_unit_chart(
     # plot in gray for dead units, plot in blue for active units
     axes[0].bar(
         np.arange(2),
-        [dead_units/unit_chart_info.shape[0],
-            (unit_chart_info.shape[0]-dead_units)/unit_chart_info.shape[0]],
+        [n_dead_units/unit_chart_info.shape[0],
+            (n_active_units)/unit_chart_info.shape[0]],
         color=['gray', 'blue']
     )
     axes[0].set_xticks(np.arange(2))
@@ -1437,7 +1446,7 @@ def _single_env_viz_unit_chart(
     # 1-each bar is % of a num_clusters
     axes[1].bar(
         np.arange(max_num_clusters+1),
-        num_clusters/unit_chart_info.shape[0]
+        num_clusters/n_active_units
     )
     axes[1].set_xlabel('num_clusters')
     axes[1].set_ylabel('% units')
@@ -1467,8 +1476,8 @@ def _single_env_viz_unit_chart(
     # non-grid left, grid right
     axes[4].bar(
         np.arange(2),
-        [1-grid_cells/unit_chart_info.shape[0],
-            grid_cells/unit_chart_info.shape[0]],
+        [1-n_grid_cells/n_active_units,
+            n_grid_cells/n_active_units],
         color=['grey', 'blue']
     )
     axes[4].set_xticks(np.arange(2))
@@ -1482,8 +1491,8 @@ def _single_env_viz_unit_chart(
     # non-border left, border right
     axes[5].bar(
         np.arange(2),
-        [1-border_cells/unit_chart_info.shape[0],
-            border_cells/unit_chart_info.shape[0]],
+        [1-n_border_cells/n_active_units,
+            n_border_cells/n_active_units],
         color=['grey', 'blue']
     )
     axes[5].set_xticks(np.arange(2))
@@ -1501,16 +1510,171 @@ def _single_env_viz_unit_chart(
     axes[6].set_ylabel('density')
     axes[6].set_title(f'directioness distribution')
     axes[6].grid()
-    
+
+    # 7-each bar is % of place cells
+    # non-place left, place right
+    axes[7].bar(
+        np.arange(2),
+        [1-n_place_cells/n_active_units,
+            n_place_cells/n_active_units],
+        color=['grey', 'blue']
+    )
+    axes[7].set_xticks(np.arange(2))
+    axes[7].set_xticklabels(['non-place', 'place'])
+    axes[7].set_ylabel('% units')
+    axes[7].set_title(f'% units place/non-place')
+    axes[7].set_ylim([-.05, 1.05])
+    axes[7].grid()
+
     figs_path = utils.load_figs_path(
         config=config,
         experiment=experiment,
         moving_trajectory=moving_trajectory,
     )
+
     plt.tight_layout()
     plt.savefig(
         f'{figs_path}/unit_chart.png'
     )
+    plt.close()
+
+    # TODO: improve this plot
+    # plot cell type proportions (dead, place, grid, border)
+    # and for place, grid and border cells, we plot the overlap
+    # between them as stacked bar chart (e.g. for the place cell
+    # plot, we plot the proportion of place cells that are
+    # exclusive place cells, place and grid cells, place and border cells, etc)
+    fig, ax = plt.subplots(
+        nrows=1,
+        ncols=1,
+        figsize=(5, 5)
+    )
+    # Collect the indices of units that are all three types
+    # (place + border + grid)
+    place_border_grid_cells_indices = \
+        list(set(place_cells_indices) & set(border_cell_indices) & set(grid_cell_indices))
+    
+    # Collect the indices of units that are two types (inc. three types)
+    # (place + border cells)
+    # (place + grid cells)
+    # (border + grid cells)
+    place_and_border_cells_indices = \
+        list(set(place_cells_indices) & set(border_cell_indices))
+    place_and_grid_cells_indices = \
+        list(set(place_cells_indices) & set(grid_cell_indices))
+    border_and_grid_cells_indices = \
+        list(set(border_cell_indices) & set(grid_cell_indices))
+    
+    # Collect the indices of units that are only two types
+    # (place  + border - grid),
+    # (place  + grid   - border),
+    # (border + grid   - place)
+    place_and_border_not_grid_cells_indices = \
+        list(set(place_and_border_cells_indices) - set(place_border_grid_cells_indices))
+    place_and_grid_not_border_cells_indices = \
+        list(set(place_and_grid_cells_indices) - set(place_border_grid_cells_indices))
+    border_and_grid_not_place_cells_indices = \
+        list(set(border_and_grid_cells_indices) - set(place_border_grid_cells_indices))
+    
+    # Collect the indices of units that are exclusive 
+    # place cells, 
+    # border cells, 
+    # grid cells
+    exclusive_place_cells_indices = \
+        list(set(place_cells_indices) - (set(place_and_border_cells_indices) | set(place_and_grid_cells_indices)))
+    exclusive_border_cells_indices = \
+        list(set(border_cell_indices) - (set(place_and_border_cells_indices) | set(border_and_grid_cells_indices)))
+    exclusive_grid_cells_indices = \
+        list(set(grid_cell_indices) - (set(place_and_grid_cells_indices) | set(border_and_grid_cells_indices)))
+
+    top = np.array(
+            [
+                n_dead_units/unit_chart_info.shape[0],
+                len(exclusive_place_cells_indices)/n_active_units,
+                len(exclusive_border_cells_indices)/n_active_units,
+                len(exclusive_grid_cells_indices)/n_active_units
+        ]
+    )
+    bottom = np.array([0., 0., 0., 0.])
+    ax.bar(
+        np.arange(4),
+        top,
+        bottom=bottom,
+        label='exclusive'
+    )
+
+    bottom += top
+    top = np.array(
+            [
+                0, 
+                len(place_and_border_not_grid_cells_indices)/n_active_units, # place+border-grid
+                len(place_and_border_not_grid_cells_indices)/n_active_units, # place+border-grid
+                0,                                                              
+        ]
+    )
+    ax.bar(
+        np.arange(4),
+        top,
+        bottom=bottom,
+        label='place+border-grid'
+    )
+
+    bottom += top
+    top = np.array(
+            [
+                0,
+                len(place_and_grid_not_border_cells_indices)/n_active_units, # place+grid-border
+                0,
+                len(place_and_grid_not_border_cells_indices)/n_active_units, # place+grid-border
+        ]
+    )
+    ax.bar(
+        np.arange(4),
+        top,
+        bottom=bottom,
+        label='place+grid-border'
+    )
+
+    bottom += top
+    top = np.array(
+            [
+                0,
+                0,
+                len(border_and_grid_not_place_cells_indices)/n_active_units, # border+grid-place
+                len(border_and_grid_not_place_cells_indices)/n_active_units, # border+grid-place
+        ]
+    )
+    ax.bar(
+        np.arange(4),
+        top,
+        bottom=bottom,
+        label='border+grid-place'
+    )
+
+    bottom += top
+    top = np.array(
+            [   
+                0,
+                len(place_border_grid_cells_indices)/n_active_units, # place+border+grid
+                len(place_border_grid_cells_indices)/n_active_units, # place+border+grid
+                len(place_border_grid_cells_indices)/n_active_units, # place+border+grid
+        ]
+    )
+    ax.bar(
+        np.arange(4),
+        top,
+        bottom=bottom,
+        label='place+border+grid'
+    )
+
+    ax.set_xticks(np.arange(4))
+    ax.set_xticklabels(['dead', 'place', 'border', 'grid'])
+    ax.set_ylabel('% units')
+    ax.set_title(f'% units place/border/grid')
+    ax.set_ylim([-.05, 1.05])
+    ax.grid()
+    ax.legend()
+    plt.savefig(f'{figs_path}/unit_chart_overlaps.png')
 
 
 def multi_envs_inspect_units_CPU(
@@ -1671,9 +1835,9 @@ if __name__ == '__main__':
 
     multi_envs_inspect_units_GPU(
     # multi_envs_inspect_units_CPU(
-        target_func=_single_env_produce_unit_chart,                       # set experiment='unit_chart'
+        # target_func=_single_env_produce_unit_chart,                       # set experiment='unit_chart'
         # target_func=_single_env_viz_units_ranked_by_unit_chart,           # set experiment='unit_chart'
-        # target_func=_single_env_viz_unit_chart,                           # set experiment='unit_chart'
+        target_func=_single_env_viz_unit_chart,                           # set experiment='unit_chart'
         # target_func=_single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts,    # set experiment='unit_chart_by_coef'
         # target_func=_single_env_viz_units_by_type_ranked_by_coef,
         # target_func=_single_env_viz_units_by_type_pairs_ranked_by_coef,
