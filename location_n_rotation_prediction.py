@@ -1349,9 +1349,9 @@ if __name__ == '__main__':
     decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
     experiment = 'loc_n_rot'
     reference_experiment = 'unit_chart'   #'loc_n_rot|border_dist|unit_chart'
-    metric = 'directioness'
+    metric = 'maxvalueinclusters'
     thr = '0'                            # if metric=='coef', thr='thr', else '0'
-    rank = 'random'
+    rank = 'top'
     target = ''                          # if metric=='coef', target='_loc|_rot', else ''
     feature_selections = [
         'l2',
