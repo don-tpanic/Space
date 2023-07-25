@@ -1351,7 +1351,7 @@ if __name__ == '__main__':
     reference_experiment = 'unit_chart'   #'loc_n_rot|border_dist|unit_chart'
     metric = 'directioness'
     thr = '0'                            # if metric=='coef', thr='thr', else '0'
-    rank = 'top'
+    rank = 'random'
     target = ''                          # if metric=='coef', target='_loc|_rot', else ''
     feature_selections = [
         'l2',
