@@ -567,6 +567,8 @@ def cross_dimension_analysis(
                         axes.set_xlabel('sampling rates')
                         axes.set_xticks(sampling_rates)
                         axes.set_title(error_type)
+                        axes.grid()
+
                     sup_title = f'{envs[0]},{movement_mode},'\
                                 f'{model_name},{feature_selection},'\
                                 f'{decoding_model_name}({decoding_model_hparams})'
@@ -992,17 +994,17 @@ if __name__ == '__main__':
     experiment = 'border_dist'
     envs = ['env28_r24']
     movement_modes = ['2d']
-    sampling_rates = [0.01, 0.1, 0.3, 0.5]
-    random_seeds = [42, 1234, 999]
-    model_names = ['simclrv2_r50_1x_sk0', 'resnet50', 'vgg16', 'vit_b16']
+    sampling_rates = [0.1, 0.3, 0.5]
+    random_seeds = [42]
+    model_names = ['vgg16']
     moving_trajectories = ['uniform']
     decoding_model_choices = [
         {'name': 'ridge_regression', 'hparams': 1.0},
     ]
     feature_selections = ['l2']
     # =================================================================== #
-    multi_envs_across_dimensions_CPU(
-    # multi_envs_across_dimensions_GPU(
+    # multi_envs_across_dimensions_CPU(
+    multi_envs_across_dimensions_GPU(
         target_func=_single_env_decoding_error,
         envs=envs,
         experiment=experiment,
@@ -1012,7 +1014,7 @@ if __name__ == '__main__':
         decoding_model_choices=decoding_model_choices,
         feature_selections=feature_selections,
         random_seeds=random_seeds,
-        # cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
+        cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
     )
 
     cross_dimension_analysis(
