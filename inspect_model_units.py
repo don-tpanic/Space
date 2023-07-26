@@ -1537,6 +1537,7 @@ def _single_env_viz_unit_chart(
     )
 
     plt.tight_layout()
+    plt.suptitle(f'{config["output_layer"]}')
     plt.savefig(
         f'{figs_path}/unit_chart.png'
     )
@@ -1674,7 +1675,10 @@ def _single_env_viz_unit_chart(
     ax.set_xticks(np.arange(4))
     ax.set_xticklabels(['dead', 'place', 'border', 'direction'])
     ax.set_ylabel('% units')
-    ax.set_title(f'% units place/border/direction')
+    output_layer = config['output_layer']
+    if output_layer == 'predictions':
+        output_layer = 'logits'
+    ax.set_title(f'% units place/border/direction ({output_layer})')
     ax.set_ylim([-.05, 1.05])
     ax.grid()
     ax.legend()
