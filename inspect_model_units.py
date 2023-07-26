@@ -1399,6 +1399,7 @@ def _single_env_viz_unit_chart(
     grid_cell_indices = []
     border_cell_indices = []
     place_cells_indices = []
+    direction_cell_indices = []
 
     for unit_index in range(unit_chart_info.shape[0]):
         if unit_chart_info[unit_index, 0] == 0:
@@ -1409,6 +1410,8 @@ def _single_env_viz_unit_chart(
             cluster_peaks.extend(unit_chart_info[unit_index, 3])
             if unit_chart_info[unit_index, 1] > 0:
                 place_cells_indices.append(unit_index)
+            if unit_chart_info[unit_index, 6] > 0.47:
+                direction_cell_indices.append(unit_index)
             if unit_chart_info[unit_index, 8] > 0.37:
                 grid_cell_indices.append(unit_index)
             if unit_chart_info[unit_index, 9] > 0.5:
@@ -1420,6 +1423,7 @@ def _single_env_viz_unit_chart(
     n_place_cells = len(place_cells_indices)
     n_grid_cells = len(grid_cell_indices)
     n_border_cells = len(border_cell_indices)
+    n_direction_cells = len(direction_cell_indices)
 
     fig, axes = plt.subplots(
         nrows=8, 
@@ -1539,60 +1543,60 @@ def _single_env_viz_unit_chart(
     plt.close()
 
     # TODO: improve this plot
-    # plot cell type proportions (dead, place, grid, border)
-    # and for place, grid and border cells, we plot the overlap
+    # plot cell type proportions (dead, place, direction, border)
+    # and for place, direction and border cells, we plot the overlap
     # between them as stacked bar chart (e.g. for the place cell
     # plot, we plot the proportion of place cells that are
-    # exclusive place cells, place and grid cells, place and border cells, etc)
+    # exclusive place cells, place and direction cells, place and border cells, etc)
     fig, ax = plt.subplots(
         nrows=1,
         ncols=1,
         figsize=(5, 5)
     )
     # Collect the indices of units that are all three types
-    # (place + border + grid)
-    place_border_grid_cells_indices = \
-        list(set(place_cells_indices) & set(border_cell_indices) & set(grid_cell_indices))
+    # (place + border + direction)
+    place_border_direction_cells_indices = \
+        list(set(place_cells_indices) & set(border_cell_indices) & set(direction_cell_indices))
     
     # Collect the indices of units that are two types (inc. three types)
     # (place + border cells)
-    # (place + grid cells)
-    # (border + grid cells)
+    # (place + direction cells)
+    # (border + direction cells)
     place_and_border_cells_indices = \
         list(set(place_cells_indices) & set(border_cell_indices))
-    place_and_grid_cells_indices = \
-        list(set(place_cells_indices) & set(grid_cell_indices))
-    border_and_grid_cells_indices = \
-        list(set(border_cell_indices) & set(grid_cell_indices))
+    place_and_direction_cells_indices = \
+        list(set(place_cells_indices) & set(direction_cell_indices))
+    border_and_direction_cells_indices = \
+        list(set(border_cell_indices) & set(direction_cell_indices))
     
     # Collect the indices of units that are only two types
-    # (place  + border - grid),
-    # (place  + grid   - border),
-    # (border + grid   - place)
-    place_and_border_not_grid_cells_indices = \
-        list(set(place_and_border_cells_indices) - set(place_border_grid_cells_indices))
-    place_and_grid_not_border_cells_indices = \
-        list(set(place_and_grid_cells_indices) - set(place_border_grid_cells_indices))
-    border_and_grid_not_place_cells_indices = \
-        list(set(border_and_grid_cells_indices) - set(place_border_grid_cells_indices))
+    # (place  + border - direction),
+    # (place  + direction   - border),
+    # (border + direction   - place)
+    place_and_border_not_direction_cells_indices = \
+        list(set(place_and_border_cells_indices) - set(place_border_direction_cells_indices))
+    place_and_direction_not_border_cells_indices = \
+        list(set(place_and_direction_cells_indices) - set(place_border_direction_cells_indices))
+    border_and_direction_not_place_cells_indices = \
+        list(set(border_and_direction_cells_indices) - set(place_border_direction_cells_indices))
     
     # Collect the indices of units that are exclusive 
     # place cells, 
     # border cells, 
-    # grid cells
+    # direction cells
     exclusive_place_cells_indices = \
-        list(set(place_cells_indices) - (set(place_and_border_cells_indices) | set(place_and_grid_cells_indices)))
+        list(set(place_cells_indices) - (set(place_and_border_cells_indices) | set(place_and_direction_cells_indices)))
     exclusive_border_cells_indices = \
-        list(set(border_cell_indices) - (set(place_and_border_cells_indices) | set(border_and_grid_cells_indices)))
-    exclusive_grid_cells_indices = \
-        list(set(grid_cell_indices) - (set(place_and_grid_cells_indices) | set(border_and_grid_cells_indices)))
+        list(set(border_cell_indices) - (set(place_and_border_cells_indices) | set(border_and_direction_cells_indices)))
+    exclusive_direction_cells_indices = \
+        list(set(direction_cell_indices) - (set(place_and_direction_cells_indices) | set(border_and_direction_cells_indices)))
 
     top = np.array(
             [
                 n_dead_units/unit_chart_info.shape[0],
                 len(exclusive_place_cells_indices)/n_active_units,
                 len(exclusive_border_cells_indices)/n_active_units,
-                len(exclusive_grid_cells_indices)/n_active_units
+                len(exclusive_direction_cells_indices)/n_active_units
         ]
     )
     bottom = np.array([0., 0., 0., 0.])
@@ -1607,8 +1611,8 @@ def _single_env_viz_unit_chart(
     top = np.array(
             [
                 0, 
-                len(place_and_border_not_grid_cells_indices)/n_active_units, # place+border-grid
-                len(place_and_border_not_grid_cells_indices)/n_active_units, # place+border-grid
+                len(place_and_border_not_direction_cells_indices)/n_active_units, # place+border-direction
+                len(place_and_border_not_direction_cells_indices)/n_active_units, # place+border-direction
                 0,                                                              
         ]
     )
@@ -1616,23 +1620,23 @@ def _single_env_viz_unit_chart(
         np.arange(4),
         top,
         bottom=bottom,
-        label='place+border-grid'
+        label='place+border-direction'
     )
 
     bottom += top
     top = np.array(
             [
                 0,
-                len(place_and_grid_not_border_cells_indices)/n_active_units, # place+grid-border
+                len(place_and_direction_not_border_cells_indices)/n_active_units, # place+direction-border
                 0,
-                len(place_and_grid_not_border_cells_indices)/n_active_units, # place+grid-border
+                len(place_and_direction_not_border_cells_indices)/n_active_units, # place+direction-border
         ]
     )
     ax.bar(
         np.arange(4),
         top,
         bottom=bottom,
-        label='place+grid-border'
+        label='place+direction-border'
     )
 
     bottom += top
@@ -1640,37 +1644,37 @@ def _single_env_viz_unit_chart(
             [
                 0,
                 0,
-                len(border_and_grid_not_place_cells_indices)/n_active_units, # border+grid-place
-                len(border_and_grid_not_place_cells_indices)/n_active_units, # border+grid-place
+                len(border_and_direction_not_place_cells_indices)/n_active_units, # border+direction-place
+                len(border_and_direction_not_place_cells_indices)/n_active_units, # border+direction-place
         ]
     )
     ax.bar(
         np.arange(4),
         top,
         bottom=bottom,
-        label='border+grid-place'
+        label='border+direction-place'
     )
 
     bottom += top
     top = np.array(
             [   
                 0,
-                len(place_border_grid_cells_indices)/n_active_units, # place+border+grid
-                len(place_border_grid_cells_indices)/n_active_units, # place+border+grid
-                len(place_border_grid_cells_indices)/n_active_units, # place+border+grid
+                len(place_border_direction_cells_indices)/n_active_units, # place+border+direction
+                len(place_border_direction_cells_indices)/n_active_units, # place+border+direction
+                len(place_border_direction_cells_indices)/n_active_units, # place+border+direction
         ]
     )
     ax.bar(
         np.arange(4),
         top,
         bottom=bottom,
-        label='place+border+grid'
+        label='place+border+direction'
     )
 
     ax.set_xticks(np.arange(4))
-    ax.set_xticklabels(['dead', 'place', 'border', 'grid'])
+    ax.set_xticklabels(['dead', 'place', 'border', 'direction'])
     ax.set_ylabel('% units')
-    ax.set_title(f'% units place/border/grid')
+    ax.set_title(f'% units place/border/direction')
     ax.set_ylim([-.05, 1.05])
     ax.grid()
     ax.legend()
