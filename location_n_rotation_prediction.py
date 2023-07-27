@@ -1328,6 +1328,74 @@ def cross_dimension_analysis(
                 plt.close()
                 logging.info(f'[Saved] {figs_path}/decoding_across_lesion_ratios_n_layers_{lesion_setting}.png')
 
+    elif analysis == 'coef_correlations_across_layers':
+        env = envs[0]
+        moving_trajectory = moving_trajectories[0]
+        movement_mode = movement_modes[0]
+        random_seed = random_seeds[0]
+        sampling_rate = sampling_rates[0]
+
+        for model_name in model_names:
+            output_layers = data.load_model_layers(model_name)
+
+            for decoding_model_choice in decoding_model_choices:
+                decoding_model_name = decoding_model_choice['name']
+                decoding_model_hparams = decoding_model_choice['hparams']
+
+                # Ad hoc, will change if plot more models.
+                # But good for sanity check now.
+                fig, axes = plt.subplots(1, 1, figsize=(10, 5))
+
+                for output_layer in output_layers:
+
+                    for feature_selection in feature_selections:
+
+                        results_path = \
+                            f'results/{env}/{movement_mode}/{moving_trajectory}/'\
+                            f'{model_name}/{experiment}/{feature_selection}/'\
+                            f'{decoding_model_name}_{decoding_model_hparams}/'\
+                            f'{output_layer}/sr{sampling_rate}/seed{random_seed}'
+                        
+                        coef = np.load(f'{results_path}/res.npy', allow_pickle=True).item()['coef']
+                        coef = np.abs(coef)
+                        coef_loc = np.mean(coef[:2, :], axis=0)
+                        coef_rot = coef[2, :]
+                        coef = np.vstack((coef_loc, coef_rot))
+                        logging.info(f'coef_loc.shape: {coef_loc.shape}')
+                        logging.info(f'coef_rot.shape: {coef_rot.shape}')
+                        logging.info(f'coef.shape: {coef.shape}')
+                        spearmanr, p = stats.spearmanr(coef_loc, coef_rot)
+                        print(
+                            coef_loc[:5]
+                        )  # different seeds' coef_loc are NOT the same
+                
+                    # plot one layer at a time
+                    # x-axis layer, y-axis correlation, label=f'{output_layer}_p={p:.1f}'
+                    axes.scatter(
+                        output_layers.index(output_layer),
+                        spearmanr,
+                        label=f'{output_layer},p={p:.1f}',
+                        color=data.load_envs_dict(model_name, envs)[
+                            f'{envs[0]}_{movement_mode}_{model_name}_{output_layer}']['color']
+                    )
+                    axes.set_xlabel('layers')
+                    axes.set_xticks(range(len(output_layers)))
+                    axes.set_xticklabels(output_layers)
+                    axes.set_ylabel('correlation')
+                    axes.set_title(f'{envs[0]},{movement_mode},{model_name}')
+                    axes.legend()
+                    axes.grid()
+                    plt.tight_layout()
+
+                figs_path = \
+                    f'figs/{env}/{movement_mode}/{moving_trajectory}/'\
+                    f'{model_name}/{experiment}/{feature_selection}/'\
+                    f'{decoding_model_name}_{decoding_model_hparams}/'\
+                    f''
+                if not os.path.exists(figs_path):
+                    os.makedirs(figs_path)
+                plt.savefig(f'{figs_path}/coef_correlations_across_layers_seed{random_seed}_sr{sampling_rate}.png')
+
 
 if __name__ == '__main__':
     start_time = time.time()
@@ -1355,10 +1423,10 @@ if __name__ == '__main__':
     target = ''                          # if metric=='coef', target='_loc|_rot', else ''
     feature_selections = [
         'l2',
-        f'l2+lesion_{metric}_{thr}_{rank}_0.1{target}',
-        f'l2+lesion_{metric}_{thr}_{rank}_0.3{target}',
-        f'l2+lesion_{metric}_{thr}_{rank}_0.5{target}',
-        f'l2+lesion_{metric}_{thr}_{rank}_0.7{target}',
+        # f'l2+lesion_{metric}_{thr}_{rank}_0.1{target}',
+        # f'l2+lesion_{metric}_{thr}_{rank}_0.3{target}',
+        # f'l2+lesion_{metric}_{thr}_{rank}_0.5{target}',
+        # f'l2+lesion_{metric}_{thr}_{rank}_0.7{target}',
     ]
     # =================================================================== #
 
@@ -1378,7 +1446,8 @@ if __name__ == '__main__':
 
     cross_dimension_analysis(
         # analysis='decoding_across_sampling_rates_n_layers',
-        analysis='decoding_across_lesion_ratios_n_layers',
+        # analysis='decoding_across_lesion_ratios_n_layers',
+        analysis='coef_correlations_across_layers',
         envs=envs,
         movement_modes=movement_modes,
         model_names=model_names,
