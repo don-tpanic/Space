@@ -1384,8 +1384,8 @@ def cross_dimension_analysis(
                     axes.set_ylabel('correlation')
                     axes.set_title(f'{envs[0]},{movement_mode},{model_name}')
                     axes.legend()
-                    axes.grid()
-                    plt.tight_layout()
+                plt.grid()
+                plt.tight_layout()
 
                 figs_path = \
                     f'figs/{env}/{movement_mode}/{moving_trajectory}/'\
@@ -1411,7 +1411,7 @@ if __name__ == '__main__':
     envs = ['env28_r24']
     movement_modes = ['2d']
     sampling_rates = [0.3]
-    random_seeds = [42]
+    random_seeds = [1234]
     model_names = ['vgg16']
     moving_trajectories = ['uniform']
     decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
