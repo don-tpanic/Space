@@ -1408,10 +1408,10 @@ if __name__ == '__main__':
     # =================================================================== #
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 5
-    envs = ['env28_r24']
+    envs = ['env36_r24']
     movement_modes = ['2d']
-    sampling_rates = [0.3]
-    random_seeds = [1234]
+    sampling_rates = [0.1, 0.3, 0.5]
+    random_seeds = [42]
     model_names = ['vgg16']
     moving_trajectories = ['uniform']
     decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
@@ -1445,9 +1445,9 @@ if __name__ == '__main__':
     )
 
     cross_dimension_analysis(
-        # analysis='decoding_across_sampling_rates_n_layers',
+        analysis='decoding_across_sampling_rates_n_layers',
         # analysis='decoding_across_lesion_ratios_n_layers',
-        analysis='coef_correlations_across_layers',
+        # analysis='coef_correlations_across_layers',
         envs=envs,
         movement_modes=movement_modes,
         model_names=model_names,
