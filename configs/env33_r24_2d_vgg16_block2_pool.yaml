@@ -1,7 +1,7 @@
 config_version: env33_r24_2d_vgg16_block2_pool
 unity_env: env33_r24
 model_name: vgg16
-output_layer: block4_pool
+output_layer: block2_pool
 movement_mode: 2d
 n_rotations: 24
 env_x_min: -4
