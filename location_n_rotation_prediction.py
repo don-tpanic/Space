@@ -1408,7 +1408,7 @@ if __name__ == '__main__':
     # =================================================================== #
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 5
-    envs = ['env36_r24']
+    envs = ['env35_r24']
     movement_modes = ['2d']
     sampling_rates = [0.1, 0.3, 0.5]
     random_seeds = [42]
@@ -1430,8 +1430,8 @@ if __name__ == '__main__':
     ]
     # =================================================================== #
 
-    # multi_envs_across_dimensions_CPU(
-    multi_envs_across_dimensions_GPU(
+    multi_envs_across_dimensions_CPU(
+    # multi_envs_across_dimensions_GPU(
         target_func=_single_env_decoding_error,
         envs=envs,
         experiment=experiment,
@@ -1441,7 +1441,7 @@ if __name__ == '__main__':
         decoding_model_choices=decoding_model_choices,
         feature_selections=feature_selections,
         random_seeds=random_seeds,
-        cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
+        # cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
     )
 
     cross_dimension_analysis(
