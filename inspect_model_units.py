@@ -1806,10 +1806,10 @@ if __name__ == '__main__':
 
     # ======================================== #
     TF_NUM_INTRAOP_THREADS = 10
-    CPU_NUM_PROCESSES = 4     
+    CPU_NUM_PROCESSES = 5     
     experiment = 'unit_chart'
     reference_experiment = None
-    envs = ['env28_r24']
+    envs = ['env36_r24']
     movement_modes = ['2d']
     sampling_rates = [0.3]
     random_seeds = [42]
@@ -1860,7 +1860,7 @@ if __name__ == '__main__':
         random_seeds=random_seeds,
         sorted_by=sorted_by,
         filterings=filterings,
-        cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
+        cuda_id_list=[0,1,2,3,4,5,6,7],
     )
 
     # print time elapsed
