@@ -34,7 +34,7 @@ def generate_config(
 if __name__ == "__main__":
     generate_config(
         template_config='env28_r24_2d_vgg16_fc2',
-        env_nums=['36'],
+        env_nums=['35'],
         n_rotations_list=[24],
         movement_modes=['2d'],
         model_names=['vgg16'],
