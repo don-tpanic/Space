@@ -1073,6 +1073,7 @@ def _single_env_produce_unit_chart(
     os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
     config = utils.load_config(config_version)
+    logging.info(f'[Begin run] config: {config}')
     movement_mode=config['movement_mode']
     env_x_min=config['env_x_min']
     env_x_max=config['env_x_max']
@@ -1809,11 +1810,11 @@ if __name__ == '__main__':
     CPU_NUM_PROCESSES = 5     
     experiment = 'unit_chart'
     reference_experiment = None
-    envs = ['env36_r24']
+    envs = ['env28_r24']
     movement_modes = ['2d']
     sampling_rates = [0.3]
     random_seeds = [42]
-    model_names = ['vgg16']
+    model_names = ['resnet50']
     moving_trajectories = ['uniform']
     decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
     feature_selections = ['l2']
@@ -1841,8 +1842,8 @@ if __name__ == '__main__':
     # NOTE: 2b requires 2a
     # NOTE: 3, 4 less interesting than 2b which compares unit chart info againt coef.
 
-    multi_envs_inspect_units_GPU(
-    # multi_envs_inspect_units_CPU(
+    # multi_envs_inspect_units_GPU(
+    multi_envs_inspect_units_CPU(
         # target_func=_single_env_produce_unit_chart,                       # set experiment='unit_chart'
         # target_func=_single_env_viz_units_ranked_by_unit_chart,           # set experiment='unit_chart'
         target_func=_single_env_viz_unit_chart,                           # set experiment='unit_chart'
@@ -1860,7 +1861,7 @@ if __name__ == '__main__':
         random_seeds=random_seeds,
         sorted_by=sorted_by,
         filterings=filterings,
-        cuda_id_list=[0,1,2,3,4,5,6,7],
+        # cuda_id_list=[0,1,2,3,4,5,6,7],
     )
 
     # print time elapsed

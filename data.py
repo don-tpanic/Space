@@ -264,8 +264,8 @@ def load_model_layers(model_name):
             [
                 'final_avg_pool',
                 'block_group4',
-                # 'block_group2',
-                # 'block_group1'
+                'block_group2',
+                'block_group1'
             ],
         'vgg16':
             [   
@@ -273,21 +273,21 @@ def load_model_layers(model_name):
                 'fc2',
                 'block5_pool',
                 'block4_pool',
-                # 'block2_pool',
+                'block2_pool',
             ],
         'resnet50':
             [
                 'avg_pool',
                 'conv5_block2_out',
-                # 'conv4_block6_out',
-                # 'conv2_block3_out',
+                'conv4_block6_out',
+                'conv2_block3_out',
             ],
         'vit_b16':
             [   
                 'layer_12',
                 'layer_9',
-                # 'layer_6',
-                # 'layer_3',
+                'layer_6',
+                'layer_3',
             ],
     }
     return models_and_layers[model_name]
