@@ -28,11 +28,28 @@ def load_model(model_name, output_layer=None, input_shape=(224, 224, 3)):
                     "google/vit-base-patch16-224-in21k",
                     cache_dir='model_zoo/vit_b16'
                 )
+            elif model_name == 'vit_b16_untrained':
+                from transformers import AutoImageProcessor, ViTConfig, TFViTModel                        
+                config = ViTConfig()
+                model = TFViTModel(config)
+                preprocess_func = AutoImageProcessor.from_pretrained(
+                    "google/vit-base-patch16-224-in21k",
+                    cache_dir='model_zoo/vit_b16'
+                )
 
         else:
             if model_name == 'vgg16':
                 model = tf.keras.applications.VGG16(
                     weights='imagenet', 
+                    include_top=True, 
+                    input_shape=input_shape,
+                    classifier_activation=None
+                )
+                preprocess_func = tf.keras.applications.vgg16.preprocess_input
+
+            elif model_name == 'vgg16_untrained':
+                model = tf.keras.applications.VGG16(
+                    weights=None, 
                     include_top=True, 
                     input_shape=input_shape,
                     classifier_activation=None
@@ -74,4 +91,4 @@ def _build_simclr(model_path, output_layer):
 
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-    model, preprocess_func = load_model(model_name='vgg16', output_layer='predictions')
+    model, preprocess_func = load_model(model_name='vit_b16')
