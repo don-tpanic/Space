@@ -1412,7 +1412,7 @@ if __name__ == '__main__':
     movement_modes = ['2d']
     sampling_rates = [0.1, 0.3, 0.5]
     random_seeds = [42]
-    model_names = ['resnet50']
+    model_names = ['vit_b16_untrained']
     moving_trajectories = ['uniform']
     decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
     experiment = 'loc_n_rot'
