@@ -223,7 +223,7 @@ def load_full_dataset_model_reps(
     # use model output
     else:
         if 'vit' in config['model_name']:
-            if config['model_name'] == 'vit_b16':
+            if config['model_name'] in ['vit_b16', 'vit_b16_untrained']:
                 # 'layer_x'[6:] = 'x'
                 layer_index = int(config['output_layer'][6:])
                 model_reps = model(
@@ -275,6 +275,14 @@ def load_model_layers(model_name):
                 'block4_pool',
                 'block2_pool',
             ],
+        'vgg16_untrained':
+            [
+                'predictions',
+                'fc2',
+                'block5_pool',
+                'block4_pool',
+                'block2_pool',
+            ],
         'resnet50':
             [
                 'avg_pool',
@@ -284,6 +292,13 @@ def load_model_layers(model_name):
             ],
         'vit_b16':
             [   
+                'layer_12',
+                'layer_9',
+                'layer_6',
+                'layer_3',
+            ],
+        'vit_b16_untrained':
+            [
                 'layer_12',
                 'layer_9',
                 'layer_6',
