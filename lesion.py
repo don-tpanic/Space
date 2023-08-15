@@ -186,8 +186,9 @@ def lesion(
                 logging.info(f'coef_rot.shape: {coef_rot.shape}')
                 logging.info(f'coef.shape: {coef.shape}')
             else:
-                targets = ['border_dist']
-                raise NotImplementedError
+                targets = ['borderdist']
+                coef = coef  # recall border is the only target
+                logging.info(f'coef.shape: {coef.shape}')
             
             # ================================
             # apply feature selection criteria
@@ -207,6 +208,10 @@ def lesion(
                 coef = coef[0, :]
             elif target == 'rot':
                 coef = coef[1, :]
+            elif target == 'borderdist':
+                coef = coef[0, :]  # for completeness
+            else:
+                raise ValueError(f'Unknown target: {target}')
 
             units_to_lesion_scores = coef
             units_to_lesion_indices = np.arange(len(coef))
