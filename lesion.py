@@ -214,30 +214,56 @@ def lesion(
                 f'units_to_lesion_scores.shape: {units_to_lesion_scores.shape}, '\
                 f'units_to_lesion_indices.shape: {units_to_lesion_indices.shape}'
             )
-                        
+
+            # (1-Aug-2023) only lesion active units.
+            # load unit chart info
+            unit_chart_results_path = utils.load_results_path(
+                config=config,
+                experiment="unit_chart",
+                moving_trajectory=moving_trajectory,
+            )
+            unit_chart_info = np.load(
+                f'{unit_chart_results_path}/unit_chart.npy', allow_pickle=True)
+            logging.info(f'unit_chart_info.shape: {unit_chart_info.shape}')
+
+            # iterate through all units and record active units
+            active_units_to_lesion_indices = []
+            active_units_to_lesion_scores = []
+            for unit_index in range(unit_chart_info.shape[0]):
+                # collect active units only
+                if unit_chart_info[unit_index, 0] == np.array([1]):
+                    active_units_to_lesion_indices.append(unit_index)
+                    active_units_to_lesion_scores.append(units_to_lesion_scores[unit_index])
+
+            active_units_to_lesion_indices = np.array(active_units_to_lesion_indices)
+            active_units_to_lesion_scores = np.array(active_units_to_lesion_scores)
+            logging.info(
+                f'[Check] num active units: {len(active_units_to_lesion_indices)}'
+            )
+
             # lesion the top ratio% of units
             if rank == 'top':
                 # sort from high to slow
-                units_to_lesion_indices = units_to_lesion_indices[np.argsort(units_to_lesion_scores)][::-1]
-                num_units_to_lesion = int(len(units_to_lesion_indices) * ratio)
-                units_to_lesion_indices = units_to_lesion_indices[:num_units_to_lesion]
+                active_units_to_lesion_indices = active_units_to_lesion_indices[np.argsort(active_units_to_lesion_scores)][::-1]
+                num_units_to_lesion = int(len(active_units_to_lesion_indices) * ratio)
+                active_units_to_lesion_indices = active_units_to_lesion_indices[:num_units_to_lesion]
             elif rank == 'random':
                 # randomly select ratio% of units
-                num_units_to_lesion = int(len(units_to_lesion_indices) * ratio)
+                num_units_to_lesion = int(len(active_units_to_lesion_indices) * ratio)
                 np.random.seed(random_seed)
-                units_to_lesion_indices = np.random.choice(
-                    units_to_lesion_indices, 
+                active_units_to_lesion_indices = np.random.choice(
+                    active_units_to_lesion_indices, 
                     num_units_to_lesion, 
                     replace=False
                 )
 
-    # lesion based on `units_to_lesion_indices`
+    # lesion based on `active_units_to_lesion_indices`
     # keep the rest columns
-    lesioned_model_reps = np.delete(model_reps, units_to_lesion_indices, axis=1)
+    lesioned_model_reps = np.delete(model_reps, active_units_to_lesion_indices, axis=1)
     logging.info(
-        f'lesioned_model_reps.shape: {lesioned_model_reps.shape}'
+        f'[Check] lesioned_model_reps.shape: {lesioned_model_reps.shape}'
     )
     logging.info(
-        f'lesioned {(1-lesioned_model_reps.shape[1]/model_reps.shape[1])*100:.3f}% of units'
+        f'[Check] lesioned {(1-lesioned_model_reps.shape[1]/model_reps.shape[1])*100:.3f}% of units'
     )
     return lesioned_model_reps
