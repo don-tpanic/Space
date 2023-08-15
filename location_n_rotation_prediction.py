@@ -310,6 +310,8 @@ def _single_env_decoding_error(
         feature_selection,
         decoding_model_choice,
         random_seed,
+        override_results=False,
+        fresh_start=True
     ):
     os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
@@ -350,9 +352,21 @@ def _single_env_decoding_error(
     # check if this base-case result exists, 
     # if so skip
     if os.path.exists(f'{results_path}/res.npy'):
-        # logging.info('[Check] base-case exists, skipping')
-        return
-    else:
+        if override_results:
+            fresh_start = True
+            logging.info(
+                f'[Override] {config_version}, {sampling_rate},'\
+                f'{feature_selection}, {decoding_model_choice}, {random_seed}'
+            )
+        else:
+            fresh_start = False
+            logging.info(
+                f'[Skip] {config_version}, {sampling_rate},'\
+                f'{feature_selection}, {decoding_model_choice}, {random_seed}'
+            )
+            return
+        
+    if fresh_start:
         logging.info(
             f'[Begin job] {config_version}, {sampling_rate},'\
             f'{feature_selection}, {decoding_model_choice}, {random_seed}'
@@ -441,6 +455,7 @@ def multi_envs_across_dimensions_CPU(
         feature_selections,
         decoding_model_choices,
         random_seeds,
+        override_results,
     ):
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     with multiprocessing.Pool(processes=CPU_NUM_PROCESSES) as pool:
@@ -463,6 +478,7 @@ def multi_envs_across_dimensions_CPU(
                                             feature_selection,
                                             decoding_model_choice,
                                             random_seed,
+                                            override_results,
                                         )
                                     )
         logging.info(res.get())
@@ -480,6 +496,7 @@ def multi_envs_across_dimensions_GPU(
         decoding_model_choices,
         feature_selections,
         random_seeds,
+        override_results=False,
         cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
     ):
     for model_name in model_names:
@@ -500,6 +517,7 @@ def multi_envs_across_dimensions_GPU(
                                 single_entry['feature_selection'] = feature_selection
                                 single_entry['decoding_model_choice'] = decoding_model_choice
                                 single_entry['random_seed'] = random_seed
+                                single_entry['override_results'] = override_results
                                 args_list.append(single_entry)
 
     logging.info(f'args_list = {args_list}')
@@ -1410,24 +1428,25 @@ if __name__ == '__main__':
     CPU_NUM_PROCESSES = 5
     envs = ['env28_r24']
     movement_modes = ['2d']
-    sampling_rates = [0.1, 0.3, 0.5]
+    sampling_rates = [0.3]
     random_seeds = [42]
-    model_names = ['vit_b16_untrained']
+    model_names = ['vgg16']
     moving_trajectories = ['uniform']
     decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
     experiment = 'loc_n_rot'
-    reference_experiment = 'unit_chart'   #'loc_n_rot|border_dist|unit_chart'
-    metric = 'maxvalueinclusters'
-    thr = '0'                            # if metric=='coef', thr='thr', else '0'
-    rank = 'top'
-    target = ''                          # if metric=='coef', target='_loc|_rot', else ''
+    reference_experiment = 'loc_n_rot'   #'loc_n_rot|border_dist|unit_chart'
+    metric = 'coef'
+    thr = 'thr'                            # if metric=='coef', thr='thr', else '0'
+    rank = 'random'                         # 'top|random'
+    target = '_loc'                          # if metric=='coef', target='_loc|_rot', else ''
     feature_selections = [
-        'l2',
-        # f'l2+lesion_{metric}_{thr}_{rank}_0.1{target}',
-        # f'l2+lesion_{metric}_{thr}_{rank}_0.3{target}',
-        # f'l2+lesion_{metric}_{thr}_{rank}_0.5{target}',
-        # f'l2+lesion_{metric}_{thr}_{rank}_0.7{target}',
+        # 'l2',
+        f'l2+lesion_{metric}_{thr}_{rank}_0.1{target}',
+        f'l2+lesion_{metric}_{thr}_{rank}_0.3{target}',
+        f'l2+lesion_{metric}_{thr}_{rank}_0.5{target}',
+        f'l2+lesion_{metric}_{thr}_{rank}_0.7{target}',
     ]
+    override_results = True  # whether to override `res.npy`
     # =================================================================== #
 
     multi_envs_across_dimensions_CPU(
@@ -1441,12 +1460,13 @@ if __name__ == '__main__':
         decoding_model_choices=decoding_model_choices,
         feature_selections=feature_selections,
         random_seeds=random_seeds,
+        override_results=override_results,
         # cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
     )
 
     cross_dimension_analysis(
-        analysis='decoding_across_sampling_rates_n_layers',
-        # analysis='decoding_across_lesion_ratios_n_layers',
+        # analysis='decoding_across_sampling_rates_n_layers',
+        analysis='decoding_across_lesion_ratios_n_layers',
         # analysis='coef_correlations_across_layers',
         envs=envs,
         movement_modes=movement_modes,
