@@ -1456,8 +1456,8 @@ if __name__ == '__main__':
     reference_experiment = 'loc_n_rot'   #'loc_n_rot|border_dist|unit_chart'
     metric = 'coef'
     thr = 'thr'                            # if metric=='coef', thr='thr', else '0'
-    rank = 'top'                         # 'top|random'
-    target = '_loc'                          # if metric=='coef', target='_loc|_rot', else ''
+    rank = 'random'                         # 'top|random'
+    target = '_rot'                          # if metric=='coef', target='_loc|_rot', else ''
     feature_selections = [
         'l2',
         f'l2+lesion_{metric}_{thr}_{rank}_0.1{target}',
