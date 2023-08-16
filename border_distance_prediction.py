@@ -598,10 +598,10 @@ def cross_dimension_analysis(
                                     results_collector[error_type][output_layer][metric].append(avg_res)
                     
                     # plot collected results.
-                    # left subplot for loc error, right subplot for rot error.
+                    # produce one plot 
                     # x-axis is sampling rate, y-axis is decoding error.
-                    fig, axes = plt.subplots(1, len(error_types), figsize=(10, 5))
                     for i, error_type in enumerate(error_types):
+                        fig, axes = plt.subplots(1, 1, figsize=(5, 5))
                         for output_layer in output_layers:
                             for metric in tracked_metrics:
                                 # when metric is about confidence interval, 
@@ -615,7 +615,7 @@ def cross_dimension_analysis(
                                         sampling_rates,
                                         ci_low,
                                         ci_high,
-                                        alpha=0.2,
+                                        alpha=0.3,
                                         color='grey',
                                     )
                                 else:
@@ -624,7 +624,10 @@ def cross_dimension_analysis(
                                         # we only going to label baseline when we plot
                                         # the last layer.
                                         if output_layer == output_layers[-1]:
-                                            label = metric
+                                            if 'mid' in metric:
+                                                label = 'baseline: center'
+                                            else:
+                                                label = 'baseline: random'
                                         else:
                                             label = None  
                                         if 'mid' in metric: 
@@ -646,27 +649,31 @@ def cross_dimension_analysis(
                                         results_collector[error_type][output_layer][metric],
                                         label=label,
                                         color=color,
+                                        marker='o',
                                     )
-                        axes.set_xlabel('sampling rates')
+                        axes.set_xlabel('Sampling rate')
+                        axes.set_ylabel('Decoding error')
                         axes.set_xticks(sampling_rates)
-                        axes.set_title(error_type)
-                        axes.grid()
-
-                    sup_title = f'{envs[0]},{movement_mode},'\
-                                f'{model_name},{feature_selection},'\
-                                f'{decoding_model_name}({decoding_model_hparams})'
-                    # for across layers and sampling rates, 
-                    # we save the plot at the same level as layers.
-                    figs_path = f'figs/{env}/{movement_mode}/{moving_trajectory}/'\
-                                    f'{model_name}/{experiment}/{feature_selection}/'\
-                                    f'{decoding_model_name}_{decoding_model_hparams}'
-                    if not os.path.exists(figs_path):
-                        os.makedirs(figs_path)
-                    plt.legend()
-                    plt.suptitle(sup_title)
-                    plt.savefig(f'{figs_path}/decoding_across_sampling_rates_n_layers.png')
-                    plt.close()
-                    logging.info(f'[Saved] {figs_path}/decoding_across_sampling_rates_n_layers.png')
+                        axes.set_xticklabels(sampling_rates)
+                        if error_type == 'dist':  title = 'Distance to Nearest Border Decoding'
+                        axes.set_title(title)
+                        axes.spines.right.set_visible(False)
+                        axes.spines.top.set_visible(False)
+                        # sup_title = f'{envs[0]},{movement_mode},'\
+                        #             f'{model_name},{feature_selection},'\
+                        #             f'{decoding_model_name}({decoding_model_hparams})'
+                        # for across layers and sampling rates, 
+                        # we save the plot at the same level as layers.
+                        figs_path = f'figs/{env}/{movement_mode}/{moving_trajectory}/'\
+                                        f'{model_name}/{experiment}/{feature_selection}/'\
+                                        f'{decoding_model_name}_{decoding_model_hparams}'
+                        if not os.path.exists(figs_path):
+                            os.makedirs(figs_path)
+                        plt.legend(loc='upper right')
+                        # plt.suptitle(sup_title)
+                        plt.savefig(f'{figs_path}/decoding_across_sampling_rates_n_layers_{error_type}.png')
+                        plt.close()
+                        logging.info(f'[Saved] {figs_path}/decoding_across_sampling_rates_n_layers_{error_type}.png')
 
     elif analysis == 'decoding_across_sampling_rates_n_layers_per_seed':
 
@@ -1248,10 +1255,10 @@ def cross_dimension_analysis(
                                 results_collector[error_type][output_layer][metric].append(avg_res)
                 
                 # plot collected results.
-                # left subplot for loc error, right subplot for rot error.
+                # produce a plot for each error type.
                 # x-axis is lesion ratio, y-axis is decoding error.
-                fig, axes = plt.subplots(1, len(error_types), figsize=(10, 5))
                 for i, error_type in enumerate(error_types):
+                    fig, axes = plt.subplots(1, 1, figsize=(5, 5))
                     for output_layer in output_layers:
                         for metric in tracked_metrics:
                             # when metric is about confidence interval, 
@@ -1265,7 +1272,7 @@ def cross_dimension_analysis(
                                     lesion_ratios,
                                     ci_low,
                                     ci_high,
-                                    alpha=0.2,
+                                    alpha=0.3,
                                     color='grey',
                                 )
                             else:
@@ -1274,7 +1281,10 @@ def cross_dimension_analysis(
                                     # we only going to label baseline when we plot
                                     # the last layer.
                                     if output_layer == output_layers[-1]:
-                                        label = metric
+                                        if 'mid' in metric:
+                                            label = 'baseline: center'
+                                        else:
+                                            label = 'baseline: random'
                                     else:
                                         label = None  
                                     if 'mid' in metric: 
@@ -1296,25 +1306,30 @@ def cross_dimension_analysis(
                                     results_collector[error_type][output_layer][metric],
                                     label=label,
                                     color=color,
+                                    marker='o',
                                 )
-                    axes.set_xlabel('lesion ratios')
+                    axes.set_xlabel('Lesion ratio')
+                    axes.set_ylabel('Decoding error')
                     axes.set_xticks(lesion_ratios)
-                    axes.set_title(error_type)
-                    axes.grid()
-                sup_title = f'{[lesion_setting]}, {envs[0]},{movement_mode},'\
-                            f'{model_name},'\
-                            f'{decoding_model_name}({decoding_model_hparams})'
-                # for across layers and feature selections (lesion only), 
-                # we save the plot at the same level as layers.
-                figs_path = f'figs/{env}/{movement_mode}/{moving_trajectory}/'\
-                                f'{model_name}/{experiment}'
-                if not os.path.exists(figs_path):
-                    os.makedirs(figs_path)
-                plt.legend()
-                plt.suptitle(sup_title)
-                plt.savefig(f'{figs_path}/decoding_across_lesion_ratios_n_layers_{lesion_setting}.png')
-                plt.close()
-                logging.info(f'[Saved] {figs_path}/decoding_across_lesion_ratios_n_layers_{lesion_setting}.png')
+                    axes.set_xticklabels(lesion_ratios)
+                    if error_type == 'dist': title = 'Distance to Nearest Border Decoding'
+                    axes.set_title(title)
+                    axes.spines.right.set_visible(False)
+                    axes.spines.top.set_visible(False)
+                    # sup_title = f'{[lesion_setting]}, {envs[0]},{movement_mode},'\
+                    #             f'{model_name},'\
+                    #             f'{decoding_model_name}({decoding_model_hparams})'
+                    # for across layers and feature selections (lesion only), 
+                    # we save the plot at the same level as layers.
+                    figs_path = f'figs/{env}/{movement_mode}/{moving_trajectory}/'\
+                                    f'{model_name}/{experiment}'
+                    if not os.path.exists(figs_path):
+                        os.makedirs(figs_path)
+                    plt.legend()
+                    # plt.suptitle(sup_title)
+                    plt.savefig(f'{figs_path}/decoding_across_lesion_ratios_n_layers_{lesion_setting}_{error_type}.png')
+                    plt.close()
+                    logging.info(f'[Saved] {figs_path}/decoding_across_lesion_ratios_n_layers_{lesion_setting}_{error_type}.png')
 
 
 if __name__ == '__main__':
@@ -1342,7 +1357,7 @@ if __name__ == '__main__':
     rank = 'random'                         # 'top|random'
     target = '_borderdist'              # if metric=='coef', target='_loc|_rot|_border_dist', else ''
     feature_selections = [
-        # 'l2',
+        'l2',
         f'l2+lesion_{metric}_{thr}_{rank}_0.1{target}',
         f'l2+lesion_{metric}_{thr}_{rank}_0.3{target}',
         f'l2+lesion_{metric}_{thr}_{rank}_0.5{target}',
