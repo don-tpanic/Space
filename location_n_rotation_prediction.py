@@ -630,10 +630,10 @@ def cross_dimension_analysis(
                                     results_collector[error_type][output_layer][metric].append(avg_res)
                     
                     # plot collected results.
-                    # left subplot for loc error, right subplot for rot error.
+                    # produce two plots, one for loc and one for rot.
                     # x-axis is sampling rate, y-axis is decoding error.
-                    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
                     for i, error_type in enumerate(error_types):
+                        fig, axes = plt.subplots(1, 1, figsize=(5, 5))
                         for output_layer in output_layers:
                             for metric in tracked_metrics:
                                 # when metric is about confidence interval, 
@@ -643,11 +643,11 @@ def cross_dimension_analysis(
                                         results_collector[error_type][output_layer][metric])[:, 0]
                                     ci_high = np.array(
                                         results_collector[error_type][output_layer][metric])[:, 1]
-                                    axes[i].fill_between(
+                                    axes.fill_between(
                                         sampling_rates,
                                         ci_low,
                                         ci_high,
-                                        alpha=0.2,
+                                        alpha=0.3,
                                         color='grey',
                                     )
                                 else:
@@ -656,7 +656,10 @@ def cross_dimension_analysis(
                                         # we only going to label baseline when we plot
                                         # the last layer.
                                         if output_layer == output_layers[-1]:
-                                            label = metric
+                                            if 'mid' in metric:
+                                                label = 'baseline: center'
+                                            else:
+                                                label = 'baseline: random'
                                         else:
                                             label = None  
                                         if 'mid' in metric: 
@@ -673,30 +676,37 @@ def cross_dimension_analysis(
                                     
                                     # either baseline or non-baseline layer performance,
                                     # we always plot them.
-                                    axes[i].plot(
+                                    axes.plot(
                                         sampling_rates,
                                         results_collector[error_type][output_layer][metric],
                                         label=label,
                                         color=color,
+                                        marker='o',
                                     )
-                        axes[i].set_xlabel('sampling rates')
-                        axes[i].set_title(error_type)
-                        axes[i].grid()
-                    sup_title = f'{envs[0]},{movement_mode},'\
-                                f'{model_name},{feature_selection},'\
-                                f'{decoding_model_name}({decoding_model_hparams})'
-                    # for across layers and sampling rates, 
-                    # we save the plot at the same level as layers.
-                    figs_path = f'figs/{env}/{movement_mode}/{moving_trajectory}/'\
-                                    f'{model_name}/{experiment}/{feature_selection}/'\
-                                    f'{decoding_model_name}_{decoding_model_hparams}'
-                    if not os.path.exists(figs_path):
-                        os.makedirs(figs_path)
-                    plt.legend()
-                    plt.suptitle(sup_title)
-                    plt.savefig(f'{figs_path}/decoding_across_sampling_rates_n_layers.png')
-                    plt.close()
-                    logging.info(f'[Saved] {figs_path}/decoding_across_sampling_rates_n_layers.png')
+                        axes.set_xlabel('Sampling rate')
+                        axes.set_ylabel('Decoding error (MSE)')
+                        axes.set_xticks(sampling_rates)
+                        axes.set_xticklabels(sampling_rates)
+                        if error_type == 'loc':  title = 'Location Decoding'
+                        else: title = 'Direction Decoding'
+                        axes.set_title(title)
+                        axes.spines.right.set_visible(False)
+                        axes.spines.top.set_visible(False)
+                        # sup_title = f'{envs[0]},{movement_mode},'\
+                        #             f'{model_name},{feature_selection},'\
+                        #             f'{decoding_model_name}({decoding_model_hparams})'
+                        # for across layers and sampling rates, 
+                        # we save the plot at the same level as layers.
+                        figs_path = f'figs/{env}/{movement_mode}/{moving_trajectory}/'\
+                                        f'{model_name}/{experiment}/{feature_selection}/'\
+                                        f'{decoding_model_name}_{decoding_model_hparams}'
+                        if not os.path.exists(figs_path):
+                            os.makedirs(figs_path)
+                        plt.legend(loc='upper right')
+                        # plt.suptitle(sup_title)
+                        plt.savefig(f'{figs_path}/decoding_across_sampling_rates_n_layers_{error_type}.png')
+                        plt.close()
+                        logging.info(f'[Saved] {figs_path}/decoding_across_sampling_rates_n_layers_{error_type}.png')
 
     elif analysis == 'decoding_across_sampling_rates_n_layers_per_seed':
 
@@ -1278,10 +1288,10 @@ def cross_dimension_analysis(
                                 results_collector[error_type][output_layer][metric].append(avg_res)
                 
                 # plot collected results.
-                # left subplot for loc error, right subplot for rot error.
+                # produce two plots, one for loc error, one for rot error.
                 # x-axis is lesion ratio, y-axis is decoding error.
-                fig, axes = plt.subplots(1, 2, figsize=(10, 5))
                 for i, error_type in enumerate(error_types):
+                    fig, axes = plt.subplots(1, 1, figsize=(5, 5))
                     for output_layer in output_layers:
                         for metric in tracked_metrics:
                             # when metric is about confidence interval, 
@@ -1291,11 +1301,11 @@ def cross_dimension_analysis(
                                     results_collector[error_type][output_layer][metric])[:, 0]
                                 ci_high = np.array(
                                     results_collector[error_type][output_layer][metric])[:, 1]
-                                axes[i].fill_between(
+                                axes.fill_between(
                                     lesion_ratios,
                                     ci_low,
                                     ci_high,
-                                    alpha=0.2,
+                                    alpha=0.3,
                                     color='grey',
                                 )
                             else:
@@ -1304,7 +1314,10 @@ def cross_dimension_analysis(
                                     # we only going to label baseline when we plot
                                     # the last layer.
                                     if output_layer == output_layers[-1]:
-                                        label = metric
+                                        if 'mid' in metric:
+                                            label = 'baseline: center'
+                                        else:
+                                            label = 'baseline: random'
                                     else:
                                         label = None  
                                     if 'mid' in metric: 
@@ -1321,30 +1334,36 @@ def cross_dimension_analysis(
                                 
                                 # either baseline or non-baseline layer performance,
                                 # we always plot them.
-                                axes[i].plot(
+                                axes.plot(
                                     lesion_ratios,
                                     results_collector[error_type][output_layer][metric],
                                     label=label,
                                     color=color,
+                                    marker='o',
                                 )
-                    axes[i].set_xlabel('lesion ratios')
-                    axes[i].set_xticks(lesion_ratios)
-                    axes[i].set_title(error_type)
-                    axes[i].grid()
-                sup_title = f'{[lesion_setting]}, {envs[0]},{movement_mode},'\
-                            f'{model_name},'\
-                            f'{decoding_model_name}({decoding_model_hparams})'
-                # for across layers and feature selections (lesion only), 
-                # we save the plot at the same level as layers.
-                figs_path = f'figs/{env}/{movement_mode}/{moving_trajectory}/'\
-                                f'{model_name}/{experiment}'
-                if not os.path.exists(figs_path):
-                    os.makedirs(figs_path)
-                plt.legend()
-                plt.suptitle(sup_title)
-                plt.savefig(f'{figs_path}/decoding_across_lesion_ratios_n_layers_{lesion_setting}.png')
-                plt.close()
-                logging.info(f'[Saved] {figs_path}/decoding_across_lesion_ratios_n_layers_{lesion_setting}.png')
+                    axes.set_xlabel('Lesion ratio')
+                    axes.set_ylabel('Decoding error')
+                    axes.set_xticks(lesion_ratios)
+                    axes.set_xticklabels(lesion_ratios)
+                    if error_type == 'loc':  title = 'Location Decoding'
+                    elif error_type == 'rot': title = 'Direction Decoding'
+                    axes.set_title(title)
+                    axes.spines.right.set_visible(False)
+                    axes.spines.top.set_visible(False)
+                    # sup_title = f'{[lesion_setting]}, {envs[0]},{movement_mode},'\
+                    #             f'{model_name},'\
+                    #             f'{decoding_model_name}({decoding_model_hparams})'
+                    # for across layers and feature selections (lesion only), 
+                    # we save the plot at the same level as layers.
+                    figs_path = f'figs/{env}/{movement_mode}/{moving_trajectory}/'\
+                                    f'{model_name}/{experiment}'
+                    if not os.path.exists(figs_path):
+                        os.makedirs(figs_path)
+                    plt.legend(loc='upper right')
+                    # plt.suptitle(sup_title)
+                    plt.savefig(f'{figs_path}/decoding_across_lesion_ratios_n_layers_{lesion_setting}_{error_type}.png')
+                    plt.close()
+                    logging.info(f'[Saved] {figs_path}/decoding_across_lesion_ratios_n_layers_{lesion_setting}_{error_type}.png')
 
     elif analysis == 'coef_correlations_across_layers':
         env = envs[0]
@@ -1437,16 +1456,16 @@ if __name__ == '__main__':
     reference_experiment = 'loc_n_rot'   #'loc_n_rot|border_dist|unit_chart'
     metric = 'coef'
     thr = 'thr'                            # if metric=='coef', thr='thr', else '0'
-    rank = 'random'                         # 'top|random'
+    rank = 'top'                         # 'top|random'
     target = '_loc'                          # if metric=='coef', target='_loc|_rot', else ''
     feature_selections = [
-        # 'l2',
+        'l2',
         f'l2+lesion_{metric}_{thr}_{rank}_0.1{target}',
         f'l2+lesion_{metric}_{thr}_{rank}_0.3{target}',
         f'l2+lesion_{metric}_{thr}_{rank}_0.5{target}',
         f'l2+lesion_{metric}_{thr}_{rank}_0.7{target}',
     ]
-    override_results = True  # whether to override `res.npy`
+    override_results = False  # whether to override `res.npy`
     # =================================================================== #
 
     multi_envs_across_dimensions_CPU(
