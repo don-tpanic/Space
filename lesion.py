@@ -85,8 +85,8 @@ def lesion(
             f'{results_path}/unit_chart.npy', allow_pickle=True)
         logging.info(f'unit_chart_info.shape: {unit_chart_info.shape}')
 
-        units_to_lesion_scores = []
-        units_to_lesion_indices = []
+        active_units_to_lesion_scores = []
+        active_units_to_lesion_indices = []
         # e.g. For `l2+lesion_borderness_0.37_top_0.1`
         #       we extract the thr=0.37, rank=top, and ratio=0.1
         #       and for units with gridness > 0.37, we lesion 
@@ -98,31 +98,36 @@ def lesion(
         rank = feature_selection.split('_')[3]
         ratio = float(feature_selection.split('_')[4])
         for unit_index in range(unit_chart_info.shape[0]):
+
+            # first skip dead units so lesion is done on active units only
+            if unit_chart_info[unit_index, charted_info.index('dead')] == np.array([0]):
+                continue
+
             # record units have gridness > thr
             unit_score = unit_chart_info[unit_index, charted_info.index(f'{chart_unit_type}')]
             
             if chart_unit_type == 'maxvalueinclusters':
                 unit_score = np.max(unit_score)
 
-            if unit_score > thr:
-                units_to_lesion_scores.append(unit_score)
-                units_to_lesion_indices.append(unit_index)
+            if unit_score > thr: # for now thr=0 so we keep all units but lesion based on score.
+                active_units_to_lesion_scores.append(unit_score)
+                active_units_to_lesion_indices.append(unit_index)
         
-        units_to_lesion_scores = np.array(units_to_lesion_scores)
-        units_to_lesion_indices = np.array(units_to_lesion_indices)
+        active_units_to_lesion_scores = np.array(active_units_to_lesion_scores)
+        active_units_to_lesion_indices = np.array(active_units_to_lesion_indices)
                     
         # lesion the top ratio% of units
         if rank == 'top':
             # sort from high to slow
-            units_to_lesion_indices = units_to_lesion_indices[np.argsort(units_to_lesion_scores)][::-1]
-            num_units_to_lesion = int(len(units_to_lesion_indices) * ratio)
-            units_to_lesion_indices = units_to_lesion_indices[:num_units_to_lesion]
+            active_units_to_lesion_indices = active_units_to_lesion_indices[np.argsort(active_units_to_lesion_scores)][::-1]
+            num_units_to_lesion = int(len(active_units_to_lesion_indices) * ratio)
+            active_units_to_lesion_indices = active_units_to_lesion_indices[:num_units_to_lesion]
         elif rank == 'random':
             # randomly select ratio% of units
-            num_units_to_lesion = int(len(units_to_lesion_indices) * ratio)
+            num_units_to_lesion = int(len(active_units_to_lesion_indices) * ratio)
             np.random.seed(random_seed)
-            units_to_lesion_indices = np.random.choice(
-                units_to_lesion_indices, 
+            active_units_to_lesion_indices = np.random.choice(
+                active_units_to_lesion_indices, 
                 num_units_to_lesion, 
                 replace=False
             )
