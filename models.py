@@ -64,7 +64,16 @@ def load_model(model_name, output_layer=None, input_shape=(224, 224, 3)):
                     classifier_activation=None
                 )
                 preprocess_func = tf.keras.applications.resnet50.preprocess_input
-            
+
+            elif model_name == 'resnet50_untrained':
+                model = tf.keras.applications.ResNet50(
+                    weights=None, 
+                    include_top=True, 
+                    input_shape=input_shape,
+                    classifier_activation=None
+                )
+                preprocess_func = tf.keras.applications.resnet50.preprocess_input
+
             if output_layer is None:
                 output_layer = model.layers[-1].name
             model = Model(inputs=model.input, outputs=model.get_layer(output_layer).output)
