@@ -1453,7 +1453,7 @@ if __name__ == '__main__':
 
     # =================================================================== #
     TF_NUM_INTRAOP_THREADS = 10
-    CPU_NUM_PROCESSES = 5
+    CPU_NUM_PROCESSES = 7
     envs = ['env28_r24']
     movement_modes = ['2d']
     sampling_rates = [0.3]
@@ -1470,7 +1470,7 @@ if __name__ == '__main__':
     perform_lesion = True
     if perform_lesion:
         reference_experiment = 'unit_chart'   #'loc_n_rot|border_dist|unit_chart'
-        metrics = ['directioness', 'maxvalueinclusters']                # if reference_experiment=='unit_chart', metric='borderness|..', else 'coef'
+        metrics = ['borderness', 'numclusters']                # if reference_experiment=='unit_chart', metric='borderness|..', else 'coef'
         thrs = ['0']                            # if metric=='coef', thr='thr', else '0'
         ranks = ['top', 'random']                         # 'top|random'
         targets = ['']                          # if metric=='coef', target='_loc|_rot', else ''

@@ -1362,16 +1362,16 @@ if __name__ == '__main__':
     experiment = 'border_dist'
     feature_selections = ['l2']
     all_feature_selections = [feature_selections]
-    override_results = False  # whether to override `res.npy`
+    override_results = True  # whether to override `res.npy`
 
     # Lesion settings
     perform_lesion = True
     if perform_lesion:
-        reference_experiment = 'border_dist'   #'loc_n_rot|border_dist|unit_chart'
-        metrics = ['coef']
-        thrs = ['thr']                       # if metric=='coef', thr='thr', else '0'
+        reference_experiment = 'unit_chart'   #'loc_n_rot|border_dist|unit_chart'
+        metrics = ['borderness']
+        thrs = ['0']                       # if metric=='coef', thr='thr', else '0'
         ranks = ['top', 'random']                         # 'top|random'
-        targets = ['_borderdist']       # if metric=='coef', target='_loc|_rot|_borderdist', else ''
+        targets = ['']       # if metric=='coef', target='_loc|_rot|_borderdist', else ''
         all_feature_selections = []
         for metric in metrics:
             for thr in thrs:
