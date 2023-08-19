@@ -37,5 +37,5 @@ if __name__ == "__main__":
         env_nums=['28'],
         n_rotations_list=[24],
         movement_modes=['2d'],
-        model_names=['vit_b16_untrained'],
+        model_names=['resnet50_untrained'],
     )

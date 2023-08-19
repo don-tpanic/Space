@@ -290,6 +290,13 @@ def load_model_layers(model_name):
                 'conv4_block6_out',
                 'conv2_block3_out',
             ],
+        'resnet50_untrained':
+            [
+                'avg_pool',
+                'conv5_block2_out',
+                'conv4_block6_out',
+                'conv2_block3_out',
+            ],
         'vit_b16':
             [   
                 'layer_12',
