@@ -1456,19 +1456,30 @@ if __name__ == '__main__':
     CPU_NUM_PROCESSES = 7
     envs = ['env28_r24']
     movement_modes = ['2d']
-    sampling_rates = [0.3]
+    sampling_rates = [0.1, 0.2, 0.3, 0.4, 0.5]
     random_seeds = [42]
-    model_names = ['vgg16']
+    model_names = [
+        'vgg16', 'vgg16_untrained', 
+        'vit_b16', 'vit_b16_untrained',
+        'resnet50', 'resnet50_untrained',
+    ]
     moving_trajectories = ['uniform']
     decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
     experiment = 'loc_n_rot'
     feature_selections = ['l2']
     all_feature_selections = [feature_selections]
-    override_results = True  # whether to override `res.npy`
+
+    # Default analysis mode
+    analysis = 'decoding_across_sampling_rates_n_layers'
+
+    # if we want to override the saved `res.npy`
+    # if False, will only run the plotter.
+    override_results = False
     
     # Lesion settings
-    perform_lesion = True
+    perform_lesion = False
     if perform_lesion:
+        analysis = 'decoding_across_lesion_ratios_n_layers'
         reference_experiment = 'unit_chart'   #'loc_n_rot|border_dist|unit_chart'
         metrics = ['borderness', 'numclusters']                # if reference_experiment=='unit_chart', metric='borderness|..', else 'coef'
         thrs = ['0']                            # if metric=='coef', thr='thr', else '0'
@@ -1507,9 +1518,7 @@ if __name__ == '__main__':
     )
 
     cross_dimension_analysis(
-        # analysis='decoding_across_sampling_rates_n_layers',
-        analysis='decoding_across_lesion_ratios_n_layers',
-        # analysis='coef_correlations_across_layers',
+        analysis=analysis,
         envs=envs,
         movement_modes=movement_modes,
         model_names=model_names,
