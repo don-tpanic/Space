@@ -433,7 +433,7 @@ def lesion_by_coef_each_model_across_layers_and_lr():
                 axes[rank_i, error_type_i].spines.top.set_visible(False)
         plt.tight_layout()
         plt.legend(loc='upper right')
-        plt.savefig(f'figs/paper/lesion_{model_name}.png')
+        plt.savefig(f'figs/paper/lesion_by_coef_{model_name}.png')
         plt.close()
 
 
