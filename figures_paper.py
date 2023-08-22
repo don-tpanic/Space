@@ -437,7 +437,182 @@ def lesion_by_coef_each_model_across_layers_and_lr():
         plt.close()
 
 
+def lesion_by_unit_chart_each_model_across_layers_and_lr():
+    """
+    maxvalueinclusters (loc), numclusters (loc), directioness (rot), borderness (border)
+    """
+    envs = ['env28_r24']
+    env = envs[0]
+    movement_mode = '2d'
+    sampling_rate = 0.3
+    random_seeds = [42]
+    # model_names = ['vgg16', 'resnet50', 'vit_b16']
+    model_names = ['vgg16']
+    moving_trajectory = 'uniform'
+    decoding_model_choice = {'name': 'ridge_regression', 'hparams': 1.0}
+    decoding_model_name = decoding_model_choice['name']
+    decoding_model_hparams = decoding_model_choice['hparams']
+    base_feature_selection = 'l2'
+    unit_chart_types = ['maxvalueinclusters', 'numclusters', 'directioness', 'borderness']
+    tracked_metrics = ['mse', 'ci', 'baseline_predict_mid_mse', 'baseline_predict_random_mse']
+
+    ranks = ['top', 'random']
+    thr = '0'
+    lesion_ratios = [0.0, 0.1, 0.3, 0.5, 0.7]
+
+    results_collector = \
+        defaultdict(                                # key - model_name
+            lambda: defaultdict(                    # key - lesion rank
+                lambda: defaultdict(                # key - unit_chart_type (assoc. error_type)
+                    lambda: defaultdict(            # key - output_layer
+                        lambda: defaultdict(list)   # key - metric
+                    )
+
+                )
+            )
+        )
+    
+    for model_name in model_names:
+        output_layers = data.load_model_layers(model_name)
+        for rank in ranks:
+            for unit_chart_type in unit_chart_types:
+                lesion_metric = unit_chart_type
+                if 'maxvalueinclusters' in unit_chart_type or 'numclusters' in unit_chart_type:  
+                    experiment = 'loc_n_rot'
+                    error_type = 'loc'
+                elif 'directioness' in unit_chart_type:
+                    experiment = 'loc_n_rot'
+                    error_type = 'rot'
+                elif 'borderness' in unit_chart_type:
+                    experiment = 'border_dist'
+                    error_type = 'dist'
+
+                for output_layer in output_layers:
+                    for lesion_ratio in lesion_ratios:
+                        if lesion_ratio != 0:
+                            feature_selection = f'{base_feature_selection}+lesion_{lesion_metric}_{thr}_{rank}_{lesion_ratio}'
+                        else:
+                            feature_selection = base_feature_selection
+
+                        # sampling rate would be the base dimension where 
+                        # we accumulate results in a list to plot at once.
+                        to_average_over_seeds = defaultdict(list)
+                        for random_seed in random_seeds:
+                            results_path = \
+                                f'results/{env}/{movement_mode}/{moving_trajectory}/'\
+                                f'{model_name}/{experiment}/{feature_selection}/'\
+                                f'{decoding_model_name}_{decoding_model_hparams}/'\
+                                f'{output_layer}/sr{sampling_rate}/seed{random_seed}'
+                            results = np.load(f'{results_path}/res.npy', allow_pickle=True).item()[error_type]
+                            for metric in tracked_metrics:
+                                to_average_over_seeds[metric].append(results[metric])
+                            
+                        # per metric per output layer 
+                        # across sampling rates averaged over seeds
+                        for metric in tracked_metrics:
+                            # a special case is when metric=='ci' where 
+                            # ..res[metric] is a list of 2 elements
+                            # so we need to average wrt each element across seeds
+                            # and save them back as 2 elements for later plotting.
+                            if metric == 'ci':
+                                ci_low_avg = np.mean(
+                                    [ci[0] for ci in to_average_over_seeds[metric]])
+                                ci_high_avg = np.mean(
+                                    [ci[1] for ci in to_average_over_seeds[metric]])
+                                avg_res = [ci_low_avg, ci_high_avg]
+                            else:
+                                avg_res = np.mean(to_average_over_seeds[metric])
+                            results_collector[model_name][rank][unit_chart_type][output_layer][metric].append(avg_res)
+    
+    # plot collected results.
+    # each subplot has coord axes[rank_i, unit_chart_type]
+    for model_name in model_names:
+        output_layers = data.load_model_layers(model_name)
+        
+        fig, axes = plt.subplots(len(ranks), len(unit_chart_types), figsize=(15, 10))
+        for rank_i, rank in enumerate(ranks):
+            for unit_chart_type_i, unit_chart_type in enumerate(unit_chart_types):
+                for output_layer in output_layers:
+                    for metric in tracked_metrics:
+                        if metric == 'ci':
+                            ci_low = np.array(
+                                results_collector[model_name][rank][unit_chart_type][output_layer]['ci'])[:, 0]
+                            ci_high = np.array(
+                                results_collector[model_name][rank][unit_chart_type][output_layer]['ci'])[:, 1]
+                            axes[rank_i, unit_chart_type_i].fill_between(
+                                lesion_ratios,
+                                ci_low,
+                                ci_high,
+                                alpha=0.3,
+                                color='grey',
+                            )
+                        else:
+                            if 'baseline' in metric:
+                                # no need to label baseline for each layer
+                                # we only going to label baseline when we plot
+                                # the last layer.
+                                if output_layer == output_layers[-1]:
+                                    if 'mid' in metric:
+                                        label = 'baseline: center'
+                                    else:
+                                        label = 'baseline: random'
+                                else:
+                                    label = None  
+                                if 'mid' in metric: 
+                                    color = 'cyan'
+                                else: 
+                                    color = 'blue'
+                            else:
+                                # for non-baseline layer performance,
+                                # we label each layer and use layer-specific color.
+                                label = output_layer
+                                if "predictions" in label: label = "logits"
+                                color = data.load_envs_dict(model_name, envs)[
+                                    f'{envs[0]}_{movement_mode}_{model_name}_{output_layer}']['color']
+                            
+                            # either baseline or non-baseline layer performance,
+                            # we always plot them.
+                            axes[rank_i, unit_chart_type_i].plot(
+                                lesion_ratios,
+                                results_collector[model_name][rank][unit_chart_type][output_layer][metric],
+                                label=label,
+                                color=color,
+                                marker='o',
+                            )
+                axes[rank_i, unit_chart_type_i].set_xlabel('Lesion ratio')
+                axes[rank_i, unit_chart_type_i].set_ylabel('Decoding error (MSE)')
+                axes[rank_i, unit_chart_type_i].set_xticks(lesion_ratios)
+                axes[rank_i, unit_chart_type_i].set_xticklabels(lesion_ratios)
+                if rank == 'top':
+                    if unit_chart_type == 'maxvalueinclusters':
+                        title = 'Top Place Field Activity Lesion\n(Location Decoding)'
+                    elif unit_chart_type == 'numclusters':
+                        title = 'Top Place Field Quantity Lesion\n(Location Decoding)'
+                    elif unit_chart_type == 'directioness':
+                        title = 'Top Directional Tuning Lesion\n(Direction Decoding)'
+                    elif unit_chart_type == 'borderness':
+                        title = 'Top Border Tuning Lesion\n(Distance to Nearest Border Decoding)'
+                elif rank == 'random':
+                    if unit_chart_type == 'maxvalueinclusters':
+                        title = 'Random Place Field Activity Lesion\n(Location Decoding)'
+                    elif unit_chart_type == 'numclusters':
+                        title = 'Random Place Field Quantity Lesion\n(Location Decoding)'
+                    elif unit_chart_type == 'directioness':
+                        title = 'Random Directional Tuning Lesion\n(Direction Decoding)'
+                    elif unit_chart_type == 'borderness':
+                        title = 'Random Border Tuning Lesion\n(Distance to Nearest Border Decoding)'
+                
+                axes[rank_i, unit_chart_type_i].set_title(title)
+                axes[rank_i, unit_chart_type_i].spines.right.set_visible(False)
+                axes[rank_i, unit_chart_type_i].spines.top.set_visible(False)
+        plt.tight_layout()
+        plt.legend(loc='upper right')
+        plt.savefig(f'figs/paper/lesion_by_unit_chart_{model_name}.png')
+        plt.close()
+
+
 if __name__ == '__main__':
     # decoding_each_model_across_layers_and_sr()
     # decoding_all_models_one_layer_one_sr()
-    lesion_by_coef_each_model_across_layers_and_lr()
+    # lesion_by_coef_each_model_across_layers_and_lr()
+    lesion_by_unit_chart_each_model_across_layers_and_lr()
