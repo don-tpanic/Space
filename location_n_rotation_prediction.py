@@ -1456,12 +1456,11 @@ if __name__ == '__main__':
     CPU_NUM_PROCESSES = 7
     envs = ['env28_r24']
     movement_modes = ['2d']
-    sampling_rates = [0.1, 0.2, 0.3, 0.4, 0.5]
+    sampling_rates = [0.3]
     random_seeds = [42]
     model_names = [
-        'vgg16', 'vgg16_untrained', 
-        'vit_b16', 'vit_b16_untrained',
-        'resnet50', 'resnet50_untrained',
+        'vit_b16',
+        'resnet50',
     ]
     moving_trajectories = ['uniform']
     decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
@@ -1477,14 +1476,14 @@ if __name__ == '__main__':
     override_results = False
     
     # Lesion settings
-    perform_lesion = False
+    perform_lesion = True
     if perform_lesion:
         analysis = 'decoding_across_lesion_ratios_n_layers'
-        reference_experiment = 'unit_chart'   #'loc_n_rot|border_dist|unit_chart'
-        metrics = ['borderness', 'numclusters']                # if reference_experiment=='unit_chart', metric='borderness|..', else 'coef'
-        thrs = ['0']                            # if metric=='coef', thr='thr', else '0'
+        reference_experiment = 'loc_n_rot'   #'loc_n_rot|border_dist|unit_chart'
+        metrics = ['coef']                # if reference_experiment=='unit_chart', metric='borderness|..', else 'coef'
+        thrs = ['thr']                            # if metric=='coef', thr='thr', else '0'
         ranks = ['top', 'random']                         # 'top|random'
-        targets = ['']                          # if metric=='coef', target='_loc|_rot', else ''
+        targets = ['_loc', '_rot']                          # if metric=='coef', target='_loc|_rot', else ''
 
         all_feature_selections = []
         for metric in metrics:
