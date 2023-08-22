@@ -3,6 +3,7 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import data
+import utils
 
 
 def decoding_each_model_across_layers_and_sr():
@@ -274,6 +275,150 @@ def decoding_all_models_one_layer_one_sr():
     plt.savefig(f'figs/paper/decoding_across_models.png')
     plt.close()
 
+
+def unit_chart_type_against_coef_each_model_across_layers():
+        # experiment,
+        # reference_experiment,
+        # feature_selection, 
+        # decoding_model_choice,
+        # sampling_rate,
+        # moving_trajectory,
+        # random_seed,
+        # filterings=[],
+    experiment = 'unit_chart_by_coef'
+    envs = ['env28_r24']
+    movement_mode = '2d'
+    sampling_rate = 0.3
+    random_seed = 42
+    model_names = ['vgg16']
+    moving_trajectory = 'uniform'
+    decoding_model_choice = {'name': 'ridge_regression', 'hparams': 1.0}
+    feature_selection = 'l2'
+    filterings = [
+        {'filtering_order': 'top_n', 'n_units_filtering': None, 'p_units_filtering': 0.1},
+        {'filtering_order': 'random_n', 'n_units_filtering': None, 'p_units_filtering': 0.1},
+        {'filtering_order': 'mid_n', 'n_units_filtering': None, 'p_units_filtering': 0.1},
+    ]
+
+    unit_type_to_column_index_in_unit_chart = {
+        'place_cell_1': {
+            'num_clusters': 1,
+        },
+        'place_cell_2': {
+            'max_value_in_clusters': 3,
+        },
+        # 'border_cell': {
+        #     'borderness': 9,
+        # },
+        'direction_cell': {
+            'mean_vector_length': 10,
+        },
+    }
+
+    for model_name in model_names:
+        output_layers = data.load_model_layers(model_name)
+        # each model has a figure, 
+        # each row of a figure is a model layer
+        # each column of a figure is a unit type (assoc. task)
+        # e.g. axes[output_layer_i, metric_i]
+        fig, axes = plt.subplots(
+            len(output_layers), len(unit_type_to_column_index_in_unit_chart), 
+            figsize=(5*len(unit_type_to_column_index_in_unit_chart), 5*len(output_layers))
+        )
+
+        envs_dict = data.load_envs_dict(model_name, envs)
+        config_versions=list(envs_dict.keys())  
+        # ken: suboptimal but each config_version is unique assoc. with a layer.
+        for output_layer_i, config_version in enumerate(config_versions):
+            output_layer = envs_dict[config_version]['output_layer']
+            
+            for unit_type_i, unit_type in enumerate(unit_type_to_column_index_in_unit_chart.keys()):
+                metric = list(unit_type_to_column_index_in_unit_chart[unit_type].keys())[0]
+
+                if 'place_cell' in unit_type:
+                    reference_experiment = 'loc_n_rot'
+                    target = 'loc'
+                elif unit_type == 'direction_cell':
+                    reference_experiment = 'loc_n_rot'
+                    target = 'rot'
+                elif unit_type == 'border_cell':
+                    reference_experiment = 'border_dist'
+                    target = 'dist'
+                
+                config = utils.load_config(config_version)
+                results_path = utils.load_results_path(
+                    config=config,
+                    experiment=experiment,
+                    reference_experiment=reference_experiment,
+                    feature_selection=feature_selection,
+                    decoding_model_choice=decoding_model_choice,
+                    sampling_rate=sampling_rate,
+                    moving_trajectory=moving_trajectory,
+                    random_seed=random_seed,
+                )
+
+                for filtering in filterings:
+                    p_units_filtering = filtering['p_units_filtering']
+                    filtering_order = filtering['filtering_order']
+                    
+                    unit_chart_info = np.load(
+                        f'{results_path}/unit_chart_{target}_{filtering_order}_{p_units_filtering}.npy', 
+                        allow_pickle=True
+                    )
+
+                    # plot distribution of metric and coef based on filtering_order
+                    # `type_id` is the column index in unit_chart_info
+                    type_id = unit_type_to_column_index_in_unit_chart[unit_type][metric]
+
+                    # NOTE: not every type_id has the same data structure,
+                    # e.g. for per unit place fields info, some columns might be ndarray 
+                    # such as num_pixels_in_clusters where if the unit has multiple clusters,
+                    # the entry for that unit for that column, will be an ndarray.
+                    # So for plotting, we need to unpack these arrays.
+                    unit_chart_info_unpacked = []
+                    for x in unit_chart_info[:, type_id]:
+                        if isinstance(x, np.ndarray):
+                            unit_chart_info_unpacked.extend(x)
+                        else:
+                            unit_chart_info_unpacked.append(x)
+
+                    if 'top' in filtering_order:
+                        label = f'top {int(p_units_filtering*100):,}%'
+                        color = 'green'
+                    elif 'random' in filtering_order:
+                        label = f'random {int(p_units_filtering*100):,}%'
+                        color = 'purple'
+                    elif 'mid' in filtering_order:
+                        label = f'middle {int(p_units_filtering*100):,}%'
+                        color = 'orange'
+
+                    sns.kdeplot(
+                        unit_chart_info_unpacked,
+                        label=label,
+                        color=color,
+                        alpha=0.2,
+                        fill=True,
+                        ax=axes[output_layer_i, unit_type_i],
+                    )
+
+                if metric == 'num_clusters':
+                    x_label = 'Number of Place Fields'
+                elif metric == 'max_value_in_clusters':
+                    x_label = 'Max Activity in Place Fields'
+                elif metric == 'borderness':
+                    x_label = 'Border Tuning Strength'
+                elif metric == 'mean_vector_length':
+                    x_label = 'Directional Tuning Strength'
+                axes[output_layer_i, unit_type_i].set_xlabel(x_label)
+                axes[output_layer_i, unit_type_i].set_ylabel(f'Density')
+                axes[output_layer_i, unit_type_i].set_title(f'{output_layer}')
+                axes[output_layer_i, unit_type_i].spines.right.set_visible(False)
+                axes[output_layer_i, unit_type_i].spines.top.set_visible(False)
+
+        plt.legend(loc='upper right')
+        plt.tight_layout()
+        plt.savefig(f'figs/paper/unit_chart_again_coef_{model_name}.png')
+                
 
 def lesion_by_coef_each_model_across_layers_and_lr():
     envs = ['env28_r24']
@@ -615,4 +760,5 @@ if __name__ == '__main__':
     # decoding_each_model_across_layers_and_sr()
     # decoding_all_models_one_layer_one_sr()
     # lesion_by_coef_each_model_across_layers_and_lr()
-    lesion_by_unit_chart_each_model_across_layers_and_lr()
+    # lesion_by_unit_chart_each_model_across_layers_and_lr()
+    unit_chart_type_against_coef_each_model_across_layers()
