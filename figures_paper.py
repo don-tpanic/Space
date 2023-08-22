@@ -417,7 +417,7 @@ def unit_chart_type_against_coef_each_model_across_layers():
 
         plt.legend(loc='upper right')
         plt.tight_layout()
-        plt.savefig(f'figs/paper/unit_chart_again_coef_{model_name}.png')
+        plt.savefig(f'figs/paper/unit_chart_against_coef_{model_name}.png')
                 
 
 def lesion_by_coef_each_model_across_layers_and_lr():
