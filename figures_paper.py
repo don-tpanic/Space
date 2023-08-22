@@ -281,7 +281,7 @@ def lesion_by_coef_each_model_across_layers_and_lr():
     movement_mode = '2d'
     sampling_rate = 0.3
     random_seeds = [42]
-    model_names = ['vgg16']
+    model_names = ['vgg16', 'resnet50', 'vit_b16']
     moving_trajectory = 'uniform'
     decoding_model_choice = {'name': 'ridge_regression', 'hparams': 1.0}
     decoding_model_name = decoding_model_choice['name']
@@ -364,6 +364,8 @@ def lesion_by_coef_each_model_across_layers_and_lr():
     # plot collected results.
     # each subplot has coord axes[rank_i, error_type_i]
     for model_name in model_names:
+        output_layers = data.load_model_layers(model_name)
+        
         fig, axes = plt.subplots(len(ranks), len(error_types), figsize=(15, 10))
         for rank_i, rank in enumerate(ranks):
             for error_type_i, error_type in enumerate(error_types):
