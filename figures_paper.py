@@ -139,7 +139,7 @@ def decoding_each_model_across_layers_and_sr():
         plt.close()
 
 
-def decoding_all_models_one_layer_one_sr():
+def decoding_all_models_one_layer_one_sr_V1():
     envs = ['env28_r24']
     env = envs[0]
     movement_mode = '2d'
@@ -272,6 +272,187 @@ def decoding_all_models_one_layer_one_sr():
         
     plt.tight_layout()
     plt.legend(loc='upper right')
+    plt.savefig(f'figs/paper/decoding_across_models.png')
+    plt.close()
+
+
+def decoding_all_models_one_layer_one_sr():
+    """
+    ref:
+        https://stackoverflow.com/questions/5656798/is-there-a-way-to-make-a-discontinuous-axis-in-matplotlib
+    """
+    envs = ['env28_r24']
+    env = envs[0]
+    movement_mode = '2d'
+    sampling_rates = [0.3]
+    random_seeds = [42]
+    model_names = ['vgg16', 'vgg16_untrained', 
+        'resnet50', 'resnet50_untrained',
+        'vit_b16', 'vit_b16_untrained']
+    moving_trajectory = 'uniform'
+    decoding_model_choice = {'name': 'ridge_regression', 'hparams': 1.0}
+    decoding_model_name = decoding_model_choice['name']
+    decoding_model_hparams = decoding_model_choice['hparams']
+    feature_selection = 'l2'
+    error_types = ['loc', 'rot', 'dist']
+    tracked_metrics = ['mse', 'ci', 'baseline_predict_mid_mse', 'baseline_predict_random_mse']
+
+
+    results_collector = \
+        defaultdict(                            # key - error_type
+            lambda: defaultdict(                # key - model_name
+                lambda: defaultdict(            # key - output_layer
+                    lambda: defaultdict(list)   # key - metric
+                )
+            )
+        )
+         
+    for error_type in error_types:
+        if 'loc' in error_type or 'rot' in error_type:
+            experiment = 'loc_n_rot'
+        elif 'dist' in error_type:
+            experiment = 'border_dist'
+
+        for model_name in model_names:
+            if 'vgg16' in model_name:  output_layer = 'block5_pool'
+            elif 'resnet50' in model_name: output_layer = 'avg_pool'
+            elif 'vit' in model_name: output_layer = 'layer_12'
+
+            for sampling_rate in sampling_rates:
+                # sampling rate would be the base dimension where 
+                # we accumulate results in a list to plot at once.
+                to_average_over_seeds = defaultdict(list)
+                for random_seed in random_seeds:
+                    results_path = \
+                        f'results/{env}/{movement_mode}/{moving_trajectory}/'\
+                        f'{model_name}/{experiment}/{feature_selection}/'\
+                        f'{decoding_model_name}_{decoding_model_hparams}/'\
+                        f'{output_layer}/sr{sampling_rate}/seed{random_seed}'
+                    results = np.load(f'{results_path}/res.npy', allow_pickle=True).item()[error_type]
+                    for metric in tracked_metrics:
+                        to_average_over_seeds[metric].append(results[metric])
+                
+                # per metric per output layer 
+                # across sampling rates averaged over seeds
+                for metric in tracked_metrics:
+                    # a special case is when metric=='ci' where 
+                    # ..res[metric] is a list of 2 elements
+                    # so we need to average wrt each element across seeds
+                    # and save them back as 2 elements for later plotting.
+                    if metric == 'ci':
+                        ci_low_avg = np.mean(
+                            [ci[0] for ci in to_average_over_seeds[metric]])
+                        ci_high_avg = np.mean(
+                            [ci[1] for ci in to_average_over_seeds[metric]])
+                        avg_res = [ci_low_avg, ci_high_avg]
+                    else:
+                        avg_res = np.mean(to_average_over_seeds[metric])
+                    results_collector[error_type][model_name][output_layer][metric].append(avg_res)
+    
+    # plot collected results.
+    fig, (axes_row1, axes_row2) = plt.subplots(2, len(error_types), figsize=(15, 5))
+    for i, error_type in enumerate(error_types):
+        for x_i, model_name in enumerate(model_names):
+            model_name = model_names[x_i]
+            if 'vgg16' in model_name:  
+                output_layer = 'block5_pool'
+                color = 'red'
+            elif 'resnet50' in model_name:
+                output_layer = 'avg_pool'
+                color = 'green'
+            elif 'vit' in model_name: 
+                output_layer = 'layer_12'
+                color = 'purple'
+
+            mse = np.array(
+                results_collector[error_type][model_name][output_layer]['mse'])
+            ci_low = np.array(
+                results_collector[error_type][model_name][output_layer]['ci'])[:, 0]
+            ci_high = np.array(
+                results_collector[error_type][model_name][output_layer]['ci'])[:, 1]
+
+            if 'untrained' in model_name:
+                mfc = 'white'
+            else:
+                mfc = None
+
+            axes_row2[i].errorbar(
+                x_i,
+                mse,
+                yerr=[mse-ci_low, ci_high-mse],
+                label=model_name,
+                marker='o',
+                capsize=5,
+                mfc=mfc,
+                color=color
+            )
+            
+            # set ylim with a bit of margin
+            # axes_row2[i].set_ylim(
+            #     np.min(mse-ci_low)-0.1, 
+            #     np.max(ci_high-mse)+0.1
+            # )
+                            
+        # baselines are the same for all models
+        # so we only plot them once as plot
+        baseline_predict_mid_mse = np.array(
+            results_collector[error_type][model_name][output_layer]['baseline_predict_mid_mse'])
+        axes_row1[i].plot(
+            range(len(model_names)),
+            baseline_predict_mid_mse.repeat(len(model_names)),
+            label='baseline: center',
+            color='cyan',
+        )
+
+        baseline_predict_random_mse = np.array(
+            results_collector[error_type][model_name][output_layer]['baseline_predict_random_mse'])
+        
+        axes_row1[i].plot(
+            range(len(model_names)),
+            baseline_predict_random_mse.repeat(len(model_names)),
+            label='baseline: random',
+            color='blue',
+        )
+        # set ylim with a bit of margin 
+        # two baselines can be different magnitude, 
+        # so the upper bound is the max of the two with margin,
+        # and the lower bound is the min of the two with margin.
+        max_of_two_baseline = np.max(
+            np.concatenate([baseline_predict_mid_mse, baseline_predict_random_mse])
+        )
+        min_of_two_baseline = np.min(
+            np.concatenate([baseline_predict_mid_mse, baseline_predict_random_mse])
+        )
+        axes_row1[i].set_ylim(
+            min_of_two_baseline-1, 
+            max_of_two_baseline+1
+        )
+
+        # axes[i].set_ylabel('Decoding error (MSE)')
+        if error_type == 'loc':  title = 'Location Decoding'
+        elif error_type == 'rot': title = 'Direction Decoding'
+        elif error_type == 'dist': title = 'Distance to Nearest Border Decoding'
+        axes_row1[i].set_title(title)
+        
+        axes_row1[i].spines['bottom'].set_visible(False)
+        axes_row1[i].spines['top'].set_visible(False)
+        axes_row1[i].spines['right'].set_visible(False)
+        axes_row2[i].spines['right'].set_visible(False)
+        axes_row2[i].spines['top'].set_visible(False)
+        axes_row1[i].set_xticks([])
+        axes_row2[i].set_xticks(range(len(model_names)))
+        axes_row2[i].set_xticklabels(model_names, rotation=90)
+
+        # Add diagonal lines to connect the subplots
+        d = 0.015  # How big to make the diagonal lines in axes coordinates
+        kwargs = dict(transform=axes_row1[i].transAxes, color='k', clip_on=False)
+        axes_row1[i].plot((-d, +d), (-d, +d), **kwargs)  # top-left diagonal line
+        kwargs.update(transform=axes_row2[i].transAxes)  # switch to the bottom subplot
+        axes_row2[i].plot((-d, +d), (1 - d, 1 + d), **kwargs)  # bottom-left diagonal line
+
+    axes_row1[2].legend(loc='upper right')
+    fig.supylabel('Decoding error (MSE)')
+    fig.tight_layout(rect=(0.025, 0, 1, 0.98))
     plt.savefig(f'figs/paper/decoding_across_models.png')
     plt.close()
 
@@ -758,7 +939,7 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
 
 if __name__ == '__main__':
     # decoding_each_model_across_layers_and_sr()
-    # decoding_all_models_one_layer_one_sr()
+    decoding_all_models_one_layer_one_sr()
     # lesion_by_coef_each_model_across_layers_and_lr()
     # lesion_by_unit_chart_each_model_across_layers_and_lr()
-    unit_chart_type_against_coef_each_model_across_layers()
+    # unit_chart_type_against_coef_each_model_across_layers()
