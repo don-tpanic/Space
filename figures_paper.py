@@ -815,8 +815,7 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
     movement_mode = '2d'
     sampling_rate = 0.3
     random_seeds = [42]
-    # model_names = ['vgg16', 'resnet50', 'vit_b16']
-    model_names = ['vgg16']
+    model_names = ['vgg16', 'resnet50', 'vit_b16']
     moving_trajectory = 'uniform'
     decoding_model_choice = {'name': 'ridge_regression', 'hparams': 1.0}
     decoding_model_name = decoding_model_choice['name']
@@ -982,7 +981,7 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
 
 if __name__ == '__main__':
     # decoding_each_model_across_layers_and_sr()
-    decoding_all_models_one_layer_one_sr()
+    # decoding_all_models_one_layer_one_sr()
     # lesion_by_coef_each_model_across_layers_and_lr()
-    # lesion_by_unit_chart_each_model_across_layers_and_lr()
+    lesion_by_unit_chart_each_model_across_layers_and_lr()
     # unit_chart_type_against_coef_each_model_across_layers()
