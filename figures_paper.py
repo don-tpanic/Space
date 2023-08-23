@@ -6,6 +6,25 @@ import data
 import utils
 
 
+def _convert_mse_to_physical_unit(mse, error_type):
+    """
+    Convert the MSE error back to physical sense,
+    For location and distance error, we take the square root of MSE,
+    which means on average how far off the prediction is from truth
+    in terms of Unity units.
+
+    For rotation error, we map the error back to degree by first 
+    taking the square root of MSE, which gives 'how many intervals'
+    is the prediction off, and since we have 24 intervals out of 360 degrees,
+    we can map the error back to degree by multiplying the square root of MSE
+    by 360/24.
+    """
+    if error_type == 'loc' or error_type == 'dist':
+        return np.sqrt(mse)
+    elif error_type == 'rot':
+        return np.sqrt(mse) * 360/24
+
+
 def decoding_each_model_across_layers_and_sr():
     envs = ['env28_r24']
     env = envs[0]
@@ -83,6 +102,11 @@ def decoding_each_model_across_layers_and_sr():
                             results_collector[error_type][output_layer][metric])[:, 0]
                         ci_high = np.array(
                             results_collector[error_type][output_layer][metric])[:, 1]
+                        
+                        # # TEMP
+                        # ci_low = _convert_mse_to_physical_unit(ci_low, error_type)
+                        # ci_high = _convert_mse_to_physical_unit(ci_high, error_type)
+
                         axes[i].fill_between(
                             sampling_rates,
                             ci_low,
@@ -119,6 +143,11 @@ def decoding_each_model_across_layers_and_sr():
                         axes[i].plot(
                             sampling_rates,
                             results_collector[error_type][output_layer][metric],
+                            # # TEMP    
+                            # _convert_mse_to_physical_unit(
+                            #     np.array(results_collector[error_type][output_layer][metric]),
+                            #     error_type
+                            # ),
                             label=label,
                             color=color,
                             marker='o',
@@ -370,6 +399,11 @@ def decoding_all_models_one_layer_one_sr():
                 results_collector[error_type][model_name][output_layer]['ci'])[:, 0]
             ci_high = np.array(
                 results_collector[error_type][model_name][output_layer]['ci'])[:, 1]
+            
+            # # TEMP
+            # mse = _convert_mse_to_physical_unit(mse, error_type)
+            # ci_low = _convert_mse_to_physical_unit(ci_low, error_type)
+            # ci_high = _convert_mse_to_physical_unit(ci_high, error_type)
 
             if 'untrained' in model_name:
                 mfc = 'white'
@@ -397,6 +431,11 @@ def decoding_all_models_one_layer_one_sr():
         # so we only plot them once as plot
         baseline_predict_mid_mse = np.array(
             results_collector[error_type][model_name][output_layer]['baseline_predict_mid_mse'])
+        
+        # # TEMP
+        # baseline_predict_mid_mse = _convert_mse_to_physical_unit(
+        #     baseline_predict_mid_mse, error_type)
+        
         axes_row1[i].plot(
             range(len(model_names)),
             baseline_predict_mid_mse.repeat(len(model_names)),
@@ -406,7 +445,11 @@ def decoding_all_models_one_layer_one_sr():
 
         baseline_predict_random_mse = np.array(
             results_collector[error_type][model_name][output_layer]['baseline_predict_random_mse'])
-        
+
+        # # TEMP
+        # baseline_predict_random_mse = _convert_mse_to_physical_unit(
+        #     baseline_predict_random_mse, error_type)
+
         axes_row1[i].plot(
             range(len(model_names)),
             baseline_predict_random_mse.repeat(len(model_names)),
