@@ -1351,12 +1351,13 @@ if __name__ == '__main__':
 
     # =================================================================== #
     TF_NUM_INTRAOP_THREADS = 10
-    CPU_NUM_PROCESSES = 5
+    CPU_NUM_PROCESSES = 7
     envs = ['env28_r24']
     movement_modes = ['2d']
     sampling_rates = [0.3]
     random_seeds = [42]
     model_names = [
+        # 'vgg16',
         'resnet50',
         'vit_b16',
     ]
@@ -1377,11 +1378,11 @@ if __name__ == '__main__':
     perform_lesion = True
     if perform_lesion:
         analysis = 'decoding_across_lesion_ratios_n_layers'
-        reference_experiment = 'border_dist'   #'loc_n_rot|border_dist|unit_chart'
-        metrics = ['coef']
-        thrs = ['thr']                       # if metric=='coef', thr='thr', else '0'
+        reference_experiment = 'unit_chart'   #'loc_n_rot|border_dist|unit_chart'
+        metrics = ['borderness']
+        thrs = ['0']                       # if metric=='coef', thr='thr', else '0'
         ranks = ['top', 'random']                         # 'top|random'
-        targets = ['_borderdist']       # if metric=='coef', target='_loc|_rot|_borderdist', else ''
+        targets = ['']       # if metric=='coef', target='_loc|_rot|_borderdist', else ''
         
         all_feature_selections = []
         for metric in metrics:

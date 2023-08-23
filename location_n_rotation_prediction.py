@@ -1459,8 +1459,9 @@ if __name__ == '__main__':
     sampling_rates = [0.3]
     random_seeds = [42]
     model_names = [
-        'vit_b16',
+        # 'vgg16',
         'resnet50',
+        'vit_b16',
     ]
     moving_trajectories = ['uniform']
     decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
@@ -1479,11 +1480,11 @@ if __name__ == '__main__':
     perform_lesion = True
     if perform_lesion:
         analysis = 'decoding_across_lesion_ratios_n_layers'
-        reference_experiment = 'loc_n_rot'   #'loc_n_rot|border_dist|unit_chart'
-        metrics = ['coef']                # if reference_experiment=='unit_chart', metric='borderness|..', else 'coef'
-        thrs = ['thr']                            # if metric=='coef', thr='thr', else '0'
+        reference_experiment = 'unit_chart'   #'loc_n_rot|border_dist|unit_chart'
+        metrics = ['maxvalueinclusters', 'numclusters', 'directioness']                # if reference_experiment=='unit_chart', metric='borderness|..', else 'coef'
+        thrs = ['0']                            # if metric=='coef', thr='thr', else '0'
         ranks = ['top', 'random']                         # 'top|random'
-        targets = ['_loc', '_rot']                          # if metric=='coef', target='_loc|_rot', else ''
+        targets = ['']                          # if metric=='coef', target='_loc|_rot', else ''
 
         all_feature_selections = []
         for metric in metrics:
