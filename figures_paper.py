@@ -501,20 +501,12 @@ def decoding_all_models_one_layer_one_sr():
 
 
 def unit_chart_type_against_coef_each_model_across_layers():
-        # experiment,
-        # reference_experiment,
-        # feature_selection, 
-        # decoding_model_choice,
-        # sampling_rate,
-        # moving_trajectory,
-        # random_seed,
-        # filterings=[],
     experiment = 'unit_chart_by_coef'
     envs = ['env28_r24']
     movement_mode = '2d'
     sampling_rate = 0.3
     random_seed = 42
-    model_names = ['vgg16']
+    model_names = ['vgg16', 'resnet50', 'vit_b16']
     moving_trajectory = 'uniform'
     decoding_model_choice = {'name': 'ridge_regression', 'hparams': 1.0}
     feature_selection = 'l2'
@@ -531,9 +523,9 @@ def unit_chart_type_against_coef_each_model_across_layers():
         'place_cell_2': {
             'max_value_in_clusters': 3,
         },
-        # 'border_cell': {
-        #     'borderness': 9,
-        # },
+        'border_cell': {
+            'borderness': 9,
+        },
         'direction_cell': {
             'mean_vector_length': 10,
         },
@@ -559,6 +551,10 @@ def unit_chart_type_against_coef_each_model_across_layers():
             for unit_type_i, unit_type in enumerate(unit_type_to_column_index_in_unit_chart.keys()):
                 metric = list(unit_type_to_column_index_in_unit_chart[unit_type].keys())[0]
 
+                print(
+                    f'[Plotting] {model_name} {output_layer} {unit_type} {metric} {config_version}'
+                )
+
                 if 'place_cell' in unit_type:
                     reference_experiment = 'loc_n_rot'
                     target = 'loc'
@@ -567,8 +563,12 @@ def unit_chart_type_against_coef_each_model_across_layers():
                     target = 'rot'
                 elif unit_type == 'border_cell':
                     reference_experiment = 'border_dist'
-                    target = 'dist'
+                    target = 'border_dist'
                 
+                # load presaved unit_chart info sorted by coef
+                # using top, random, or mid filtering.
+                # the unit_chart_info to be loaded needs to be
+                # first computed by `inspect_model_units.py`
                 config = utils.load_config(config_version)
                 results_path = utils.load_results_path(
                     config=config,
@@ -626,20 +626,24 @@ def unit_chart_type_against_coef_each_model_across_layers():
                     )
 
                 if metric == 'num_clusters':
+                    title = 'Place Tuning (1)'
                     x_label = 'Number of Place Fields'
                 elif metric == 'max_value_in_clusters':
+                    title = 'Place Tuning (2)'
                     x_label = 'Max Activity in Place Fields'
                 elif metric == 'borderness':
+                    title = 'Border Tuning'
                     x_label = 'Border Tuning Strength'
                 elif metric == 'mean_vector_length':
+                    title = 'Direction Tuning'
                     x_label = 'Directional Tuning Strength'
                 axes[output_layer_i, unit_type_i].set_xlabel(x_label)
-                axes[output_layer_i, unit_type_i].set_ylabel(f'Density')
-                axes[output_layer_i, unit_type_i].set_title(f'{output_layer}')
+                axes[output_layer_i, unit_type_i].set_title(f'{title} ({output_layer})')
                 axes[output_layer_i, unit_type_i].spines.right.set_visible(False)
                 axes[output_layer_i, unit_type_i].spines.top.set_visible(False)
-
-        plt.legend(loc='upper right')
+                axes[output_layer_i, 0].set_ylabel(f'Density')
+            axes[output_layer_i, -1].legend(loc='upper right')
+        
         plt.tight_layout()
         plt.savefig(f'figs/paper/unit_chart_against_coef_{model_name}.png')
                 
@@ -983,5 +987,5 @@ if __name__ == '__main__':
     # decoding_each_model_across_layers_and_sr()
     # decoding_all_models_one_layer_one_sr()
     # lesion_by_coef_each_model_across_layers_and_lr()
-    lesion_by_unit_chart_each_model_across_layers_and_lr()
-    # unit_chart_type_against_coef_each_model_across_layers()
+    # lesion_by_unit_chart_each_model_across_layers_and_lr()
+    unit_chart_type_against_coef_each_model_across_layers()
