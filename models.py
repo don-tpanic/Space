@@ -101,3 +101,12 @@ def _build_simclr(model_path, output_layer):
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
     model, preprocess_func = load_model(model_name='vit_b16')
+
+    print(
+    # model.vit._layers[1]                                              # is TFViTEncoder, 
+    # model.vit._layers[1]._layers                                      # contain 12 TFViTLayer
+    # model.vit._layers[1]._layers[0][0])                               # 1/12 TFViTLayer (Transformer block)
+    # model.vit._layers[1]._layers[0][0]._layers,                       # has Attention, layernorm, etc.
+    # model.vit._layers[1]._layers[0][0]._layers[0]._layers,            # TFViTSelfAttention+FViTSelfOutput
+    model.vit._layers[1]._layers[0][0]._layers[0]._layers[0]._layers,   # 3 Dense layers and dropout (Q,K,V)
+    )
