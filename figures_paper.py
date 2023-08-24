@@ -984,8 +984,8 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
 
 
 if __name__ == '__main__':
-    decoding_each_model_across_layers_and_sr()
+    # decoding_each_model_across_layers_and_sr()
     # decoding_all_models_one_layer_one_sr()
-    lesion_by_coef_each_model_across_layers_and_lr()
-    lesion_by_unit_chart_each_model_across_layers_and_lr()
-    # unit_chart_type_against_coef_each_model_across_layers()
+    # lesion_by_coef_each_model_across_layers_and_lr()
+    # lesion_by_unit_chart_each_model_across_layers_and_lr()
+    unit_chart_type_against_coef_each_model_across_layers()
