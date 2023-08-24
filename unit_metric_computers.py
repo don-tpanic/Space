@@ -200,7 +200,7 @@ def _compute_single_heatmap_directional_scores(activation_maps):
     # which are used to compute r_i in the eq.
     # we collect r_i for each rotation and compute the mean
     # vector, whose length is used as the directional score.
-    polar_plot_coords = []
+    polar_plot_coords = [] # (n_rotations, 2)
     per_rotation_vector_length = []
     for alpha_i, beta_i in zip(alphas, betas):
         polar_plot_coords.append(
