@@ -1084,6 +1084,13 @@ def _single_env_produce_unit_chart(
     # load model outputs
     model_reps = _single_model_reps(config)
 
+    # ken: vit uses gelu, unfortunately, it produces negative values
+    # in model_reps which messes up border and direction scores (led to huge scores),
+    # a workaround is to relu the model_reps.
+    if 'vit' in config['model_name']:
+        print('[Check] vit model detected, relu model_reps.')
+        model_reps[model_reps < 0] = 0
+
     # charted info:
     charted_info = [
                     'dead',
@@ -1811,13 +1818,13 @@ if __name__ == '__main__':
     # ======================================== #
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 5     
-    experiment = 'unit_chart_by_coef'
-    reference_experiment = 'border_dist'
+    experiment = 'unit_chart'
+    reference_experiment = None
     envs = ['env28_r24']
     movement_modes = ['2d']
     sampling_rates = [0.3]
     random_seeds = [42]
-    model_names = ['vgg16', 'resnet50', 'vit_b16']
+    model_names = ['vit_b16']
     moving_trajectories = ['uniform']
     decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
     feature_selections = ['l2']
@@ -1847,10 +1854,10 @@ if __name__ == '__main__':
 
     # multi_envs_inspect_units_GPU(
     multi_envs_inspect_units_CPU(
-        # target_func=_single_env_produce_unit_chart,                       # set experiment='unit_chart'
+        target_func=_single_env_produce_unit_chart,                       # set experiment='unit_chart'
         # target_func=_single_env_viz_units_ranked_by_unit_chart,           # set experiment='unit_chart'
         # target_func=_single_env_viz_unit_chart,                           # set experiment='unit_chart'
-        target_func=_single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts,    # set experiment='unit_chart_by_coef'
+        # target_func=_single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts,    # set experiment='unit_chart_by_coef'
         # target_func=_single_env_viz_units_by_type_ranked_by_coef,
         # target_func=_single_env_viz_units_by_type_pairs_ranked_by_coef,
         envs=envs,
