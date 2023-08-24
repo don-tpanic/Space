@@ -1259,6 +1259,9 @@ def _single_env_viz_units_ranked_by_unit_chart(
         metric_of_interest = mean_vector_length
         metric_of_interest_shrunk = metric_of_interest[active_unit_indices]
     
+    else:
+        raise Warning(f'Cannot be sorted_by: {sorted_by} when ranked by unit chart!')
+    
     # visualize top_n, mid_n, random_n units' gridness
     for filtering in filterings:
         n_units_filtering = filtering['n_units_filtering']
@@ -1809,12 +1812,12 @@ if __name__ == '__main__':
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 5     
     experiment = 'unit_chart_by_coef'
-    reference_experiment = 'loc_n_rot'
+    reference_experiment = 'border_dist'
     envs = ['env28_r24']
     movement_modes = ['2d']
     sampling_rates = [0.3]
     random_seeds = [42]
-    model_names = ['vgg16_untrained']
+    model_names = ['vgg16', 'resnet50', 'vit_b16']
     moving_trajectories = ['uniform']
     decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
     feature_selections = ['l2']
@@ -1842,13 +1845,13 @@ if __name__ == '__main__':
     # NOTE: 2b requires 2a
     # NOTE: 3, 4 less interesting than 2b which compares unit chart info againt coef.
 
-    multi_envs_inspect_units_GPU(
-    # multi_envs_inspect_units_CPU(
+    # multi_envs_inspect_units_GPU(
+    multi_envs_inspect_units_CPU(
         # target_func=_single_env_produce_unit_chart,                       # set experiment='unit_chart'
         # target_func=_single_env_viz_units_ranked_by_unit_chart,           # set experiment='unit_chart'
         # target_func=_single_env_viz_unit_chart,                           # set experiment='unit_chart'
-        # target_func=_single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts,    # set experiment='unit_chart_by_coef'
-        target_func=_single_env_viz_units_by_type_ranked_by_coef,
+        target_func=_single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts,    # set experiment='unit_chart_by_coef'
+        # target_func=_single_env_viz_units_by_type_ranked_by_coef,
         # target_func=_single_env_viz_units_by_type_pairs_ranked_by_coef,
         envs=envs,
         model_names=model_names,
@@ -1861,7 +1864,7 @@ if __name__ == '__main__':
         random_seeds=random_seeds,
         sorted_by=sorted_by,
         filterings=filterings,
-        cuda_id_list=[0,1,2,3,4,5,6,7],
+        # cuda_id_list=[0,1,2,3,4,5,6,7],
     )
 
     # print time elapsed
