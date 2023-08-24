@@ -269,7 +269,6 @@ def load_model_layers(model_name):
             ],
         'vgg16':
             [   
-                'predictions',
                 'fc2',
                 'block5_pool',
                 'block4_pool',
@@ -277,7 +276,6 @@ def load_model_layers(model_name):
             ],
         'vgg16_untrained':
             [
-                'predictions',
                 'fc2',
                 'block5_pool',
                 'block4_pool',
