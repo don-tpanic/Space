@@ -130,7 +130,7 @@ def _plot_units_various_ways(
                 heatmap = np.rot90(heatmap, k=1, axes=(0, 1))
 
                 # --- subplot1: plot heatmap for the selected units ---
-                ax = fig.add_subplot(n_units_filtering, 4, row_index*4+1)
+                ax = fig.add_subplot(n_units_filtering, 2, row_index*2+1)
                 ax.imshow(heatmap)
                 if sorted_by == 'coef':
                     coef_val = f'{coef[target_index, unit_index]:.2f}'
@@ -145,32 +145,34 @@ def _plot_units_various_ways(
                 ax.set_xticks([])
                 ax.set_yticks([])
 
-                # --- subplot2: plot histogram for the selected units ---
-                ax = fig.add_subplot(n_units_filtering, 4, row_index*4+2)
-                ax.hist(
-                    model_reps_summed[:, rotation, unit_index],
-                    bins=10,
-                )
-                ax.set_xlabel('Activation intensity')
-                ax.set_ylabel('Frequency')
+                # # --- subplot2: plot histogram for the selected units ---
+                # ax = fig.add_subplot(n_units_filtering, 3, row_index*3+2)
+                # ax.hist(
+                #     model_reps_summed[:, rotation, unit_index],
+                #     bins=10,
+                # )
+                # ax.set_xlabel('Activation intensity')
+                # ax.set_ylabel('Frequency')
 
-                # --- subplot3: plot autocorrelagram for the selected units ---
-                _, _, _, _, sac, scorer = \
-                            umc._compute_single_heatmap_grid_scores(heatmap)
-                
-                useful_sac = sac * scorer._plotting_sac_mask
-                ax = fig.add_subplot(n_units_filtering, 4, row_index*4+3)
-                ax.imshow(useful_sac)
-                ax.set_title(f'grid:{gridness[unit_index]:.2f}')
-                ax.set_xticks([])
-                ax.set_yticks([])
+                # # --- subplot3: plot autocorrelagram for the selected units ---
+                # _, _, _, _, sac, scorer = \
+                #             umc._compute_single_heatmap_grid_scores(heatmap)
+                # useful_sac = sac * scorer._plotting_sac_mask
+                # ax = fig.add_subplot(n_units_filtering, 4, row_index*4+3)
+                # ax.imshow(useful_sac)
+                # ax.set_title(f'grid:{gridness[unit_index]:.2f}')
+                # ax.set_xticks([])
+                # ax.set_yticks([])
 
                 # --- subplot4: plot polar plot for the selected units ---
-                ax = fig.add_subplot(n_units_filtering, 4, row_index*4+4, projection='polar')
+                ax = fig.add_subplot(n_units_filtering, 2, row_index*2+2, projection='polar')
                 ax.set_title(f'direction:{mean_vector_length[unit_index]:.2f}')
+
+                # we want to have a closed loop
                 theta = np.linspace(0, 2*np.pi, model_reps.shape[1], endpoint=False)
-                
-                ax.plot(theta, per_rotation_vector_length[unit_index])
+                x = theta.tolist() + [theta[0]]
+                y = per_rotation_vector_length[unit_index] + [per_rotation_vector_length[unit_index][0]]
+                ax.plot(x, y)
                 ax.set_theta_zero_location("N")
                 ax.set_theta_direction(-1)
                 ax.set_thetagrids([0, 90, 180, 270], labels=['', '', '', ''])
@@ -1818,17 +1820,17 @@ if __name__ == '__main__':
     # ======================================== #
     TF_NUM_INTRAOP_THREADS = 10
     CPU_NUM_PROCESSES = 5     
-    experiment = 'unit_chart_by_coef'
-    reference_experiment = 'border_dist'
+    experiment = 'unit_chart'
+    reference_experiment = None
     envs = ['env28_r24']
     movement_modes = ['2d']
     sampling_rates = [0.3]
     random_seeds = [42]
-    model_names = ['vit_b16']
+    model_names = ['vgg16']
     moving_trajectories = ['uniform']
     decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
     feature_selections = ['l2']
-    sorted_by = 'coef'
+    sorted_by = 'directioness'
     filterings = [
         {'filtering_order': 'top_n', 'n_units_filtering': None, 'p_units_filtering': 0.1},
         {'filtering_order': 'random_n', 'n_units_filtering': None, 'p_units_filtering': 0.1},
@@ -1852,12 +1854,12 @@ if __name__ == '__main__':
     # NOTE: 2b requires 2a
     # NOTE: 3, 4 less interesting than 2b which compares unit chart info againt coef.
 
-    # multi_envs_inspect_units_GPU(
-    multi_envs_inspect_units_CPU(
+    multi_envs_inspect_units_GPU(
+    # multi_envs_inspect_units_CPU(
         # target_func=_single_env_produce_unit_chart,                       # set experiment='unit_chart'
-        # target_func=_single_env_viz_units_ranked_by_unit_chart,           # set experiment='unit_chart'
+        target_func=_single_env_viz_units_ranked_by_unit_chart,           # set experiment='unit_chart'
         # target_func=_single_env_viz_unit_chart,                           # set experiment='unit_chart'
-        target_func=_single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts,    # set experiment='unit_chart_by_coef'
+        # target_func=_single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts,    # set experiment='unit_chart_by_coef'
         # target_func=_single_env_viz_units_by_type_ranked_by_coef,
         # target_func=_single_env_viz_units_by_type_pairs_ranked_by_coef,
         envs=envs,
@@ -1871,7 +1873,7 @@ if __name__ == '__main__':
         random_seeds=random_seeds,
         sorted_by=sorted_by,
         filterings=filterings,
-        # cuda_id_list=[0,1,2,3,4,5,6,7],
+        cuda_id_list=[0,1,2,3,4,5,6,7],
     )
 
     # print time elapsed
