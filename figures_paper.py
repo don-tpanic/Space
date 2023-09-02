@@ -389,13 +389,13 @@ def decoding_all_models_one_layer_one_sr():
             model_name = model_names[x_i]
             if 'vgg16' in model_name:  
                 output_layer = 'block5_pool'
-                color = 'red'
+                fillcolor = 'red'
             elif 'resnet50' in model_name:
                 output_layer = 'avg_pool'
-                color = 'green'
+                fillcolor = 'green'
             elif 'vit' in model_name: 
                 output_layer = 'layer_12'
-                color = 'purple'
+                fillcolor = 'purple'
 
             mse = np.array(
                 results_collector[error_type][model_name][output_layer]['mse'])
@@ -410,27 +410,36 @@ def decoding_all_models_one_layer_one_sr():
             # ci_high = _convert_mse_to_physical_unit(ci_high, error_type)
 
             if 'untrained' in model_name:
-                mfc = 'white'
+                edgecolor = fillcolor
+                fillcolor = 'white'
             else:
-                mfc = None
+                edgecolor = None
 
-            axes_row2[i].errorbar(
+            # plot barplot with error bars
+            axes_row2[i].bar(
                 x_i,
                 mse,
                 yerr=[mse-ci_low, ci_high-mse],
                 label=model_name,
-                marker='o',
+                color=fillcolor,
+                edgecolor=edgecolor,
                 capsize=5,
-                mfc=mfc,
-                color=color
             )
-            
-            # set ylim with a bit of margin
-            # axes_row2[i].set_ylim(
-            #     np.min(mse-ci_low)-0.1, 
-            #     np.max(ci_high-mse)+0.1
+
+
+
+            # axes_row2[i].errorbar(
+            #     x_i,
+            #     mse,
+            #     yerr=[mse-ci_low, ci_high-mse],
+            #     label=model_name,
+            #     marker='o',
+            #     capsize=5,
+            #     mfc=mfc,
+            #     color=color
             # )
-                            
+
+                              
         # baselines are the same for all models
         # so we only plot them once as plot
         baseline_predict_mid_mse = np.array(
@@ -1314,9 +1323,9 @@ def unit_chart_visualization_piechart():
 if __name__ == '__main__':
     TF_NUM_INTRAOP_THREADS = 10
     # decoding_each_model_across_layers_and_sr()
-    # decoding_all_models_one_layer_one_sr()
+    decoding_all_models_one_layer_one_sr()
     # lesion_by_coef_each_model_across_layers_and_lr()
     # lesion_by_unit_chart_each_model_across_layers_and_lr()
     # unit_chart_type_against_coef_each_model_across_layers()
     # unit_visualization_by_type()
-    unit_chart_visualization_piechart()
+    # unit_chart_visualization_piechart()
