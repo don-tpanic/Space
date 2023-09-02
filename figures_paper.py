@@ -1222,7 +1222,10 @@ def unit_chart_visualization_piechart():
                 color=['grey', 'blue'],
                 alpha=0.3,
             )
-            ax[0, col_index].set_ylabel('Proportion of units')
+            ax[0, 0].set_ylabel('Proportion of units')
+            ax[0, col_index].set_ylim([0, 1])
+            ax[0, col_index].spines.right.set_visible(False)
+            ax[0, col_index].spines.top.set_visible(False)
 
             # second subplot: piechart of different cell proportions
             n_exc_place_cells = len(exclusive_place_cells_indices)
