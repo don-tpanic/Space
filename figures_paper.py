@@ -1,7 +1,10 @@
+import os
 from collections import defaultdict
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
+from matplotlib import gridspec
+
 import data
 import utils
 
@@ -983,9 +986,137 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
         plt.close()
 
 
+def unit_visualization_by_type():
+    config_version = 'env28_r24_2d_vgg16_fc2'
+    experiment = 'unit_chart'
+    moving_trajectory = 'uniform'
+    config = utils.load_config(config_version)
+
+    # load model outputs
+    os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
+    os.environ["TF_NUM_INTEROP_THREADS"] = "1"
+    
+    # load model outputs
+    if config['model_name'] == 'none':
+        model = None
+        preprocess_func = None
+    else:
+        model, preprocess_func = models.load_model(
+            config['model_name'], config['output_layer'])
+
+    preprocessed_data = data.load_preprocessed_data(
+        config=config,
+        data_path=\
+            f"data/unity/"\
+            f"{config['unity_env']}/"\
+            f"{config['movement_mode']}", 
+        movement_mode=config['movement_mode'],
+        env_x_min=config['env_x_min'],
+        env_x_max=config['env_x_max'],
+        env_y_min=config['env_y_min'],
+        env_y_max=config['env_y_max'],
+        multiplier=config['multiplier'],
+        n_rotations=config['n_rotations'],
+        preprocess_func=preprocess_func,
+    )    
+    
+    # (n_locations*n_rotations, n_features)
+    model_reps = data.load_full_dataset_model_reps(
+        config, model, preprocessed_data
+    )
+
+    # reshape to (n_locations, n_rotations, n_features)
+    model_reps = model_reps.reshape(
+        (model_reps.shape[0] // config['n_rotations'],  # n_locations
+        config['n_rotations'],                          # n_rotations
+        model_reps.shape[1])                            # all units
+    )
+    model_reps_summed = np.sum(model_reps, axis=1, keepdims=True)
+
+    # load unit chart info
+    results_path = utils.load_results_path(
+        config=config,
+        experiment=experiment,
+        moving_trajectory=moving_trajectory,
+    )
+    unit_chart_info = np.load(f'{results_path}/unit_chart.npy', allow_pickle=True)
+    per_rotation_vector_length = unit_chart_info[:, 11]
+    movement_mode=config['movement_mode']
+    env_x_min=config['env_x_min']
+    env_x_max=config['env_x_max']
+    env_y_min=config['env_y_min']
+    env_y_max=config['env_y_max']
+    multiplier=config['multiplier']
+
+    # plottings
+    for unit_type in ['place_cell_1_field', 'place_cell_n_fields', 'border_cell']:
+        if unit_type == 'place_cell_1_field':
+            # single field place cell
+            selected_n_indices = [2631, 8, 2803, 1654, 475, 4055]
+        if unit_type == 'place_cell_n_fields':
+            # multiple fields place cell
+            selected_n_indices = [1472, 3507, 1115, 2076, 679, 3226]
+        if unit_type == 'border_cell':
+            # border cells
+            selected_n_indices = [3866, 2404, 1476, 2433, 3846, 2949]
+
+        fig = plt.figure(figsize=(10, 3))
+        # ref - https://stackoverflow.com/questions/41071947/how-to-remove-the-space-between-subplots-in-matplotlib-pyplot
+        gs = gridspec.GridSpec(
+            nrows=2, 
+            ncols=len(selected_n_indices),
+            width_ratios=[1]*len(selected_n_indices),
+            wspace=0.1, 
+            hspace=0.3,
+            top=0.9,
+            bottom=0.15,
+            left=0.05,
+            right=0.95,
+        )
+
+        # one column is a unit, 
+        # first row is ratemap, second row is polar plot
+        for col_index, unit_index in enumerate(selected_n_indices):
+            for rotation in range(model_reps_summed.shape[1]):
+                if movement_mode == '2d':
+                    # reshape to (n_locations, n_rotations, n_features)
+                    heatmap = model_reps_summed[:, rotation, unit_index].reshape(
+                        (env_x_max*multiplier-env_x_min*multiplier+1, 
+                        env_y_max*multiplier-env_y_min*multiplier+1) )
+                    # rotate heatmap to match Unity coordinate system
+                    # ref: tests/testReshape_forHeatMap.py
+                    heatmap = np.rot90(heatmap, k=1, axes=(0, 1))
+
+                    # --- subplot1: plot heatmap for the selected units ---
+                    ax = fig.add_subplot(gs[0, col_index])
+                    ax.imshow(heatmap, cmap='jet', interpolation='nearest')
+                    ax.set_xticks([])
+                    ax.set_yticks([])
+
+                    # --- subplot2: plot polar plot for the selected units ---
+                    ax = fig.add_subplot(gs[1, col_index], projection='polar')
+                    # we want to have a closed loop
+                    theta = np.linspace(0, 2*np.pi, model_reps.shape[1], endpoint=False)
+                    x = theta.tolist() + [theta[0]]
+                    y = per_rotation_vector_length[unit_index] + [per_rotation_vector_length[unit_index][0]]
+                    ax.plot(x, y)
+                    ax.set_theta_zero_location("N")
+                    ax.set_theta_direction(-1)
+                    ax.set_rticks([])
+                    if col_index == 0:
+                        ax.set_thetagrids([0, 90, 180, 270], labels=['0', '90', '180', '270'])
+                    else:
+                        ax.set_thetagrids([0, 90, 180, 270], labels=['', '', '', ''])
+        
+        plt.savefig(f'figs/paper/unit_visualization_by_type_{unit_type}.png')
+        plt.close()
+      
+
 if __name__ == '__main__':
+    TF_NUM_INTRAOP_THREADS = 10
     # decoding_each_model_across_layers_and_sr()
     # decoding_all_models_one_layer_one_sr()
     # lesion_by_coef_each_model_across_layers_and_lr()
     # lesion_by_unit_chart_each_model_across_layers_and_lr()
-    unit_chart_type_against_coef_each_model_across_layers()
+    # unit_chart_type_against_coef_each_model_across_layers()
+    unit_visualization_by_type()
