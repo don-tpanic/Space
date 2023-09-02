@@ -7,6 +7,7 @@ from matplotlib import gridspec
 
 import data
 import utils
+import models
 
 
 def _convert_mse_to_physical_unit(mse, error_type):
