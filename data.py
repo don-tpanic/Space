@@ -316,7 +316,8 @@ def load_model_layers(model_name):
 def load_envs_dict(model_name, envs):
     model_layers = load_model_layers(model_name)
     # gradient cmap in warm colors in a list
-    cmaps = sns.color_palette("Reds", len(model_layers)).as_hex()[::-1]
+    # cmaps = sns.color_palette("Reds", len(model_layers)).as_hex()[::-1]
+    cmaps = ['#4E0362', '#C63264', '#FF9799', '#FFDCA2']
     if len(envs) == 1:
         prefix = f'{envs[0]}'
     else:
