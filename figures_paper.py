@@ -556,13 +556,13 @@ def decoding_all_models_one_layer_one_sr():
             model_name = model_names[x_i]
             if 'vgg16' in model_name:  
                 output_layer = 'block5_pool'
-                fillcolor = 'red'
+                fillcolor = '#33539E'
             elif 'resnet50' in model_name:
                 output_layer = 'avg_pool'
-                fillcolor = 'green'
+                fillcolor = '#BFBBDA'
             elif 'vit' in model_name: 
                 output_layer = 'layer_12'
-                fillcolor = 'purple'
+                fillcolor = '#A5678E'
 
             mse = np.array(
                 results_collector[error_type][model_name][output_layer]['mse'])
@@ -592,20 +592,6 @@ def decoding_all_models_one_layer_one_sr():
                 edgecolor=edgecolor,
                 capsize=5,
             )
-
-
-
-            # axes_row2[i].errorbar(
-            #     x_i,
-            #     mse,
-            #     yerr=[mse-ci_low, ci_high-mse],
-            #     label=model_name,
-            #     marker='o',
-            #     capsize=5,
-            #     mfc=mfc,
-            #     color=color
-            # )
-
                               
         # baselines are the same for all models
         # so we only plot them once as plot
@@ -620,7 +606,7 @@ def decoding_all_models_one_layer_one_sr():
             range(len(model_names)),
             baseline_predict_mid_mse.repeat(len(model_names)),
             label='baseline: center',
-            color='cyan',
+            color='#8B9FA5',
         )
 
         baseline_predict_random_mse = np.array(
@@ -634,7 +620,7 @@ def decoding_all_models_one_layer_one_sr():
             range(len(model_names)),
             baseline_predict_random_mse.repeat(len(model_names)),
             label='baseline: random',
-            color='blue',
+            color='#9ABA79',
         )
         # set ylim with a bit of margin 
         # two baselines can be different magnitude, 
@@ -664,7 +650,22 @@ def decoding_all_models_one_layer_one_sr():
         axes_row2[i].spines['top'].set_visible(False)
         axes_row1[i].set_xticks([])
         axes_row2[i].set_xticks(range(len(model_names)))
-        axes_row2[i].set_xticklabels(model_names, rotation=90)
+
+        # pretty model names
+        pretty_model_names = []
+        for model_name in model_names:
+            if model_name == 'vgg16': pretty_model_names.append('VGG-16')
+            if model_name == 'vgg16_untrained': pretty_model_names.append('VGG-16\n(untrained)')
+            if model_name == 'resnet50': pretty_model_names.append('ResNet-50')
+            if model_name == 'resnet50_untrained': pretty_model_names.append('ResNet-50\n(untrained)')
+            if model_name == 'vit_b16': pretty_model_names.append('ViT-B/16')
+            if model_name == 'vit_b16_untrained': pretty_model_names.append('ViT-B/16\n(untrained)')
+        # if there is untrained in model_name, make the label font color grey
+        # otherwise use the default black.
+        axes_row2[i].set_xticklabels(pretty_model_names, rotation=90)
+        for x_i, model_name in enumerate(model_names):
+            if 'untrained' in model_name:
+                axes_row2[i].get_xticklabels()[x_i].set_color('grey')
 
         # Add diagonal lines to connect the subplots
         d = 0.015  # How big to make the diagonal lines in axes coordinates
@@ -1489,8 +1490,8 @@ def unit_chart_visualization_piechart():
 
 if __name__ == '__main__':
     TF_NUM_INTRAOP_THREADS = 10
-    decoding_each_model_across_layers_and_sr()
-    # decoding_all_models_one_layer_one_sr()
+    # decoding_each_model_across_layers_and_sr()
+    decoding_all_models_one_layer_one_sr()
     # lesion_by_coef_each_model_across_layers_and_lr()
     # lesion_by_unit_chart_each_model_across_layers_and_lr()
     # unit_chart_type_against_coef_each_model_across_layers()
