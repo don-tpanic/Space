@@ -2,12 +2,15 @@ import os
 from collections import defaultdict
 import numpy as np
 import seaborn as sns
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
 
 import data
 import utils
 import models
+
+plt.rcParams.update({'font.size': 12, 'font.weight': "bold"})
 
 
 def _convert_mse_to_physical_unit(mse, error_type):
@@ -29,7 +32,7 @@ def _convert_mse_to_physical_unit(mse, error_type):
         return np.sqrt(mse) * 360/24
 
 
-def decoding_each_model_across_layers_and_sr():
+def decoding_each_model_across_layers_and_sr_V1():
     envs = ['env28_r24']
     env = envs[0]
     movement_mode = '2d'
@@ -168,6 +171,170 @@ def decoding_each_model_across_layers_and_sr():
             axes[i].spines.top.set_visible(False)
         plt.tight_layout()
         plt.legend(loc='upper right')
+        plt.savefig(f'figs/paper/decoding_{model_name}.png')
+        plt.close()
+
+
+def decoding_each_model_across_layers_and_sr():
+    envs = ['env28_r24']
+    env = envs[0]
+    movement_mode = '2d'
+    sampling_rates = [0.1, 0.2, 0.3, 0.4, 0.5]
+    random_seeds = [42]
+    # model_names = ['vgg16', 'vgg16_untrained', 
+    #     'resnet50', 'resnet50_untrained',
+    #     'vit_b16', 'vit_b16_untrained']
+    model_names = ['vgg16']
+    moving_trajectory = 'uniform'
+    decoding_model_choice = {'name': 'ridge_regression', 'hparams': 1.0}
+    decoding_model_name = decoding_model_choice['name']
+    decoding_model_hparams = decoding_model_choice['hparams']
+    feature_selection = 'l2'
+    error_types = ['loc', 'rot', 'dist']
+    tracked_metrics = ['mse', 'ci', 'baseline_predict_mid_mse', 'baseline_predict_random_mse']
+
+    for model_name in model_names:
+        output_layers = data.load_model_layers(model_name)
+
+        results_collector = \
+            defaultdict(                            # key - error_type
+                lambda: defaultdict(                # key - output_layer
+                    lambda: defaultdict(list)       # key - metric
+                )
+            )
+                        
+        for error_type in error_types:
+            if 'loc' in error_type or 'rot' in error_type:
+                experiment = 'loc_n_rot'
+            elif 'dist' in error_type:
+                experiment = 'border_dist'
+
+            for output_layer in output_layers:
+                for sampling_rate in sampling_rates:
+                    # sampling rate would be the base dimension where 
+                    # we accumulate results in a list to plot at once.
+                    to_average_over_seeds = defaultdict(list)
+                    for random_seed in random_seeds:
+                        results_path = \
+                            f'results/{env}/{movement_mode}/{moving_trajectory}/'\
+                            f'{model_name}/{experiment}/{feature_selection}/'\
+                            f'{decoding_model_name}_{decoding_model_hparams}/'\
+                            f'{output_layer}/sr{sampling_rate}/seed{random_seed}'
+                        results = np.load(f'{results_path}/res.npy', allow_pickle=True).item()[error_type]
+                        for metric in tracked_metrics:
+                            to_average_over_seeds[metric].append(results[metric])
+                    
+                    # per metric per output layer 
+                    # across sampling rates averaged over seeds
+                    for metric in tracked_metrics:
+                        # a special case is when metric=='ci' where 
+                        # ..res[metric] is a list of 2 elements
+                        # so we need to average wrt each element across seeds
+                        # and save them back as 2 elements for later plotting.
+                        if metric == 'ci':
+                            ci_low_avg = np.mean(
+                                [ci[0] for ci in to_average_over_seeds[metric]])
+                            ci_high_avg = np.mean(
+                                [ci[1] for ci in to_average_over_seeds[metric]])
+                            avg_res = [ci_low_avg, ci_high_avg]
+                        else:
+                            avg_res = np.mean(to_average_over_seeds[metric])
+                        results_collector[error_type][output_layer][metric].append(avg_res)
+        
+        # plot collected results.
+        # fig, axes = plt.subplots(1, len(error_types), figsize=(15, 5))
+        fig, (axes_row1, axes_row2) = plt.subplots(2, len(error_types), figsize=(12, 8))
+        for i, error_type in enumerate(error_types):
+            for output_layer in output_layers:
+                for metric in tracked_metrics:
+                    # when metric is about confidence interval, 
+                    # instead of plot, we fill_between
+                    if metric == 'ci':
+                        ci_low = np.array(
+                            results_collector[error_type][output_layer][metric])[:, 0]
+                        ci_high = np.array(
+                            results_collector[error_type][output_layer][metric])[:, 1]
+                        axes_row2[i].fill_between(
+                            sampling_rates,
+                            ci_low,
+                            ci_high,
+                            alpha=0.3,
+                            color='#DADADA',
+                        )
+                    else:
+                        if 'baseline' in metric:
+                            # no need to label baseline for each layer
+                            # we only going to label baseline when we plot
+                            # the last layer.
+                            if output_layer == output_layers[-1]:
+                                if 'mid' in metric:
+                                    label = 'baseline: center'
+                                else:
+                                    label = 'baseline: random'
+                            else:
+                                label = None  
+                            if 'mid' in metric: 
+                                color = '#8B9FA5'
+                            else: 
+                                color = '#9ABA79'
+                            ax_to_plot = axes_row1[i]
+                        else:
+                            # for non-baseline layer performance,
+                            # we label each layer and use layer-specific color.
+                            label = output_layer
+                            if "predictions" in label: label = "logits"
+                            color = data.load_envs_dict(model_name, envs)[
+                                f'{envs[0]}_{movement_mode}_{model_name}_{output_layer}']['color']
+                            ax_to_plot = axes_row2[i]
+                        
+                        # either baseline or non-baseline layer performance,
+                        # we always plot them.
+                        ax_to_plot.plot(
+                            sampling_rates,
+                            results_collector[error_type][output_layer][metric],
+                            label=label,
+                            color=color,
+                            marker='o',
+                        )
+            if error_type == 'loc':  
+                title = 'Location Decoding'
+                # make ytick sparse
+                axes_row2[i].set_yticks([0, 1, 3, 5])
+                axes_row2[i].set_ylim(0, 5)
+            elif error_type == 'rot': 
+                title = 'Direction Decoding'
+                # make ytick sparse
+                axes_row1[i].set_yticks([47, 49, 51, 53])
+                axes_row1[i].set_ylim(47, 53)
+            elif error_type == 'dist': 
+                title = 'Nearest Border Decoding'
+                # make ytick sparse
+                axes_row2[i].set_yticks([0, 0.1, 0.3, 0.5])
+                axes_row2[i].set_ylim(0, 0.5)
+                axes_row1[i].set_yticks([2, 4, 6, 8, 10])
+                axes_row1[i].set_ylim(2, 10)
+            axes_row2[i].set_xlabel('Sampling rate')
+            axes_row2[i].set_xticks(sampling_rates)
+            axes_row2[i].set_xticklabels(sampling_rates)
+            axes_row1[i].spines['bottom'].set_visible(False)
+            axes_row1[i].spines['top'].set_visible(False)
+            axes_row1[i].spines['right'].set_visible(False)
+            axes_row2[i].spines['right'].set_visible(False)
+            axes_row2[i].spines['top'].set_visible(False)
+            axes_row1[i].set_xticks([])
+            axes_row1[i].set_title(title)
+
+            # Add diagonal lines to connect the subplots
+            d = 0.015  # How big to make the diagonal lines in axes coordinates
+            kwargs = dict(transform=axes_row1[i].transAxes, color='k', clip_on=False)
+            axes_row1[i].plot((-d, +d), (-d, +d), **kwargs)  # top-left diagonal line
+            kwargs.update(transform=axes_row2[i].transAxes)  # switch to the bottom subplot
+            axes_row2[i].plot((-d, +d), (1 - d, 1 + d), **kwargs)  # bottom-left diagonal line
+
+        axes_row1[-1].legend(loc='upper right')
+        axes_row2[-1].legend(loc='upper right')
+        fig.supylabel('Decoding error (MSE)')
+        fig.tight_layout(rect=[0, 0.03, 1, 0.95])
         plt.savefig(f'figs/paper/decoding_{model_name}.png')
         plt.close()
 
@@ -1322,8 +1489,8 @@ def unit_chart_visualization_piechart():
 
 if __name__ == '__main__':
     TF_NUM_INTRAOP_THREADS = 10
-    # decoding_each_model_across_layers_and_sr()
-    decoding_all_models_one_layer_one_sr()
+    decoding_each_model_across_layers_and_sr()
+    # decoding_all_models_one_layer_one_sr()
     # lesion_by_coef_each_model_across_layers_and_lr()
     # lesion_by_unit_chart_each_model_across_layers_and_lr()
     # unit_chart_type_against_coef_each_model_across_layers()
