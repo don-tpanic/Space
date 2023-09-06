@@ -322,6 +322,11 @@ def decoding_each_model_across_layers_and_sr():
             axes_row2[i].spines['top'].set_visible(False)
             axes_row1[i].set_xticks([])
             axes_row1[i].set_title(title)
+            if i == 0: subplot_label = 'A'
+            elif i == 1: subplot_label = 'B'
+            elif i == 2: subplot_label = 'C'
+            axes_row1[i].text(-0.2, 1.1, subplot_label, fontsize=14, fontweight='bold',
+            transform=axes_row1[i].transAxes, va='top', ha='left')
 
             # Add diagonal lines to connect the subplots
             d = 0.015  # How big to make the diagonal lines in axes coordinates
@@ -333,7 +338,7 @@ def decoding_each_model_across_layers_and_sr():
         axes_row1[-1].legend(loc='upper right')
         axes_row2[-1].legend(loc='upper right')
         fig.supylabel('Decoding error (MSE)')
-        fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+        fig.tight_layout(rect=[0, 0.0, 1, 0.99])
         plt.savefig(f'figs/paper/decoding_{model_name}.png')
         plt.close()
 
@@ -649,6 +654,11 @@ def decoding_all_models_one_layer_one_sr():
         axes_row2[i].spines['top'].set_visible(False)
         axes_row1[i].set_xticks([])
         axes_row2[i].set_xticks(range(len(model_names)))
+        if i == 0: subplot_label = 'A'
+        elif i == 1: subplot_label = 'B'
+        elif i == 2: subplot_label = 'C'
+        axes_row1[i].text(-0.2, 1.1, subplot_label, fontsize=14, fontweight='bold',
+            transform=axes_row1[i].transAxes, va='top', ha='left')
 
         # pretty model names
         pretty_model_names = []
@@ -675,7 +685,7 @@ def decoding_all_models_one_layer_one_sr():
 
     axes_row1[2].legend(loc='upper right')
     fig.supylabel('Decoding error (MSE)')
-    fig.tight_layout(rect=(0.025, 0, 1, 0.98))
+    fig.tight_layout(rect=(0.02, 0, 1, 0.99))
     plt.savefig(f'figs/paper/decoding_across_models.png')
     plt.close()
 
@@ -984,6 +994,13 @@ def lesion_by_coef_each_model_across_layers_and_lr():
                 axes[rank_i, error_type_i].set_title(title)
                 axes[rank_i, error_type_i].spines.right.set_visible(False)
                 axes[rank_i, error_type_i].spines.top.set_visible(False)
+
+        axes[0, 0].text(
+            -0.2, 1.3, 'A', fontsize=14, fontweight='bold',
+            transform=axes[0, 0].transAxes, va='top', ha='left')
+        axes[1, 0].text(
+            -0.2, 1.3, 'B', fontsize=14, fontweight='bold',
+            transform=axes[1, 0].transAxes, va='top', ha='left')
         axes[0, -1].legend(loc='upper right')
         plt.tight_layout()
         plt.savefig(f'figs/paper/lesion_by_coef_{model_name}.png')
@@ -1344,6 +1361,14 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
                 axes[rank_i, unit_chart_type_i].set_title(title)
                 axes[rank_i, unit_chart_type_i].spines.right.set_visible(False)
                 axes[rank_i, unit_chart_type_i].spines.top.set_visible(False)
+        
+        axes[0, 0].text(
+            -0.2, 1.3, 'A', fontsize=14, fontweight='bold',
+            transform=axes[0, 0].transAxes, va='top', ha='left')
+        axes[1, 0].text(
+            -0.2, 1.3, 'B', fontsize=14, fontweight='bold',
+            transform=axes[1, 0].transAxes, va='top', ha='left')
+        axes[0, -1].legend(loc='upper right')
         plt.tight_layout()
         plt.legend(loc='upper right')
         plt.savefig(f'figs/paper/lesion_by_unit_chart_{model_name}.png')
@@ -1676,10 +1701,10 @@ def unit_chart_visualization_piechart():
 
 if __name__ == '__main__':
     TF_NUM_INTRAOP_THREADS = 10
-    decoding_each_model_across_layers_and_sr()
+    # decoding_each_model_across_layers_and_sr()
     # decoding_all_models_one_layer_one_sr()
-    # lesion_by_coef_each_model_across_layers_and_lr()
-    # lesion_by_unit_chart_each_model_across_layers_and_lr()
+    lesion_by_coef_each_model_across_layers_and_lr()
+    lesion_by_unit_chart_each_model_across_layers_and_lr()
     # unit_chart_type_against_coef_each_model_across_layers()
     # unit_visualization_by_type()
     # unit_chart_visualization_piechart()
