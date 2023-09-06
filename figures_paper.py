@@ -181,10 +181,9 @@ def decoding_each_model_across_layers_and_sr():
     movement_mode = '2d'
     sampling_rates = [0.1, 0.2, 0.3, 0.4, 0.5]
     random_seeds = [42]
-    # model_names = ['vgg16', 'vgg16_untrained', 
-    #     'resnet50', 'resnet50_untrained',
-    #     'vit_b16', 'vit_b16_untrained']
-    model_names = ['vgg16']
+    model_names = ['vgg16', 'vgg16_untrained', 
+        'resnet50', 'resnet50_untrained',
+        'vit_b16', 'vit_b16_untrained']
     moving_trajectory = 'uniform'
     decoding_model_choice = {'name': 'ridge_regression', 'hparams': 1.0}
     decoding_model_name = decoding_model_choice['name']
@@ -1677,10 +1676,10 @@ def unit_chart_visualization_piechart():
 
 if __name__ == '__main__':
     TF_NUM_INTRAOP_THREADS = 10
-    # decoding_each_model_across_layers_and_sr()
+    decoding_each_model_across_layers_and_sr()
     # decoding_all_models_one_layer_one_sr()
-    lesion_by_coef_each_model_across_layers_and_lr()
-    lesion_by_unit_chart_each_model_across_layers_and_lr()
+    # lesion_by_coef_each_model_across_layers_and_lr()
+    # lesion_by_unit_chart_each_model_across_layers_and_lr()
     # unit_chart_type_against_coef_each_model_across_layers()
     # unit_visualization_by_type()
     # unit_chart_visualization_piechart()
