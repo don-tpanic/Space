@@ -920,7 +920,7 @@ def lesion_by_coef_each_model_across_layers_and_lr():
     for model_name in model_names:
         output_layers = data.load_model_layers(model_name)
         
-        fig, axes = plt.subplots(len(ranks), len(error_types), figsize=(15, 10))
+        fig, axes = plt.subplots(len(ranks), len(error_types), figsize=(10, 8))
         for rank_i, rank in enumerate(ranks):
             for error_type_i, error_type in enumerate(error_types):
                 for output_layer in output_layers:
@@ -935,7 +935,7 @@ def lesion_by_coef_each_model_across_layers_and_lr():
                                 ci_low,
                                 ci_high,
                                 alpha=0.3,
-                                color='grey',
+                                color='#DADADA',
                             )
                         else:
                             if 'baseline' in metric:
@@ -950,9 +950,9 @@ def lesion_by_coef_each_model_across_layers_and_lr():
                                 else:
                                     label = None  
                                 if 'mid' in metric: 
-                                    color = 'cyan'
+                                    color = '#8B9FA5'
                                 else: 
-                                    color = 'blue'
+                                    color = '#9ABA79'
                             else:
                                 # for non-baseline layer performance,
                                 # we label each layer and use layer-specific color.
@@ -971,22 +971,22 @@ def lesion_by_coef_each_model_across_layers_and_lr():
                                 marker='o',
                             )
                 axes[rank_i, error_type_i].set_xlabel('Lesion ratio')
-                axes[rank_i, error_type_i].set_ylabel('Decoding error (MSE)')
+                axes[rank_i, 0].set_ylabel('Decoding error (MSE)')
                 axes[rank_i, error_type_i].set_xticks(lesion_ratios)
                 axes[rank_i, error_type_i].set_xticklabels(lesion_ratios)
                 if rank == 'top':
-                    if error_type == 'loc':  title = 'Top Coefficient Lesion\n(Location Decoding)'
-                    elif error_type == 'rot': title = 'Top Coefficient Lesion\n(Direction Decoding)'
-                    elif error_type == 'dist': title = 'Top Coefficient Lesion\n(Distance to Nearest Border Decoding)'
+                    if error_type == 'loc':  title = 'Top Coef. Lesion\n(Location Decoding)'
+                    elif error_type == 'rot': title = 'Top Coef. Lesion\n(Direction Decoding)'
+                    elif error_type == 'dist': title = 'Top Coef.Lesion\n(Nearest Border Decoding)'
                 elif rank == 'random':
-                    if error_type == 'loc':  title = 'Random Coefficient Lesion\n(Location Decoding)'
-                    elif error_type == 'rot': title = 'Random Coefficient Lesion\n(Direction Decoding)'
-                    elif error_type == 'dist': title = 'Random Coefficient Lesion\n(Distance to Nearest Border Decoding)'
+                    if error_type == 'loc':  title = 'Random Coef. Lesion\n(Location Decoding)'
+                    elif error_type == 'rot': title = 'Random Coef. Lesion\n(Direction Decoding)'
+                    elif error_type == 'dist': title = 'Random Coef. Lesion\n(Nearest Border Decoding)'
                 axes[rank_i, error_type_i].set_title(title)
                 axes[rank_i, error_type_i].spines.right.set_visible(False)
                 axes[rank_i, error_type_i].spines.top.set_visible(False)
+        axes[0, -1].legend(loc='upper right')
         plt.tight_layout()
-        plt.legend(loc='upper right')
         plt.savefig(f'figs/paper/lesion_by_coef_{model_name}.png')
         plt.close()
 
