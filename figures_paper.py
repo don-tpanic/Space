@@ -975,13 +975,13 @@ def lesion_by_coef_each_model_across_layers_and_lr():
                 axes[rank_i, error_type_i].set_xticks(lesion_ratios)
                 axes[rank_i, error_type_i].set_xticklabels(lesion_ratios)
                 if rank == 'top':
-                    if error_type == 'loc':  title = 'Top Coef. Lesion\n(Location Decoding)'
-                    elif error_type == 'rot': title = 'Top Coef. Lesion\n(Direction Decoding)'
-                    elif error_type == 'dist': title = 'Top Coef.Lesion\n(Nearest Border Decoding)'
+                    if error_type == 'loc':  title = 'Top Coef. Lesion\n(Location)'
+                    elif error_type == 'rot': title = 'Top Coef. Lesion\n(Direction)'
+                    elif error_type == 'dist': title = 'Top Coef.Lesion\n(Nearest Border)'
                 elif rank == 'random':
-                    if error_type == 'loc':  title = 'Random Coef. Lesion\n(Location Decoding)'
-                    elif error_type == 'rot': title = 'Random Coef. Lesion\n(Direction Decoding)'
-                    elif error_type == 'dist': title = 'Random Coef. Lesion\n(Nearest Border Decoding)'
+                    if error_type == 'loc':  title = 'Random Coef. Lesion\n(Location)'
+                    elif error_type == 'rot': title = 'Random Coef. Lesion\n(Direction)'
+                    elif error_type == 'dist': title = 'Random Coef. Lesion\n(Nearest Border)'
                 axes[rank_i, error_type_i].set_title(title)
                 axes[rank_i, error_type_i].spines.right.set_visible(False)
                 axes[rank_i, error_type_i].spines.top.set_visible(False)
@@ -1269,7 +1269,7 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
     for model_name in model_names:
         output_layers = data.load_model_layers(model_name)
         
-        fig, axes = plt.subplots(len(ranks), len(unit_chart_types), figsize=(15, 10))
+        fig, axes = plt.subplots(len(ranks), len(unit_chart_types), figsize=(12, 8))
         for rank_i, rank in enumerate(ranks):
             for unit_chart_type_i, unit_chart_type in enumerate(unit_chart_types):
                 for output_layer in output_layers:
@@ -1284,7 +1284,7 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
                                 ci_low,
                                 ci_high,
                                 alpha=0.3,
-                                color='grey',
+                                color='#DADADA',
                             )
                         else:
                             if 'baseline' in metric:
@@ -1299,9 +1299,9 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
                                 else:
                                     label = None  
                                 if 'mid' in metric: 
-                                    color = 'cyan'
+                                    color = '#8B9FA5'
                                 else: 
-                                    color = 'blue'
+                                    color = '#9ABA79'
                             else:
                                 # for non-baseline layer performance,
                                 # we label each layer and use layer-specific color.
@@ -1325,22 +1325,22 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
                 axes[rank_i, unit_chart_type_i].set_xticklabels(lesion_ratios)
                 if rank == 'top':
                     if unit_chart_type == 'maxvalueinclusters':
-                        title = 'Top Place Field Activity Lesion\n(Location Decoding)'
+                        title = 'Top Place Field Activity\n(Location)'
                     elif unit_chart_type == 'numclusters':
-                        title = 'Top Place Field Quantity Lesion\n(Location Decoding)'
+                        title = 'Top Place Field Quantity\n(Location)'
                     elif unit_chart_type == 'directioness':
-                        title = 'Top Directional Tuning Lesion\n(Direction Decoding)'
+                        title = 'Top Directional Tuning\n(Direction)'
                     elif unit_chart_type == 'borderness':
-                        title = 'Top Border Tuning Lesion\n(Distance to Nearest Border Decoding)'
+                        title = 'Top Border Tuning\n(Nearest Border)'
                 elif rank == 'random':
                     if unit_chart_type == 'maxvalueinclusters':
-                        title = 'Random Place Field Activity Lesion\n(Location Decoding)'
+                        title = 'Random Place Field Activity\n(Location)'
                     elif unit_chart_type == 'numclusters':
-                        title = 'Random Place Field Quantity Lesion\n(Location Decoding)'
+                        title = 'Random Place Field Quantity\n(Location)'
                     elif unit_chart_type == 'directioness':
-                        title = 'Random Directional Tuning Lesion\n(Direction Decoding)'
+                        title = 'Random Directional Tuning\n(Direction)'
                     elif unit_chart_type == 'borderness':
-                        title = 'Random Border Tuning Lesion\n(Distance to Nearest Border Decoding)'
+                        title = 'Random Border Tuning\n(Nearest Border)'
                 
                 axes[rank_i, unit_chart_type_i].set_title(title)
                 axes[rank_i, unit_chart_type_i].spines.right.set_visible(False)
@@ -1680,7 +1680,7 @@ if __name__ == '__main__':
     # decoding_each_model_across_layers_and_sr()
     # decoding_all_models_one_layer_one_sr()
     lesion_by_coef_each_model_across_layers_and_lr()
-    # lesion_by_unit_chart_each_model_across_layers_and_lr()
+    lesion_by_unit_chart_each_model_across_layers_and_lr()
     # unit_chart_type_against_coef_each_model_across_layers()
     # unit_visualization_by_type()
     # unit_chart_visualization_piechart()
