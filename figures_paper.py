@@ -1481,6 +1481,7 @@ def unit_visualization_by_type():
                     ax.imshow(heatmap, cmap='jet', interpolation='nearest')
                     ax.set_xticks([])
                     ax.set_yticks([])
+                    ax.set_title(f'Unit {unit_index}')
 
                     # --- subplot2: plot polar plot for the selected units ---
                     ax = fig.add_subplot(gs[1, col_index], projection='polar')
@@ -1703,8 +1704,8 @@ if __name__ == '__main__':
     TF_NUM_INTRAOP_THREADS = 10
     # decoding_each_model_across_layers_and_sr()
     # decoding_all_models_one_layer_one_sr()
-    lesion_by_coef_each_model_across_layers_and_lr()
-    lesion_by_unit_chart_each_model_across_layers_and_lr()
+    # lesion_by_coef_each_model_across_layers_and_lr()
+    # lesion_by_unit_chart_each_model_across_layers_and_lr()
     # unit_chart_type_against_coef_each_model_across_layers()
-    # unit_visualization_by_type()
+    unit_visualization_by_type()
     # unit_chart_visualization_piechart()
