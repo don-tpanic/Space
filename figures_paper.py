@@ -2,7 +2,6 @@ import os
 from collections import defaultdict
 import numpy as np
 import seaborn as sns
-import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
 
@@ -15,10 +14,15 @@ plt.rcParams.update({'font.size': 12, 'font.weight': "bold"})
 
 def _convert_mse_to_physical_unit(mse, error_type):
     """
-    Convert the MSE error back to physical sense,
-    For location and distance error, we take the square root of MSE,
-    which means on average how far off the prediction is from truth
-    in terms of Unity units.
+    Convert MSE error back to physical sense (Unity units or degree).
+
+    For location and distance error, we first take the square root of MSE,
+    which results in 'how far off the prediction is from truth' in terms of
+    the relative coordinate system where the targets are defined (from -5 to 5
+    on each axis). We then convert this error to Unity units. In Unity, the length
+    of the moving area is 2, which means a wall with length=10 in the relative
+    coordinate system is 2 in Unity. Therefore, the square root of MSE needs
+    further scaled down by 5 to map error back to Unity units.
 
     For rotation error, we map the error back to degree by first 
     taking the square root of MSE, which gives 'how many intervals'
@@ -26,13 +30,14 @@ def _convert_mse_to_physical_unit(mse, error_type):
     we can map the error back to degree by multiplying the square root of MSE
     by 360/24.
     """
+    coordinate_system_to_unity_scale = 2 / 10
     if error_type == 'loc' or error_type == 'dist':
-        return np.sqrt(mse)
+        return np.sqrt(mse) * coordinate_system_to_unity_scale
     elif error_type == 'rot':
         return np.sqrt(mse) * 360/24
 
 
-def decoding_each_model_across_layers_and_sr_V1():
+def decoding_each_model_across_layers_and_sr():
     envs = ['env28_r24']
     env = envs[0]
     movement_mode = '2d'
@@ -98,7 +103,7 @@ def decoding_each_model_across_layers_and_sr_V1():
                         results_collector[error_type][output_layer][metric].append(avg_res)
         
         # plot collected results.
-        fig, axes = plt.subplots(1, len(error_types), figsize=(15, 5))
+        fig, axes = plt.subplots(1, len(error_types), figsize=(12, 5))
         for i, error_type in enumerate(error_types):
             for output_layer in output_layers:
                 for metric in tracked_metrics:
@@ -110,16 +115,16 @@ def decoding_each_model_across_layers_and_sr_V1():
                         ci_high = np.array(
                             results_collector[error_type][output_layer][metric])[:, 1]
                         
-                        # # TEMP
-                        # ci_low = _convert_mse_to_physical_unit(ci_low, error_type)
-                        # ci_high = _convert_mse_to_physical_unit(ci_high, error_type)
+                        # TEMP
+                        ci_low = _convert_mse_to_physical_unit(ci_low, error_type)
+                        ci_high = _convert_mse_to_physical_unit(ci_high, error_type)
 
                         axes[i].fill_between(
                             sampling_rates,
                             ci_low,
                             ci_high,
-                            alpha=0.3,
-                            color='grey',
+                            alpha=1,
+                            color='#DADADA',
                         )
                     else:
                         if 'baseline' in metric:
@@ -134,9 +139,9 @@ def decoding_each_model_across_layers_and_sr_V1():
                             else:
                                 label = None  
                             if 'mid' in metric: 
-                                color = 'cyan'
+                                color = '#8B9FA5'
                             else: 
-                                color = 'blue'
+                                color = '#9ABA79'
                         else:
                             # for non-baseline layer performance,
                             # we label each layer and use layer-specific color.
@@ -149,23 +154,28 @@ def decoding_each_model_across_layers_and_sr_V1():
                         # we always plot them.
                         axes[i].plot(
                             sampling_rates,
-                            results_collector[error_type][output_layer][metric],
-                            # # TEMP    
-                            # _convert_mse_to_physical_unit(
-                            #     np.array(results_collector[error_type][output_layer][metric]),
-                            #     error_type
-                            # ),
+                            # results_collector[error_type][output_layer][metric],
+                            # TEMP    
+                            _convert_mse_to_physical_unit(
+                                np.array(results_collector[error_type][output_layer][metric]),
+                                error_type
+                            ),
                             label=label,
                             color=color,
                             marker='o',
                         )
             axes[i].set_xlabel('Sampling rate')
-            axes[i].set_ylabel('Decoding error (MSE)')
             axes[i].set_xticks(sampling_rates)
             axes[i].set_xticklabels(sampling_rates)
-            if error_type == 'loc':  title = 'Location Decoding'
-            elif error_type == 'rot': title = 'Direction Decoding'
-            elif error_type == 'dist': title = 'Distance to Nearest Border Decoding'
+            if error_type == 'loc':  
+                title = 'Location Decoding'
+                axes[i].set_ylabel('Virtual environment units\n(Max = 2)')
+            elif error_type == 'rot': 
+                title = 'Direction Decoding'
+                axes[i].set_ylabel('Degree')
+            elif error_type == 'dist': 
+                title = 'Nearest Border Decoding'
+                axes[i].set_ylabel('Virtual environment units\n(Max = 2)')
             axes[i].set_title(title)
             axes[i].spines.right.set_visible(False)
             axes[i].spines.top.set_visible(False)
@@ -175,7 +185,7 @@ def decoding_each_model_across_layers_and_sr_V1():
         plt.close()
 
 
-def decoding_each_model_across_layers_and_sr():
+def TEMP__decoding_each_model_across_layers_and_sr_V2():
     envs = ['env28_r24']
     env = envs[0]
     movement_mode = '2d'
@@ -253,11 +263,16 @@ def decoding_each_model_across_layers_and_sr():
                             results_collector[error_type][output_layer][metric])[:, 0]
                         ci_high = np.array(
                             results_collector[error_type][output_layer][metric])[:, 1]
+                        
+                        # TEMP
+                        ci_low = _convert_mse_to_physical_unit(ci_low, error_type)
+                        ci_high = _convert_mse_to_physical_unit(ci_high, error_type)
+
                         axes_row2[i].fill_between(
                             sampling_rates,
                             ci_low,
                             ci_high,
-                            alpha=0.3,
+                            alpha=1,
                             color='#DADADA',
                         )
                     else:
@@ -290,28 +305,29 @@ def decoding_each_model_across_layers_and_sr():
                         # we always plot them.
                         ax_to_plot.plot(
                             sampling_rates,
-                            results_collector[error_type][output_layer][metric],
+                            # results_collector[error_type][output_layer][metric],
+                            # TEMP
+                            _convert_mse_to_physical_unit(
+                                np.array(results_collector[error_type][output_layer][metric]),
+                                error_type
+                            ),
                             label=label,
                             color=color,
                             marker='o',
+
                         )
             if error_type == 'loc':  
                 title = 'Location Decoding'
-                # make ytick sparse
-                axes_row2[i].set_yticks([0, 1, 3, 5])
-                axes_row2[i].set_ylim(0, 5)
+                axes_row1[i].set_ylabel('Virtual environment units\n(Max = 2)')
+                axes_row2[i].set_ylabel('Virtual environment units\n(Max = 2)')
             elif error_type == 'rot': 
                 title = 'Direction Decoding'
-                # make ytick sparse
-                axes_row1[i].set_yticks([47, 49, 51, 53])
-                axes_row1[i].set_ylim(47, 53)
+                axes_row1[i].set_ylabel('Degree')
+                axes_row2[i].set_ylabel('Degree')
             elif error_type == 'dist': 
                 title = 'Nearest Border Decoding'
-                # make ytick sparse
-                axes_row2[i].set_yticks([0, 0.1, 0.3, 0.5])
-                axes_row2[i].set_ylim(0, 0.5)
-                axes_row1[i].set_yticks([2, 4, 6, 8, 10])
-                axes_row1[i].set_ylim(2, 10)
+                axes_row1[i].set_ylabel('Virtual environment units\n(Max = 2)')
+                axes_row2[i].set_ylabel('Virtual environment units\n(Max = 2)')
             axes_row2[i].set_xlabel('Sampling rate')
             axes_row2[i].set_xticks(sampling_rates)
             axes_row2[i].set_xticklabels(sampling_rates)
@@ -337,7 +353,7 @@ def decoding_each_model_across_layers_and_sr():
 
         axes_row1[-1].legend(loc='upper right')
         axes_row2[-1].legend(loc='upper right')
-        fig.supylabel('Decoding error (MSE)')
+        # fig.supylabel('Virtual environment units')
         fig.tight_layout(rect=[0, 0.0, 1, 0.99])
         plt.savefig(f'figs/paper/decoding_{model_name}.png')
         plt.close()
@@ -575,10 +591,10 @@ def decoding_all_models_one_layer_one_sr():
             ci_high = np.array(
                 results_collector[error_type][model_name][output_layer]['ci'])[:, 1]
             
-            # # TEMP
-            # mse = _convert_mse_to_physical_unit(mse, error_type)
-            # ci_low = _convert_mse_to_physical_unit(ci_low, error_type)
-            # ci_high = _convert_mse_to_physical_unit(ci_high, error_type)
+            # TEMP
+            mse = _convert_mse_to_physical_unit(mse, error_type)
+            ci_low = _convert_mse_to_physical_unit(ci_low, error_type)
+            ci_high = _convert_mse_to_physical_unit(ci_high, error_type)
 
             if 'untrained' in model_name:
                 edgecolor = fillcolor
@@ -602,9 +618,9 @@ def decoding_all_models_one_layer_one_sr():
         baseline_predict_mid_mse = np.array(
             results_collector[error_type][model_name][output_layer]['baseline_predict_mid_mse'])
         
-        # # TEMP
-        # baseline_predict_mid_mse = _convert_mse_to_physical_unit(
-        #     baseline_predict_mid_mse, error_type)
+        # TEMP
+        baseline_predict_mid_mse = _convert_mse_to_physical_unit(
+            baseline_predict_mid_mse, error_type)
         
         axes_row1[i].plot(
             range(len(model_names)),
@@ -616,9 +632,9 @@ def decoding_all_models_one_layer_one_sr():
         baseline_predict_random_mse = np.array(
             results_collector[error_type][model_name][output_layer]['baseline_predict_random_mse'])
 
-        # # TEMP
-        # baseline_predict_random_mse = _convert_mse_to_physical_unit(
-        #     baseline_predict_random_mse, error_type)
+        # TEMP
+        baseline_predict_random_mse = _convert_mse_to_physical_unit(
+            baseline_predict_random_mse, error_type)
 
         axes_row1[i].plot(
             range(len(model_names)),
@@ -641,12 +657,19 @@ def decoding_all_models_one_layer_one_sr():
             max_of_two_baseline+1
         )
 
-        # axes[i].set_ylabel('Decoding error (MSE)')
-        if error_type == 'loc':  title = 'Location Decoding'
-        elif error_type == 'rot': title = 'Direction Decoding'
-        elif error_type == 'dist': title = 'Distance to Nearest Border Decoding'
-        axes_row1[i].set_title(title)
+        if error_type == 'loc':  
+            title = 'Location Decoding'
+            axes_row2[i].set_ylabel(' '*30+'Virtual environment units (Max = 2)')
+            axes_row1[i].set_ylim(0.4, 0.75)
+        elif error_type == 'rot': 
+            title = 'Direction Decoding'
+            axes_row2[i].set_ylabel(' '*30+'Degree')
+        elif error_type == 'dist': 
+            title = 'Distance to Nearest Border Decoding'
+            axes_row2[i].set_ylabel(' '*30+'Virtual environment units (Max = 2)')
+            axes_row1[i].set_ylim(0.3, 0.75)
         
+        axes_row1[i].set_title(title)
         axes_row1[i].spines['bottom'].set_visible(False)
         axes_row1[i].spines['top'].set_visible(False)
         axes_row1[i].spines['right'].set_visible(False)
@@ -683,8 +706,6 @@ def decoding_all_models_one_layer_one_sr():
         kwargs.update(transform=axes_row2[i].transAxes)  # switch to the bottom subplot
         axes_row2[i].plot((-d, +d), (1 - d, 1 + d), **kwargs)  # bottom-left diagonal line
 
-    axes_row1[2].legend(loc='upper right')
-    fig.supylabel('Decoding error (MSE)')
     fig.tight_layout(rect=(0.02, 0, 1, 0.99))
     plt.savefig(f'figs/paper/decoding_across_models.png')
     plt.close()
@@ -856,7 +877,7 @@ def lesion_by_coef_each_model_across_layers_and_lr():
     ranks = ['top', 'random']
     thr = 'thr'
     lesion_metric = 'coef'
-    lesion_ratios = [0.0, 0.1, 0.3, 0.5, 0.7]
+    lesion_ratios = [0, 0.1, 0.3, 0.5, 0.7]
 
     results_collector = \
         defaultdict(                                # key - model_name
@@ -939,11 +960,16 @@ def lesion_by_coef_each_model_across_layers_and_lr():
                                 results_collector[model_name][rank][error_type][output_layer]['ci'])[:, 0]
                             ci_high = np.array(
                                 results_collector[model_name][rank][error_type][output_layer]['ci'])[:, 1]
+
+                            # TEMP
+                            ci_low = _convert_mse_to_physical_unit(ci_low, error_type)
+                            ci_high = _convert_mse_to_physical_unit(ci_high, error_type)
+                            
                             axes[rank_i, error_type_i].fill_between(
                                 lesion_ratios,
                                 ci_low,
                                 ci_high,
-                                alpha=0.3,
+                                alpha=1,
                                 color='#DADADA',
                             )
                         else:
@@ -974,13 +1000,23 @@ def lesion_by_coef_each_model_across_layers_and_lr():
                             # we always plot them.
                             axes[rank_i, error_type_i].plot(
                                 lesion_ratios,
-                                results_collector[model_name][rank][error_type][output_layer][metric],
+                                # results_collector[model_name][rank][error_type][output_layer][metric],
+                                # TEMP
+                                _convert_mse_to_physical_unit(
+                                    np.array(
+                                        results_collector[model_name][rank][error_type][output_layer][metric]
+                                    ), 
+                                    error_type
+                                ),
                                 label=label,
                                 color=color,
                                 marker='o',
                             )
                 axes[rank_i, error_type_i].set_xlabel('Lesion ratio')
-                axes[rank_i, 0].set_ylabel('Decoding error (MSE)')
+                if error_type in ['loc', 'dist']:
+                    axes[rank_i, error_type_i].set_ylabel('Virtual environment units (Max = 2)')
+                elif error_type == 'rot':
+                    axes[rank_i, error_type_i].set_ylabel('Degree')
                 axes[rank_i, error_type_i].set_xticks(lesion_ratios)
                 axes[rank_i, error_type_i].set_xticklabels(lesion_ratios)
                 if rank == 'top':
@@ -1214,7 +1250,7 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
 
     ranks = ['top', 'random']
     thr = '0'
-    lesion_ratios = [0.0, 0.1, 0.3, 0.5, 0.7]
+    lesion_ratios = [0, 0.1, 0.3, 0.5, 0.7]
 
     results_collector = \
         defaultdict(                                # key - model_name
@@ -1288,6 +1324,14 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
         fig, axes = plt.subplots(len(ranks), len(unit_chart_types), figsize=(12, 8))
         for rank_i, rank in enumerate(ranks):
             for unit_chart_type_i, unit_chart_type in enumerate(unit_chart_types):
+
+                if unit_chart_type in ['maxvalueinclusters', 'numclusters']:
+                    error_type = 'loc'
+                elif unit_chart_type == 'directioness':
+                    error_type = 'rot'
+                elif unit_chart_type == 'borderness':
+                    error_type = 'dist'
+
                 for output_layer in output_layers:
                     for metric in tracked_metrics:
                         if metric == 'ci':
@@ -1295,11 +1339,16 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
                                 results_collector[model_name][rank][unit_chart_type][output_layer]['ci'])[:, 0]
                             ci_high = np.array(
                                 results_collector[model_name][rank][unit_chart_type][output_layer]['ci'])[:, 1]
+                            
+                            # TEMP
+                            ci_low = _convert_mse_to_physical_unit(ci_low, error_type)
+                            ci_high = _convert_mse_to_physical_unit(ci_high, error_type)
+                            
                             axes[rank_i, unit_chart_type_i].fill_between(
                                 lesion_ratios,
                                 ci_low,
                                 ci_high,
-                                alpha=0.3,
+                                alpha=1,
                                 color='#DADADA',
                             )
                         else:
@@ -1330,13 +1379,23 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
                             # we always plot them.
                             axes[rank_i, unit_chart_type_i].plot(
                                 lesion_ratios,
-                                results_collector[model_name][rank][unit_chart_type][output_layer][metric],
+                                # results_collector[model_name][rank][unit_chart_type][output_layer][metric],
+                                # TEMP
+                                _convert_mse_to_physical_unit(
+                                    np.array(
+                                        results_collector[model_name][rank][unit_chart_type][output_layer][metric]
+                                    ), 
+                                    error_type
+                                ),
                                 label=label,
                                 color=color,
                                 marker='o',
                             )
                 axes[rank_i, unit_chart_type_i].set_xlabel('Lesion ratio')
-                axes[rank_i, unit_chart_type_i].set_ylabel('Decoding error (MSE)')
+                if error_type in ['loc', 'dist']:
+                    axes[rank_i, unit_chart_type_i].set_ylabel('Virtual environment units (Max = 2)')
+                elif error_type == 'rot':
+                    axes[rank_i, unit_chart_type_i].set_ylabel('Degree')
                 axes[rank_i, unit_chart_type_i].set_xticks(lesion_ratios)
                 axes[rank_i, unit_chart_type_i].set_xticklabels(lesion_ratios)
                 if rank == 'top':
@@ -1370,7 +1429,6 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
             transform=axes[1, 0].transAxes, va='top', ha='left')
         axes[0, -1].legend(loc='upper right')
         plt.tight_layout()
-        plt.legend(loc='upper right')
         plt.savefig(f'figs/paper/lesion_by_unit_chart_{model_name}.png')
         plt.close()
 
@@ -1702,10 +1760,10 @@ def unit_chart_visualization_piechart():
 
 if __name__ == '__main__':
     TF_NUM_INTRAOP_THREADS = 10
-    # decoding_each_model_across_layers_and_sr()
+    decoding_each_model_across_layers_and_sr()
     # decoding_all_models_one_layer_one_sr()
     # lesion_by_coef_each_model_across_layers_and_lr()
     # lesion_by_unit_chart_each_model_across_layers_and_lr()
     # unit_chart_type_against_coef_each_model_across_layers()
-    unit_visualization_by_type()
+    # unit_visualization_by_type()
     # unit_chart_visualization_piechart()
