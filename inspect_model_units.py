@@ -131,7 +131,7 @@ def _plot_units_various_ways(
 
                 # --- subplot1: plot heatmap for the selected units ---
                 ax = fig.add_subplot(n_units_filtering, 2, row_index*2+1)
-                ax.imshow(heatmap)
+                ax.imshow(heatmap, cmap='jet')
                 if sorted_by == 'coef':
                     coef_val = f'{coef[target_index, unit_index]:.2f}'
                 else:
@@ -1830,11 +1830,14 @@ if __name__ == '__main__':
     moving_trajectories = ['uniform']
     decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
     feature_selections = ['l2']
-    sorted_by = 'directioness'
+    sorted_by = 'num_clusters'
     filterings = [
-        {'filtering_order': 'top_n', 'n_units_filtering': None, 'p_units_filtering': 0.1},
-        {'filtering_order': 'random_n', 'n_units_filtering': None, 'p_units_filtering': 0.1},
-        {'filtering_order': 'mid_n', 'n_units_filtering': None, 'p_units_filtering': 0.1},
+        # {'filtering_order': 'top_n', 'n_units_filtering': None, 'p_units_filtering': 0.1},
+        # {'filtering_order': 'random_n', 'n_units_filtering': None, 'p_units_filtering': 0.1},
+        # {'filtering_order': 'mid_n', 'n_units_filtering': None, 'p_units_filtering': 0.1},
+        {'filtering_order': 'top_n', 'n_units_filtering': 400, 'p_units_filtering': None},
+        {'filtering_order': 'random_n', 'n_units_filtering': 400, 'p_units_filtering': None},
+        {'filtering_order': 'mid_n', 'n_units_filtering': 400, 'p_units_filtering': None},
     ]
     # ======================================== #
     ###  How to run ###
