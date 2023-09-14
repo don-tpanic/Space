@@ -1496,7 +1496,12 @@ def unit_visualization_by_type():
     multiplier=config['multiplier']
 
     # plottings
-    for unit_type in ['place_cell_1_field', 'place_cell_n_fields', 'border_cell']:
+    for unit_type in [
+        'place_cell_1_field', 
+        'place_cell_n_fields', 
+        'border_cell',
+        'less_directional_place_cell'
+    ]:
         if unit_type == 'place_cell_1_field':
             # single field place cell
             selected_n_indices = [2631, 8, 2803, 1654, 475, 4055]
@@ -1506,6 +1511,9 @@ def unit_visualization_by_type():
         if unit_type == 'border_cell':
             # border cells
             selected_n_indices = [3866, 2404, 1476, 2433, 3846, 2949]
+        if unit_type == 'less_directional_place_cell':
+            # Less directional place fields
+            selected_n_indices = [1280, 2672, 315, 758, 3429, 3530]
 
         fig = plt.figure(figsize=(10, 3))
         # ref - https://stackoverflow.com/questions/41071947/how-to-remove-the-space-between-subplots-in-matplotlib-pyplot
@@ -1550,7 +1558,7 @@ def unit_visualization_by_type():
                     ax.plot(x, y)
                     ax.set_theta_zero_location("N")
                     ax.set_theta_direction(-1)
-                    ax.set_rticks([])
+                    # ax.set_rticks([])
                     if col_index == 0:
                         ax.set_thetagrids([0, 90, 180, 270], labels=['0', '90', '180', '270'])
                     else:
@@ -1760,10 +1768,10 @@ def unit_chart_visualization_piechart():
 
 if __name__ == '__main__':
     TF_NUM_INTRAOP_THREADS = 10
-    decoding_each_model_across_layers_and_sr()
+    # decoding_each_model_across_layers_and_sr()
     # decoding_all_models_one_layer_one_sr()
     # lesion_by_coef_each_model_across_layers_and_lr()
     # lesion_by_unit_chart_each_model_across_layers_and_lr()
     # unit_chart_type_against_coef_each_model_across_layers()
-    # unit_visualization_by_type()
+    unit_visualization_by_type()
     # unit_chart_visualization_piechart()
