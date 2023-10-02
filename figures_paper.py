@@ -1513,15 +1513,19 @@ def unit_visualization_by_type():
         if unit_type == 'place_cell_1_field':
             # single field place cell
             selected_n_indices = [2631, 8, 2803, 1654, 475, 4055]
+            subplot_label = 'D'
         if unit_type == 'place_cell_n_fields':
             # multiple fields place cell
             selected_n_indices = [1472, 3507, 1115, 2076, 679, 3226]
+            subplot_label = 'B'
         if unit_type == 'border_cell':
             # border cells
             selected_n_indices = [3866, 2404, 1476, 2433, 3846, 2949]
+            subplot_label = 'C'
         if unit_type == 'less_directional_place_cell':
             # Less directional place fields
             selected_n_indices = [1280, 2672, 315, 758, 3429, 3530]
+            subplot_label = 'A'
 
         fig = plt.figure(figsize=(10, 3))
         # ref - https://stackoverflow.com/questions/41071947/how-to-remove-the-space-between-subplots-in-matplotlib-pyplot
@@ -1556,6 +1560,10 @@ def unit_visualization_by_type():
                     ax.set_xticks([])
                     ax.set_yticks([])
                     ax.set_title(f'Unit {unit_index}')
+                    if col_index == 0:
+                        # add subplot labels
+                        ax.text(-0.4, 1.1, subplot_label, fontsize=14, fontweight='bold',
+                        transform=ax.transAxes, va='top', ha='left')
 
                     # --- subplot2: plot polar plot for the selected units ---
                     ax = fig.add_subplot(gs[1, col_index], projection='polar')
@@ -1571,7 +1579,7 @@ def unit_visualization_by_type():
                         ax.set_thetagrids([0, 90, 180, 270], labels=['0', '90', '180', '270'])
                     else:
                         ax.set_thetagrids([0, 90, 180, 270], labels=['', '', '', ''])
-        
+
         plt.savefig(f'figs/paper/unit_visualization_by_type_{unit_type}.png')
         plt.close()
       
@@ -1776,10 +1784,10 @@ def unit_chart_visualization_piechart():
 
 if __name__ == '__main__':
     TF_NUM_INTRAOP_THREADS = 10
-    decoding_each_model_across_layers_and_sr()
+    # decoding_each_model_across_layers_and_sr()
     # decoding_all_models_one_layer_one_sr()
     # lesion_by_coef_each_model_across_layers_and_lr()
     # lesion_by_unit_chart_each_model_across_layers_and_lr()
     # unit_chart_type_against_coef_each_model_across_layers()
-    # unit_visualization_by_type()
+    unit_visualization_by_type()
     # unit_chart_visualization_piechart()
