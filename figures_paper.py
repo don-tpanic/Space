@@ -179,6 +179,14 @@ def decoding_each_model_across_layers_and_sr():
             axes[i].set_title(title)
             axes[i].spines.right.set_visible(False)
             axes[i].spines.top.set_visible(False)
+        
+        # Add A, B, C labels to subplots
+        axes[0].text(-0.2, 1.1, 'A', fontsize=14, fontweight='bold',
+        transform=axes[0].transAxes, va='top', ha='left')
+        axes[1].text(-0.2, 1.1, 'B', fontsize=14, fontweight='bold',
+        transform=axes[1].transAxes, va='top', ha='left')
+        axes[2].text(-0.2, 1.1, 'C', fontsize=14, fontweight='bold',
+        transform=axes[2].transAxes, va='top', ha='left')
         plt.tight_layout()
         plt.legend(loc='upper right')
         plt.savefig(f'figs/paper/decoding_{model_name}.png')
@@ -1768,10 +1776,10 @@ def unit_chart_visualization_piechart():
 
 if __name__ == '__main__':
     TF_NUM_INTRAOP_THREADS = 10
-    # decoding_each_model_across_layers_and_sr()
+    decoding_each_model_across_layers_and_sr()
     # decoding_all_models_one_layer_one_sr()
     # lesion_by_coef_each_model_across_layers_and_lr()
     # lesion_by_unit_chart_each_model_across_layers_and_lr()
     # unit_chart_type_against_coef_each_model_across_layers()
-    unit_visualization_by_type()
+    # unit_visualization_by_type()
     # unit_chart_visualization_piechart()
