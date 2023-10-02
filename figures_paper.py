@@ -1779,6 +1779,10 @@ def unit_chart_visualization_piechart():
             ax[1, col_index].set_xlabel('Out of all active units (%)')
             ax[0, col_index].set_title(output_layer)
             plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+            if model_name == 'vgg16': model_name_plot = 'VGG-16'
+            elif model_name == 'resnet50': model_name_plot = 'ResNet-50'
+            elif model_name == 'vit_b16': model_name_plot = 'ViT-B/16'
+            plt.suptitle(f'{model_name_plot}', fontsize=16, fontweight='bold')
             plt.savefig(f'figs/paper/unit_chart_overlaps_{model_name}.png')
 
 
@@ -1789,5 +1793,5 @@ if __name__ == '__main__':
     # lesion_by_coef_each_model_across_layers_and_lr()
     # lesion_by_unit_chart_each_model_across_layers_and_lr()
     # unit_chart_type_against_coef_each_model_across_layers()
-    unit_visualization_by_type()
-    # unit_chart_visualization_piechart()
+    # unit_visualization_by_type()
+    unit_chart_visualization_piechart()
