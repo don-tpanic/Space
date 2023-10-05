@@ -1612,12 +1612,11 @@ def unit_chart_visualization_piechart():
         # each column is a layer
         # row1 is all types piechart
         # row2 is dead v active units barplot
-        fig, ax = plt.subplots(
-                nrows=2,
-                ncols=len(output_layers),
-                figsize=(15, 5),
-            )
-        
+        fig = plt.figure(figsize=(15, 5))
+        gs = fig.add_gridspec(
+            nrows=2, ncols=len(output_layers), height_ratios=[5, 1]
+        )
+
         for col_index, output_layer in enumerate(output_layers):
             config_version = f'env28_r24_2d_{model_name}_{output_layer}'
             print(f'Plotting {config_version}')
@@ -1771,7 +1770,8 @@ def unit_chart_visualization_piechart():
                 elif label == 'P+B+D':
                     colors.append(plt.cm.Pastel1.colors[6])
 
-            ax[0, col_index].pie(
+            ax = fig.add_subplot(gs[0, col_index])
+            ax.pie(
                 n_cells,
                 autopct=lambda p: '{:.0f}'.format(round(p)) if p >= 1 else '',
                 labels=labels,
@@ -1779,8 +1779,8 @@ def unit_chart_visualization_piechart():
                 explode=[0.1]*len(labels),
             )
 
-            ax[0, col_index].set_xlabel('Out of all active units (%)')
-            ax[0, col_index].set_title(output_layer, fontweight='bold')
+            ax.set_xlabel('Out of all active units (%)')
+            ax.set_title(output_layer, fontweight='bold')
             plt.tight_layout(rect=[0, 0.03, 1, 0.95])
             if model_name == 'vgg16': model_name_plot = 'VGG-16'
             elif model_name == 'resnet50': model_name_plot = 'ResNet-50'
@@ -1790,29 +1790,30 @@ def unit_chart_visualization_piechart():
             # second subplot: show proportion of dead and active units
             # x-axis is 0 to 1, showing how much is dead and how much is active
             # y-axis can be arbitrary height, we set to 2.
+            ax = fig.add_subplot(gs[1, col_index])
             box_height = 2
             width1 = n_dead_units/unit_chart_info.shape[0]*100
             width2 = n_active_units/unit_chart_info.shape[0]*100
 
             # Set the x-axis limit to 0-100%
-            ax[1, col_index].set_xlim(0, 100)
-            ax[1, col_index].set_yticks([])
+            ax.set_xlim(0, 100)
+            ax.set_yticks([])
             
             # Create rectangles for the partitions
-            rect1 = patches.Rectangle((0, 0), width1, box_height, linewidth=1, edgecolor='none', facecolor='grey', alpha=0.7)
-            rect2 = patches.Rectangle((width1, 0), width2, box_height, linewidth=1, edgecolor='none', facecolor='blue', alpha=0.7)
+            rect1 = patches.Rectangle((0, 0), width1, box_height, linewidth=1, edgecolor='none', facecolor='black', alpha=0.7)
+            rect2 = patches.Rectangle((width1, 0), width2, box_height, linewidth=1, edgecolor='none', facecolor='green', alpha=0.7)
 
-            ax[1, col_index].add_patch(rect1)
-            ax[1, col_index].add_patch(rect2)
-            ax[1, col_index].set_xlabel('Dead and active units (%)')
+            ax.add_patch(rect1)
+            ax.add_patch(rect2)
+            ax.set_xlabel('Dead and active units (%)')
 
             # set x-axis ticks only (0, width1, 100), round to 0 decimal places
-            ax[1, col_index].set_xticks([0, int(width1), 100], minor=False)
+            ax.set_xticks([0, int(width1), 100], minor=False)
 
             # remove left, top and right
-            ax[1, col_index].spines['left'].set_visible(False)
-            ax[1, col_index].spines['top'].set_visible(False)
-            ax[1, col_index].spines['right'].set_visible(False)
+            ax.spines['left'].set_visible(False)
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
 
             plt.suptitle(f'{model_name_plot}', fontsize=16, fontweight='bold')
             plt.savefig(f'figs/paper/unit_chart_overlaps_{model_name}.png')
