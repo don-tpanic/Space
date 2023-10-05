@@ -1505,27 +1505,31 @@ def unit_visualization_by_type():
 
     # plottings
     for unit_type in [
-        'place_cell_1_field', 
-        'place_cell_n_fields', 
+        'place_cell',
+        'directional_cell',
         'border_cell',
-        'less_directional_place_cell'
+        'place+directional_cell', 
     ]:
-        if unit_type == 'place_cell_1_field':
-            # single field place cell
-            selected_n_indices = [2631, 8, 2803, 1654, 475, 4055]
-            subplot_label = 'D'
-        if unit_type == 'place_cell_n_fields':
-            # multiple fields place cell
-            selected_n_indices = [1472, 3507, 1115, 2076, 679, 3226]
+        if unit_type == 'place_cell':
+            # Less directional place fields
+            selected_n_indices = [1280, 2672, 315, 758, 3429, 3530]
+            subplot_label = 'A'
+        
+        if unit_type == 'directional_cell':
+            # Less place fields directional cells
+            selected_n_indices = [245, 1303, 1081, 646, 4013, 1499]
             subplot_label = 'B'
+
         if unit_type == 'border_cell':
             # border cells
             selected_n_indices = [3866, 2404, 1476, 2433, 3846, 2949]
             subplot_label = 'C'
-        if unit_type == 'less_directional_place_cell':
-            # Less directional place fields
-            selected_n_indices = [1280, 2672, 315, 758, 3429, 3530]
-            subplot_label = 'A'
+        
+        if unit_type == 'place+directional_cell':
+            # single field place cell with directional tuning
+            selected_n_indices = [2631, 8, 2803, 1654, 475, 4055]
+            subplot_label = 'D'
+
 
         fig = plt.figure(figsize=(10, 3))
         # ref - https://stackoverflow.com/questions/41071947/how-to-remove-the-space-between-subplots-in-matplotlib-pyplot
@@ -1579,7 +1583,17 @@ def unit_visualization_by_type():
                         ax.set_thetagrids([0, 90, 180, 270], labels=['0', '90', '180', '270'])
                     else:
                         ax.set_thetagrids([0, 90, 180, 270], labels=['', '', '', ''])
-
+        
+        # add text on bottom middle overall as title
+        if unit_type == 'place_cell':
+            suptitle = 'Place Cells'
+        elif unit_type == 'directional_cell':
+            suptitle = 'Directional Cells'
+        elif unit_type == 'border_cell':
+            suptitle = 'Border Cells'
+        elif unit_type == 'place+directional_cell':
+            suptitle = 'Place + Directional Cells'
+        plt.text(0.5, 0.05, suptitle, ha='center', va='center', fontsize=16, transform=fig.transFigure)
         plt.savefig(f'figs/paper/unit_visualization_by_type_{unit_type}.png')
         plt.close()
       
@@ -1793,5 +1807,5 @@ if __name__ == '__main__':
     # lesion_by_coef_each_model_across_layers_and_lr()
     # lesion_by_unit_chart_each_model_across_layers_and_lr()
     # unit_chart_type_against_coef_each_model_across_layers()
-    # unit_visualization_by_type()
-    unit_chart_visualization_piechart()
+    unit_visualization_by_type()
+    # unit_chart_visualization_piechart()
