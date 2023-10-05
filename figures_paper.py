@@ -1599,6 +1599,7 @@ def unit_visualization_by_type():
       
 
 def unit_chart_visualization_piechart():
+    import matplotlib.patches as patches
     experiment = 'unit_chart'
     moving_trajectory = 'uniform'
     envs = ['env28_r24']
@@ -1609,8 +1610,8 @@ def unit_chart_visualization_piechart():
         output_layers = data.load_model_layers(model_name)
 
         # each column is a layer
-        # row1 is dead v active units barplot
-        # row2 is all types piechart
+        # row1 is all types piechart
+        # row2 is dead v active units barplot
         fig, ax = plt.subplots(
                 nrows=2,
                 ncols=len(output_layers),
@@ -1699,20 +1700,8 @@ def unit_chart_visualization_piechart():
             exclusive_direction_cells_indices = \
                 list(set(direction_cell_indices) - (set(place_and_direction_cells_indices) | set(border_and_direction_cells_indices)))
 
-            # first subplot: barchart of dead and active units
-            ax[0, col_index].bar(
-                ['dead', 'active'],
-                [n_dead_units/unit_chart_info.shape[0], 
-                n_active_units/unit_chart_info.shape[0]],
-                color=['grey', 'blue'],
-                alpha=0.3,
-            )
-            ax[0, 0].set_ylabel('Proportion of units')
-            ax[0, col_index].set_ylim([0, 1])
-            ax[0, col_index].spines.right.set_visible(False)
-            ax[0, col_index].spines.top.set_visible(False)
 
-            # second subplot: piechart of different cell proportions
+            # first subplot: piechart of different cell proportions
             n_exc_place_cells = len(exclusive_place_cells_indices)
             n_exc_border_cells = len(exclusive_border_cells_indices)
             n_exc_direction_cells = len(exclusive_direction_cells_indices)
@@ -1782,7 +1771,7 @@ def unit_chart_visualization_piechart():
                 elif label == 'P+B+D':
                     colors.append(plt.cm.Pastel1.colors[6])
 
-            ax[1, col_index].pie(
+            ax[0, col_index].pie(
                 n_cells,
                 autopct=lambda p: '{:.0f}'.format(round(p)) if p >= 1 else '',
                 labels=labels,
@@ -1790,12 +1779,41 @@ def unit_chart_visualization_piechart():
                 explode=[0.1]*len(labels),
             )
 
-            ax[1, col_index].set_xlabel('Out of all active units (%)')
-            ax[0, col_index].set_title(output_layer)
+            ax[0, col_index].set_xlabel('Out of all active units (%)')
+            ax[0, col_index].set_title(output_layer, fontweight='bold')
             plt.tight_layout(rect=[0, 0.03, 1, 0.95])
             if model_name == 'vgg16': model_name_plot = 'VGG-16'
             elif model_name == 'resnet50': model_name_plot = 'ResNet-50'
             elif model_name == 'vit_b16': model_name_plot = 'ViT-B/16'
+
+
+            # second subplot: show proportion of dead and active units
+            # x-axis is 0 to 1, showing how much is dead and how much is active
+            # y-axis can be arbitrary height, we set to 2.
+            box_height = 2
+            width1 = n_dead_units/unit_chart_info.shape[0]*100
+            width2 = n_active_units/unit_chart_info.shape[0]*100
+
+            # Set the x-axis limit to 0-100%
+            ax[1, col_index].set_xlim(0, 100)
+            ax[1, col_index].set_yticks([])
+            
+            # Create rectangles for the partitions
+            rect1 = patches.Rectangle((0, 0), width1, box_height, linewidth=1, edgecolor='none', facecolor='grey', alpha=0.7)
+            rect2 = patches.Rectangle((width1, 0), width2, box_height, linewidth=1, edgecolor='none', facecolor='blue', alpha=0.7)
+
+            ax[1, col_index].add_patch(rect1)
+            ax[1, col_index].add_patch(rect2)
+            ax[1, col_index].set_xlabel('Dead and active units (%)')
+
+            # set x-axis ticks only (0, width1, 100), round to 0 decimal places
+            ax[1, col_index].set_xticks([0, int(width1), 100], minor=False)
+
+            # remove left, top and right
+            ax[1, col_index].spines['left'].set_visible(False)
+            ax[1, col_index].spines['top'].set_visible(False)
+            ax[1, col_index].spines['right'].set_visible(False)
+
             plt.suptitle(f'{model_name_plot}', fontsize=16, fontweight='bold')
             plt.savefig(f'figs/paper/unit_chart_overlaps_{model_name}.png')
 
@@ -1807,5 +1825,5 @@ if __name__ == '__main__':
     # lesion_by_coef_each_model_across_layers_and_lr()
     # lesion_by_unit_chart_each_model_across_layers_and_lr()
     # unit_chart_type_against_coef_each_model_across_layers()
-    unit_visualization_by_type()
-    # unit_chart_visualization_piechart()
+    # unit_visualization_by_type()
+    unit_chart_visualization_piechart()
