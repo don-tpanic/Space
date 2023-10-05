@@ -1593,7 +1593,7 @@ def unit_visualization_by_type():
             suptitle = 'Border Cells'
         elif unit_type == 'place+directional_cell':
             suptitle = 'Place + Directional Cells'
-        plt.text(0.5, 0.05, suptitle, ha='center', va='center', fontsize=16, transform=fig.transFigure)
+        plt.text(0.5, 1.25, suptitle, ha='center', va='center', fontsize=16, transform=fig.transFigure)
         plt.savefig(f'figs/paper/unit_visualization_by_type_{unit_type}.png')
         plt.close()
       
