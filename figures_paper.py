@@ -1780,11 +1780,42 @@ def unit_chart_visualization_piechart():
             )
 
             ax.set_xlabel('Out of all active units (%)')
-            ax.set_title(output_layer, fontweight='bold')
+            # ax.set_title(output_layer, fontweight='bold')
+            if model_name == 'vgg16': 
+                model_name_plot = 'VGG-16'
+                if output_layer == 'block2_pool':
+                    output_layer_plot = 'Early (block2_pool)'
+                elif output_layer == 'block4_pool':
+                    output_layer_plot = 'Mid (block4_pool)'
+                elif output_layer == 'block5_pool':
+                    output_layer_plot = 'Late (block5_pool)'
+                elif output_layer == 'fc2':
+                    output_layer_plot = 'Penultimate (fc2)'
+
+            elif model_name == 'resnet50': 
+                model_name_plot = 'ResNet-50'
+                if output_layer == 'conv2_block3_out':
+                    output_layer_plot = 'Early (conv2_block3_out)'
+                elif output_layer == 'conv3_block4_out':
+                    output_layer_plot = 'Mid (conv3_block4_out)'
+                elif output_layer == 'conv4_block6_out':
+                    output_layer_plot = 'Late (conv4_block6_out)'
+                elif output_layer == 'avg_pool':
+                    output_layer_plot = 'Penultimate (avg_pool)'
+
+            elif model_name == 'vit_b16': 
+                model_name_plot = 'ViT-B/16'
+                if output_layer == 'layer_3':
+                    output_layer_plot = 'Early (layer_3)'
+                elif output_layer == 'layer_6':
+                    output_layer_plot = 'Mid (layer_6)'
+                elif output_layer == 'layer_9':
+                    output_layer_plot = 'Late (layer_9)'
+                elif output_layer == 'layer_12':
+                    output_layer_plot = 'Penultimate (layer_12)'
+
+            ax.set_title(f'{output_layer_plot}', fontweight='bold')
             plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-            if model_name == 'vgg16': model_name_plot = 'VGG-16'
-            elif model_name == 'resnet50': model_name_plot = 'ResNet-50'
-            elif model_name == 'vit_b16': model_name_plot = 'ViT-B/16'
 
 
             # second subplot: show proportion of dead and active units
