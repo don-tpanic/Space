@@ -12,6 +12,46 @@ import models
 plt.rcParams.update({'font.size': 12, 'font.weight': "bold"})
 
 
+output_layers_2_levels = {
+    "vgg16": {
+        "block2_pool": "Early (block2_pool)",
+        "block4_pool": "Mid (block4_pool)",
+        "block5_pool": "Late (block5_pool)",
+        "fc2": "Penultimate (fc2)",
+    },
+    "vgg16_untrained": {
+        "block2_pool": "Early (block2_pool)",
+        "block4_pool": "Mid (block4_pool)",
+        "block5_pool": "Late (block5_pool)",
+        "fc2": "Penultimate (fc2)",
+    },
+    "resnet50": {
+        "conv2_block3_out": "Early (conv2_block3_out)",
+        "conv4_block6_out": "Mid (conv4_block6_out)",
+        "conv5_block2_out": "Late (conv5_block2_out)",
+        "avg_pool": "Penultimate (avg_pool)",
+    },
+    "resnet50_untrained": {
+        "conv2_block3_out": "Early (conv2_block3_out)",
+        "conv4_block6_out": "Mid (conv4_block6_out)",
+        "conv5_block2_out": "Late (conv5_block2_out)",
+        "avg_pool": "Penultimate (avg_pool)",
+    },
+    "vit_b16": {
+        "layer_3": "Early (layer_3)",
+        "layer_6": "Mid (layer_6)",
+        "layer_9": "Late (layer_9)",
+        "layer_12": "Penultimate (layer_12)",
+    },
+    "vit_b16_untrained": {
+        "layer_3": "Early (layer_3)",
+        "layer_6": "Mid (layer_6)",
+        "layer_9": "Late (layer_9)",
+        "layer_12": "Penultimate (layer_12)",
+    },
+}
+
+
 def _convert_mse_to_physical_unit(mse, error_type):
     """
     Convert MSE error back to physical sense (Unity units or degree).
@@ -145,7 +185,7 @@ def decoding_each_model_across_layers_and_sr():
                         else:
                             # for non-baseline layer performance,
                             # we label each layer and use layer-specific color.
-                            label = output_layer
+                            label = output_layers_2_levels[model_name][output_layer]
                             if "predictions" in label: label = "logits"
                             color = data.load_envs_dict(model_name, envs)[
                                 f'{envs[0]}_{movement_mode}_{model_name}_{output_layer}']['color']
@@ -999,7 +1039,7 @@ def lesion_by_coef_each_model_across_layers_and_lr():
                             else:
                                 # for non-baseline layer performance,
                                 # we label each layer and use layer-specific color.
-                                label = output_layer
+                                label = output_layers_2_levels[model_name][output_layer]
                                 if "predictions" in label: label = "logits"
                                 color = data.load_envs_dict(model_name, envs)[
                                     f'{envs[0]}_{movement_mode}_{model_name}_{output_layer}']['color']
@@ -1045,7 +1085,7 @@ def lesion_by_coef_each_model_across_layers_and_lr():
         axes[1, 0].text(
             -0.2, 1.3, 'B', fontsize=14, fontweight='bold',
             transform=axes[1, 0].transAxes, va='top', ha='left')
-        axes[0, -1].legend(loc='upper right')
+        axes[1, -1].legend(loc='upper right')
         plt.tight_layout()
         plt.savefig(f'figs/paper/lesion_by_coef_{model_name}.png')
         plt.close()
@@ -1378,7 +1418,7 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
                             else:
                                 # for non-baseline layer performance,
                                 # we label each layer and use layer-specific color.
-                                label = output_layer
+                                label = output_layers_2_levels[model_name][output_layer]
                                 if "predictions" in label: label = "logits"
                                 color = data.load_envs_dict(model_name, envs)[
                                     f'{envs[0]}_{movement_mode}_{model_name}_{output_layer}']['color']
@@ -1435,7 +1475,7 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
         axes[1, 0].text(
             -0.2, 1.3, 'B', fontsize=14, fontweight='bold',
             transform=axes[1, 0].transAxes, va='top', ha='left')
-        axes[0, -1].legend(loc='upper right')
+        axes[1, -1].legend(loc='upper right')
         plt.tight_layout()
         plt.savefig(f'figs/paper/lesion_by_unit_chart_{model_name}.png')
         plt.close()
@@ -1855,7 +1895,6 @@ if __name__ == '__main__':
     # decoding_each_model_across_layers_and_sr()
     # decoding_all_models_one_layer_one_sr()
     # lesion_by_coef_each_model_across_layers_and_lr()
-    # lesion_by_unit_chart_each_model_across_layers_and_lr()
-    # unit_chart_type_against_coef_each_model_across_layers()
+    lesion_by_unit_chart_each_model_across_layers_and_lr()
     # unit_visualization_by_type()
-    unit_chart_visualization_piechart()
+    # unit_chart_visualization_piechart()
