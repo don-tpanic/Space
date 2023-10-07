@@ -262,52 +262,80 @@ def load_model_layers(model_name):
     models_and_layers = {
         'simclrv2_r50_1x_sk0':
             [
-                'final_avg_pool',
-                'block_group4',
+                # 'final_avg_pool',
+                # 'block_group4',
+                # 'block_group2',
+                # 'block_group1'
+                'block_group1',
                 'block_group2',
-                'block_group1'
+                'block_group4',
+                'final_avg_pool',
             ],
         'vgg16':
             [   
-                'fc2',
-                'block5_pool',
-                'block4_pool',
+                # 'fc2',
+                # 'block5_pool',
+                # 'block4_pool',
+                # 'block2_pool',
                 'block2_pool',
+                'block4_pool',
+                'block5_pool',
+                'fc2',
             ],
         'vgg16_untrained':
             [
-                'fc2',
-                'block5_pool',
-                'block4_pool',
+                # 'fc2',
+                # 'block5_pool',
+                # 'block4_pool',
+                # 'block2_pool',
                 'block2_pool',
+                'block4_pool',
+                'block5_pool',
+                'fc2',
             ],
         'resnet50':
             [
-                'avg_pool',
-                'conv5_block2_out',
-                'conv4_block6_out',
+                # 'avg_pool',
+                # 'conv5_block2_out',
+                # 'conv4_block6_out',
+                # 'conv2_block3_out',
                 'conv2_block3_out',
+                'conv4_block6_out',
+                'conv5_block2_out',
+                'avg_pool',
             ],
         'resnet50_untrained':
             [
-                'avg_pool',
-                'conv5_block2_out',
-                'conv4_block6_out',
+                # 'avg_pool',
+                # 'conv5_block2_out',
+                # 'conv4_block6_out',
+                # 'conv2_block3_out',
                 'conv2_block3_out',
+                'conv4_block6_out',
+                'conv5_block2_out',
+                'avg_pool',
             ],
         'vit_b16':
             [   
-                'layer_12',
-                'layer_9',
-                'layer_6',
+                # 'layer_12',
+                # 'layer_9',
+                # 'layer_6',
+                # 'layer_3',
                 'layer_3',
+                'layer_6',
+                'layer_9',
+                'layer_12',
             ],
         'vit_b16_untrained':
             [
-                'layer_12',
-                'layer_9',
-                'layer_6',
+                # 'layer_12',
+                # 'layer_9',
+                # 'layer_6',
+                # 'layer_3',
                 'layer_3',
+                'layer_6',
+                'layer_9',
+                'layer_12',
             ],
     }
     return models_and_layers[model_name]
