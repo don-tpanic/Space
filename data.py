@@ -262,10 +262,6 @@ def load_model_layers(model_name):
     models_and_layers = {
         'simclrv2_r50_1x_sk0':
             [
-                # 'final_avg_pool',
-                # 'block_group4',
-                # 'block_group2',
-                # 'block_group1'
                 'block_group1',
                 'block_group2',
                 'block_group4',
@@ -273,10 +269,6 @@ def load_model_layers(model_name):
             ],
         'vgg16':
             [   
-                # 'fc2',
-                # 'block5_pool',
-                # 'block4_pool',
-                # 'block2_pool',
                 'block2_pool',
                 'block4_pool',
                 'block5_pool',
@@ -284,10 +276,6 @@ def load_model_layers(model_name):
             ],
         'vgg16_untrained':
             [
-                # 'fc2',
-                # 'block5_pool',
-                # 'block4_pool',
-                # 'block2_pool',
                 'block2_pool',
                 'block4_pool',
                 'block5_pool',
@@ -295,10 +283,6 @@ def load_model_layers(model_name):
             ],
         'resnet50':
             [
-                # 'avg_pool',
-                # 'conv5_block2_out',
-                # 'conv4_block6_out',
-                # 'conv2_block3_out',
                 'conv2_block3_out',
                 'conv4_block6_out',
                 'conv5_block2_out',
@@ -306,10 +290,6 @@ def load_model_layers(model_name):
             ],
         'resnet50_untrained':
             [
-                # 'avg_pool',
-                # 'conv5_block2_out',
-                # 'conv4_block6_out',
-                # 'conv2_block3_out',
                 'conv2_block3_out',
                 'conv4_block6_out',
                 'conv5_block2_out',
@@ -317,10 +297,6 @@ def load_model_layers(model_name):
             ],
         'vit_b16':
             [   
-                # 'layer_12',
-                # 'layer_9',
-                # 'layer_6',
-                # 'layer_3',
                 'layer_3',
                 'layer_6',
                 'layer_9',
@@ -328,10 +304,6 @@ def load_model_layers(model_name):
             ],
         'vit_b16_untrained':
             [
-                # 'layer_12',
-                # 'layer_9',
-                # 'layer_6',
-                # 'layer_3',
                 'layer_3',
                 'layer_6',
                 'layer_9',
@@ -345,7 +317,7 @@ def load_envs_dict(model_name, envs):
     model_layers = load_model_layers(model_name)
     # gradient cmap in warm colors in a list
     # cmaps = sns.color_palette("Reds", len(model_layers)).as_hex()[::-1]
-    cmaps = ['#4E0362', '#C63264', '#FF9799', '#FFDCA2']
+    cmaps = ['#FFDCA2', '#FF9799', '#C63264', '#4E0362']
     if len(envs) == 1:
         prefix = f'{envs[0]}'
     else:
