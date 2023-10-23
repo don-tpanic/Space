@@ -1876,7 +1876,7 @@ def unit_chart_visualization_piechart():
 
             ax.add_patch(rect1)
             ax.add_patch(rect2)
-            ax.set_xlabel('Dead and active units (%)')
+            ax.set_xlabel('Inactive and active units (%)')
 
             # set x-axis ticks only (0, width1, 100), round to 0 decimal places
             ax.set_xticks([0, int(width1), 100], minor=False)
@@ -1895,6 +1895,6 @@ if __name__ == '__main__':
     # decoding_each_model_across_layers_and_sr()
     # decoding_all_models_one_layer_one_sr()
     # lesion_by_coef_each_model_across_layers_and_lr()
-    lesion_by_unit_chart_each_model_across_layers_and_lr()
+    # lesion_by_unit_chart_each_model_across_layers_and_lr()
     # unit_visualization_by_type()
-    # unit_chart_visualization_piechart()
+    unit_chart_visualization_piechart()
