@@ -1644,7 +1644,8 @@ def unit_chart_visualization_piechart():
     moving_trajectory = 'uniform'
     envs = ['env28_r24']
     env = envs[0]
-    model_names = ['vgg16', 'resnet50', 'vit_b16']
+    # model_names = ['vgg16', 'resnet50', 'vit_b16']
+    model_names = ['vgg16_untrained', 'vit_b16_untrained']
 
     for model_name in model_names:
         output_layers = data.load_model_layers(model_name)
@@ -1821,8 +1822,11 @@ def unit_chart_visualization_piechart():
 
             ax.set_xlabel('Out of all active units (%)')
             # ax.set_title(output_layer, fontweight='bold')
-            if model_name == 'vgg16': 
-                model_name_plot = 'VGG-16'
+            if 'vgg16' in model_name:
+                if 'untrained' in model_name:
+                    model_name_plot = 'VGG-16 (untrained)'
+                else:
+                    model_name_plot = 'VGG-16'
                 if output_layer == 'block2_pool':
                     output_layer_plot = 'Early (block2_pool)'
                 elif output_layer == 'block4_pool':
@@ -1832,8 +1836,11 @@ def unit_chart_visualization_piechart():
                 elif output_layer == 'fc2':
                     output_layer_plot = 'Penultimate (fc2)'
 
-            elif model_name == 'resnet50': 
-                model_name_plot = 'ResNet-50'
+            elif 'resnet50' in model_name:
+                if 'untrained' in model_name:
+                    model_name_plot = 'ResNet-50 (untrained)'
+                else:
+                    model_name_plot = 'ResNet-50'
                 if output_layer == 'conv2_block3_out':
                     output_layer_plot = 'Early (conv2_block3_out)'
                 elif output_layer == 'conv3_block4_out':
@@ -1843,8 +1850,11 @@ def unit_chart_visualization_piechart():
                 elif output_layer == 'avg_pool':
                     output_layer_plot = 'Penultimate (avg_pool)'
 
-            elif model_name == 'vit_b16': 
-                model_name_plot = 'ViT-B/16'
+            elif 'vit_b16' in model_name:
+                if 'untrained' in model_name:
+                    model_name_plot = 'ViT-B/16 (untrained)'
+                else:
+                    model_name_plot = 'ViT-B/16'
                 if output_layer == 'layer_3':
                     output_layer_plot = 'Early (layer_3)'
                 elif output_layer == 'layer_6':
