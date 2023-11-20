@@ -52,7 +52,7 @@ output_layers_2_levels = {
 }
 
 
-def _convert_mse_to_physical_unit(mse, error_type):
+def _convert_mse_to_physical_unit(mse, error_type, normalized=True):
     """
     Convert MSE error back to physical sense (Unity units or degree).
 
@@ -69,11 +69,21 @@ def _convert_mse_to_physical_unit(mse, error_type):
     is the prediction off, and since we have 24 intervals out of 360 degrees,
     we can map the error back to degree by multiplying the square root of MSE
     by 360/24.
+
+    If `normalized=True`, we further normalize the error by dividing it by the
+    maximum possible error, which is 2 for location and distance error, and 180
+    for rotation error.
     """
     coordinate_system_to_unity_scale = 2 / 10
     if error_type == 'loc' or error_type == 'dist':
+        if normalized:
+            return np.sqrt(mse) * coordinate_system_to_unity_scale / 2
         return np.sqrt(mse) * coordinate_system_to_unity_scale
+    
     elif error_type == 'rot':
+        if normalized:
+            return np.sqrt(mse) * 360/24 / 180
+
         return np.sqrt(mse) * 360/24
 
 
@@ -209,13 +219,14 @@ def decoding_each_model_across_layers_and_sr():
             axes[i].set_xticklabels(sampling_rates)
             if error_type == 'loc':  
                 title = 'Location Decoding'
-                axes[i].set_ylabel('Virtual environment units\n(Max = 2)')
+                axes[i].set_ylabel("Normalized Error")
             elif error_type == 'rot': 
                 title = 'Direction Decoding'
-                axes[i].set_ylabel('Degree')
+                # axes[i].set_ylabel('Degree')
+                axes[i].set_ylabel("Normalized Error")
             elif error_type == 'dist': 
                 title = 'Nearest Border Decoding'
-                axes[i].set_ylabel('Virtual environment units\n(Max = 2)')
+                axes [i].set_ylabel("Normalized Error")
             axes[i].set_title(title)
             axes[i].spines.right.set_visible(False)
             axes[i].spines.top.set_visible(False)
@@ -366,16 +377,16 @@ def TEMP__decoding_each_model_across_layers_and_sr_V2():
                         )
             if error_type == 'loc':  
                 title = 'Location Decoding'
-                axes_row1[i].set_ylabel('Virtual environment units\n(Max = 2)')
-                axes_row2[i].set_ylabel('Virtual environment units\n(Max = 2)')
+                axes_row1[i].set_ylabel("Normalized Error")
+                axes_row2[i].set_ylabel("Normalized Error")
             elif error_type == 'rot': 
                 title = 'Direction Decoding'
-                axes_row1[i].set_ylabel('Degree')
-                axes_row2[i].set_ylabel('Degree')
+                axes_row1[i].set_ylabel("Normalized Error")
+                axes_row2[i].set_ylabel("Normalized Error")
             elif error_type == 'dist': 
                 title = 'Nearest Border Decoding'
-                axes_row1[i].set_ylabel('Virtual environment units\n(Max = 2)')
-                axes_row2[i].set_ylabel('Virtual environment units\n(Max = 2)')
+                axes_row1[i].set_ylabel("Normalized Error")
+                axes_row2[i].set_ylabel("Normalized Error")
             axes_row2[i].set_xlabel('Sampling rate')
             axes_row2[i].set_xticks(sampling_rates)
             axes_row2[i].set_xticklabels(sampling_rates)
@@ -707,15 +718,16 @@ def decoding_all_models_one_layer_one_sr():
 
         if error_type == 'loc':  
             title = 'Location Decoding'
-            axes_row2[i].set_ylabel(' '*30+'Virtual environment units (Max = 2)')
-            axes_row1[i].set_ylim(0.4, 0.75)
+            axes_row2[i].set_ylabel(' '*24+'Normalized Error')
+            axes_row1[i].set_ylim(0.2, 1.05)
         elif error_type == 'rot': 
             title = 'Direction Decoding'
-            axes_row2[i].set_ylabel(' '*30+'Degree')
+            axes_row2[i].set_ylabel(' '*24+'Normalized Error')
+            axes_row1[i].set_ylim(0.2, 1.05)
         elif error_type == 'dist': 
             title = 'Distance to Nearest Border Decoding'
-            axes_row2[i].set_ylabel(' '*30+'Virtual environment units (Max = 2)')
-            axes_row1[i].set_ylim(0.3, 0.75)
+            axes_row2[i].set_ylabel(' '*24+'Normalized Error')
+            axes_row1[i].set_ylim(0.2, 1.05)
         
         axes_row1[i].set_title(title)
         axes_row1[i].spines['bottom'].set_visible(False)
@@ -1062,9 +1074,9 @@ def lesion_by_coef_each_model_across_layers_and_lr():
                             )
                 axes[rank_i, error_type_i].set_xlabel('Lesion ratio')
                 if error_type in ['loc', 'dist']:
-                    axes[rank_i, error_type_i].set_ylabel('Virtual environment units (Max = 2)')
+                    axes[rank_i, error_type_i].set_ylabel('Normalized Error')
                 elif error_type == 'rot':
-                    axes[rank_i, error_type_i].set_ylabel('Degree')
+                    axes[rank_i, error_type_i].set_ylabel('Normalized Error')
                 axes[rank_i, error_type_i].set_xticks(lesion_ratios)
                 axes[rank_i, error_type_i].set_xticklabels(lesion_ratios)
                 if rank == 'top':
@@ -1441,9 +1453,9 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
                             )
                 axes[rank_i, unit_chart_type_i].set_xlabel('Lesion ratio')
                 if error_type in ['loc', 'dist']:
-                    axes[rank_i, unit_chart_type_i].set_ylabel('Virtual environment units (Max = 2)')
+                    axes[rank_i, unit_chart_type_i].set_ylabel('Normalized Error')
                 elif error_type == 'rot':
-                    axes[rank_i, unit_chart_type_i].set_ylabel('Degree')
+                    axes[rank_i, unit_chart_type_i].set_ylabel('Normalized Error')
                 axes[rank_i, unit_chart_type_i].set_xticks(lesion_ratios)
                 axes[rank_i, unit_chart_type_i].set_xticklabels(lesion_ratios)
                 if rank == 'top':
@@ -1902,9 +1914,9 @@ def unit_chart_visualization_piechart():
 
 if __name__ == '__main__':
     TF_NUM_INTRAOP_THREADS = 10
-    # decoding_each_model_across_layers_and_sr()
-    # decoding_all_models_one_layer_one_sr()
-    # lesion_by_coef_each_model_across_layers_and_lr()
-    # lesion_by_unit_chart_each_model_across_layers_and_lr()
+    decoding_each_model_across_layers_and_sr()
+    decoding_all_models_one_layer_one_sr()
+    lesion_by_coef_each_model_across_layers_and_lr()
+    lesion_by_unit_chart_each_model_across_layers_and_lr()
     # unit_visualization_by_type()
-    unit_chart_visualization_piechart()
+    # unit_chart_visualization_piechart()
