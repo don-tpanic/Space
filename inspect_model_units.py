@@ -1233,6 +1233,7 @@ def _single_env_viz_units_ranked_by_unit_chart(
         moving_trajectory=moving_trajectory,
     )
     unit_chart_info = np.load(f'{results_path}/unit_chart.npy', allow_pickle=True)
+    print(f'[DEBUG] unit_chart_info.shape: {unit_chart_info.shape}')
 
     # TODO: potentially we should first select based on num_clusters >= 4+
     # and then sort by gridness.
@@ -1246,6 +1247,7 @@ def _single_env_viz_units_ranked_by_unit_chart(
     # filter out dead units, by return unit_index that are active
     # we will then sort based on the active unit_index
     active_unit_indices = np.where(unit_chart_info[:, 0] == 1)[0]
+    print(f'[DEBUG] active_unit_indices.shape: {active_unit_indices.shape}')
 
     # metric of interest is the one we sort based on `sorted_by`
     if sorted_by == 'num_clusters':
@@ -1255,6 +1257,7 @@ def _single_env_viz_units_ranked_by_unit_chart(
         # must be mapped back to native model index space so we 
         # extract the correct units.
         metric_of_interest_shrunk = metric_of_interest[active_unit_indices]
+        print(f'[DEBUG] metric_of_interest_shrunk.shape: {metric_of_interest_shrunk.shape}')
 
     elif sorted_by == 'gridness':
         metric_of_interest = gridness
@@ -1272,6 +1275,7 @@ def _single_env_viz_units_ranked_by_unit_chart(
         raise Warning(f'Cannot be sorted_by: {sorted_by} when ranked by unit chart!')
     
     # visualize top_n, mid_n, random_n units' gridness
+    print(f'[DEBUG] filterings', filterings)
     for filtering in filterings:
         n_units_filtering = filtering['n_units_filtering']
         p_units_filtering = filtering['p_units_filtering']
@@ -1722,13 +1726,13 @@ def multi_envs_inspect_units_CPU(
                     if experiment == 'unit_chart':
                         res = pool.apply_async(
                             target_func,
-                            args=(
-                                config_version, 
-                                experiment,
-                                moving_trajectory,
-                                sorted_by,
-                                filterings,
-                            )
+                            kwds={
+                                'config_version': config_version,
+                                'experiment': experiment,
+                                'moving_trajectory': moving_trajectory,
+                                'sorted_by': sorted_by,
+                                'filterings': filterings,
+                            }
                         )
                     else:
                         for sampling_rate in sampling_rates:
@@ -1826,11 +1830,11 @@ if __name__ == '__main__':
     movement_modes = ['2d']
     sampling_rates = [0.3]
     random_seeds = [42]
-    model_names = ['vgg16']
+    model_names = ['vit_b16', 'vit_b16_untrained']
     moving_trajectories = ['uniform']
     decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
     feature_selections = ['l2']
-    sorted_by = 'num_clusters'
+    sorted_by = 'borderness'
     filterings = [
         # {'filtering_order': 'top_n', 'n_units_filtering': None, 'p_units_filtering': 0.1},
         # {'filtering_order': 'random_n', 'n_units_filtering': None, 'p_units_filtering': 0.1},
@@ -1857,8 +1861,8 @@ if __name__ == '__main__':
     # NOTE: 2b requires 2a
     # NOTE: 3, 4 less interesting than 2b which compares unit chart info againt coef.
 
-    multi_envs_inspect_units_GPU(
-    # multi_envs_inspect_units_CPU(
+    # multi_envs_inspect_units_GPU(
+    multi_envs_inspect_units_CPU(
         # target_func=_single_env_produce_unit_chart,                       # set experiment='unit_chart'
         target_func=_single_env_viz_units_ranked_by_unit_chart,           # set experiment='unit_chart'
         # target_func=_single_env_viz_unit_chart,                           # set experiment='unit_chart'
@@ -1876,7 +1880,7 @@ if __name__ == '__main__':
         random_seeds=random_seeds,
         sorted_by=sorted_by,
         filterings=filterings,
-        cuda_id_list=[0,1,2,3,4,5,6,7],
+        # cuda_id_list=[0,1,2,3,4,5,6,7],
     )
 
     # print time elapsed
