@@ -1657,7 +1657,7 @@ def unit_chart_visualization_piechart():
     envs = ['env28_r24']
     env = envs[0]
     # model_names = ['vgg16', 'resnet50', 'vit_b16']
-    model_names = ['vgg16_untrained', 'resnet50_untrained', 'vit_b16_untrained']
+    model_names = ['resnet50_untrained']
 
     for model_name in model_names:
         output_layers = data.load_model_layers(model_name)
@@ -1855,10 +1855,10 @@ def unit_chart_visualization_piechart():
                     model_name_plot = 'ResNet-50'
                 if output_layer == 'conv2_block3_out':
                     output_layer_plot = 'Early (conv2_block3_out)'
-                elif output_layer == 'conv3_block4_out':
-                    output_layer_plot = 'Mid (conv3_block4_out)'
                 elif output_layer == 'conv4_block6_out':
-                    output_layer_plot = 'Late (conv4_block6_out)'
+                    output_layer_plot = 'Mid (conv4_block6_out)'
+                elif output_layer == 'conv5_block2_out':
+                    output_layer_plot = 'Late (conv5_block2_out)'
                 elif output_layer == 'avg_pool':
                     output_layer_plot = 'Penultimate (avg_pool)'
 
