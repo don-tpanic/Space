@@ -1830,11 +1830,11 @@ if __name__ == '__main__':
     movement_modes = ['2d']
     sampling_rates = [0.3]
     random_seeds = [42]
-    model_names = ['vit_b16', 'vit_b16_untrained']
+    model_names = ['resnet50_untrained']
     moving_trajectories = ['uniform']
     decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
     feature_selections = ['l2']
-    sorted_by = 'borderness'
+    sorted_by = 'num_clusters'
     filterings = [
         # {'filtering_order': 'top_n', 'n_units_filtering': None, 'p_units_filtering': 0.1},
         # {'filtering_order': 'random_n', 'n_units_filtering': None, 'p_units_filtering': 0.1},
@@ -1863,8 +1863,8 @@ if __name__ == '__main__':
 
     # multi_envs_inspect_units_GPU(
     multi_envs_inspect_units_CPU(
-        # target_func=_single_env_produce_unit_chart,                       # set experiment='unit_chart'
-        target_func=_single_env_viz_units_ranked_by_unit_chart,           # set experiment='unit_chart'
+        target_func=_single_env_produce_unit_chart,                       # set experiment='unit_chart'
+        # target_func=_single_env_viz_units_ranked_by_unit_chart,           # set experiment='unit_chart'
         # target_func=_single_env_viz_unit_chart,                           # set experiment='unit_chart'
         # target_func=_single_env_viz_units_ranked_by_coef_n_save_coef_ranked_unit_charts,    # set experiment='unit_chart_by_coef'
         # target_func=_single_env_viz_units_by_type_ranked_by_coef,
@@ -1880,7 +1880,7 @@ if __name__ == '__main__':
         random_seeds=random_seeds,
         sorted_by=sorted_by,
         filterings=filterings,
-        # cuda_id_list=[0,1,2,3,4,5,6,7],
+        # cuda_id_list=[7],
     )
 
     # print time elapsed

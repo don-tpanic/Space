@@ -1657,7 +1657,7 @@ def unit_chart_visualization_piechart():
     envs = ['env28_r24']
     env = envs[0]
     # model_names = ['vgg16', 'resnet50', 'vit_b16']
-    model_names = ['vgg16_untrained', 'vit_b16_untrained']
+    model_names = ['vgg16_untrained', 'resnet50_untrained', 'vit_b16_untrained']
 
     for model_name in model_names:
         output_layers = data.load_model_layers(model_name)
@@ -1914,9 +1914,9 @@ def unit_chart_visualization_piechart():
 
 if __name__ == '__main__':
     TF_NUM_INTRAOP_THREADS = 10
-    decoding_each_model_across_layers_and_sr()
-    decoding_all_models_one_layer_one_sr()
-    lesion_by_coef_each_model_across_layers_and_lr()
-    lesion_by_unit_chart_each_model_across_layers_and_lr()
+    # decoding_each_model_across_layers_and_sr()
+    # decoding_all_models_one_layer_one_sr()
+    # lesion_by_coef_each_model_across_layers_and_lr()
+    # lesion_by_unit_chart_each_model_across_layers_and_lr()
     # unit_visualization_by_type()
-    # unit_chart_visualization_piechart()
+    unit_chart_visualization_piechart()
