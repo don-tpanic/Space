@@ -1657,7 +1657,7 @@ def unit_chart_visualization_piechart():
     envs = ['env28_r24']
     env = envs[0]
     # model_names = ['vgg16', 'resnet50', 'vit_b16']
-    model_names = ['resnet50_untrained']
+    model_names = ['resnet50']
 
     for model_name in model_names:
         output_layers = data.load_model_layers(model_name)
