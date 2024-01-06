@@ -12,8 +12,13 @@ import data
 import utils
 import models
 
-plt.rcParams.update({'font.size': 12, 'font.weight': "bold"})
-
+plt.rcParams.update(
+    {
+        'font.size': 22, 
+        'font.family': 'sans-serif',
+        'font.sans-serif': 'Arial',
+    }
+)
 
 output_layers_2_levels = {
     "vgg16": {
@@ -156,7 +161,7 @@ def decoding_each_model_across_layers_and_sr():
                         results_collector[error_type][output_layer][metric].append(avg_res)
         
         # plot collected results.
-        fig, axes = plt.subplots(1, len(error_types), figsize=(12, 5))
+        fig, axes = plt.subplots(1, len(error_types), figsize=(18, 5))
         for i, error_type in enumerate(error_types):
             for output_layer in output_layers:
                 for metric in tracked_metrics:
@@ -234,16 +239,12 @@ def decoding_each_model_across_layers_and_sr():
             axes[i].spines.right.set_visible(False)
             axes[i].spines.top.set_visible(False)
         
-        # Add A, B, C labels to subplots
-        axes[0].text(-0.2, 1.1, 'A', fontsize=14, fontweight='bold',
-        transform=axes[0].transAxes, va='top', ha='left')
-        axes[1].text(-0.2, 1.1, 'B', fontsize=14, fontweight='bold',
-        transform=axes[1].transAxes, va='top', ha='left')
-        axes[2].text(-0.2, 1.1, 'C', fontsize=14, fontweight='bold',
-        transform=axes[2].transAxes, va='top', ha='left')
+        plt.subplots_adjust(right=0.8)
+        plt.legend(fontsize=22, loc='upper left', bbox_to_anchor=(1, 1))
         plt.tight_layout()
-        plt.legend(loc='upper right')
+
         plt.savefig(f'figs/paper/decoding_{model_name}.png')
+        plt.savefig(f'figs/paper/decoding_{model_name}.pdf')
         plt.close()
 
 
@@ -632,7 +633,7 @@ def decoding_all_models_one_layer_one_sr():
                     results_collector[error_type][model_name][output_layer][metric].append(avg_res)
     
     # plot collected results.
-    fig, (axes_row1, axes_row2) = plt.subplots(2, len(error_types), figsize=(15, 5))
+    fig, (axes_row1, axes_row2) = plt.subplots(2, len(error_types), figsize=(18, 5))
     for i, error_type in enumerate(error_types):
         for x_i, model_name in enumerate(model_names):
             model_name = model_names[x_i]
@@ -721,15 +722,15 @@ def decoding_all_models_one_layer_one_sr():
 
         if error_type == 'loc':  
             title = 'Location Decoding'
-            axes_row2[i].set_ylabel(' '*24+'Normalized Error')
+            axes_row2[i].set_ylabel(' '*14+'Normalized Error')
             axes_row1[i].set_ylim(0.2, 1.05)
         elif error_type == 'rot': 
             title = 'Direction Decoding'
-            axes_row2[i].set_ylabel(' '*24+'Normalized Error')
+            axes_row2[i].set_ylabel(' '*14+'Normalized Error')
             axes_row1[i].set_ylim(0.2, 1.05)
         elif error_type == 'dist': 
-            title = 'Distance to Nearest Border Decoding'
-            axes_row2[i].set_ylabel(' '*24+'Normalized Error')
+            title = 'Nearest Border Decoding'
+            axes_row2[i].set_ylabel(' '*14+'Normalized Error')
             axes_row1[i].set_ylim(0.2, 1.05)
         
         axes_row1[i].set_title(title)
@@ -740,11 +741,6 @@ def decoding_all_models_one_layer_one_sr():
         axes_row2[i].spines['top'].set_visible(False)
         axes_row1[i].set_xticks([])
         axes_row2[i].set_xticks(range(len(model_names)))
-        if i == 0: subplot_label = 'A'
-        elif i == 1: subplot_label = 'B'
-        elif i == 2: subplot_label = 'C'
-        axes_row1[i].text(-0.2, 1.1, subplot_label, fontsize=14, fontweight='bold',
-            transform=axes_row1[i].transAxes, va='top', ha='left')
 
         # pretty model names
         pretty_model_names = []
@@ -771,6 +767,7 @@ def decoding_all_models_one_layer_one_sr():
 
     fig.tight_layout(rect=(0.02, 0, 1, 0.99))
     plt.savefig(f'figs/paper/decoding_across_models.png')
+    plt.savefig(f'figs/paper/decoding_across_models.pdf')
     plt.close()
 
 
@@ -1013,7 +1010,7 @@ def lesion_by_coef_each_model_across_layers_and_lr():
     for model_name in model_names:
         output_layers = data.load_model_layers(model_name)
         
-        fig, axes = plt.subplots(len(ranks), len(error_types), figsize=(10, 8))
+        fig, axes = plt.subplots(len(ranks), len(error_types), figsize=(18, 11))
         for rank_i, rank in enumerate(ranks):
             for error_type_i, error_type in enumerate(error_types):
                 for output_layer in output_layers:
@@ -1083,26 +1080,27 @@ def lesion_by_coef_each_model_across_layers_and_lr():
                 axes[rank_i, error_type_i].set_xticks(lesion_ratios)
                 axes[rank_i, error_type_i].set_xticklabels(lesion_ratios)
                 if rank == 'top':
-                    if error_type == 'loc':  title = 'Top Coef. Lesion\n(Location)'
-                    elif error_type == 'rot': title = 'Top Coef. Lesion\n(Direction)'
-                    elif error_type == 'dist': title = 'Top Coef.Lesion\n(Nearest Border)'
+                    if error_type == 'loc':  title = 'Top Coef.\n(Location)'
+                    elif error_type == 'rot': title = 'Top Coef.\n(Direction)'
+                    elif error_type == 'dist': title = 'Top Coef.\n(Nearest Border)'
                 elif rank == 'random':
-                    if error_type == 'loc':  title = 'Random Coef. Lesion\n(Location)'
-                    elif error_type == 'rot': title = 'Random Coef. Lesion\n(Direction)'
-                    elif error_type == 'dist': title = 'Random Coef. Lesion\n(Nearest Border)'
+                    if error_type == 'loc':  title = 'Random Coef.\n(Location)'
+                    elif error_type == 'rot': title = 'Random Coef.\n(Direction)'
+                    elif error_type == 'dist': title = 'Random Coef.\n(Nearest Border)'
                 axes[rank_i, error_type_i].set_title(title)
                 axes[rank_i, error_type_i].spines.right.set_visible(False)
                 axes[rank_i, error_type_i].spines.top.set_visible(False)
 
-        axes[0, 0].text(
-            -0.2, 1.3, 'A', fontsize=14, fontweight='bold',
-            transform=axes[0, 0].transAxes, va='top', ha='left')
-        axes[1, 0].text(
-            -0.2, 1.3, 'B', fontsize=14, fontweight='bold',
-            transform=axes[1, 0].transAxes, va='top', ha='left')
-        axes[1, -1].legend(loc='upper right')
+        axes[1, 0].legend(
+            fontsize=22, loc='upper left', bbox_to_anchor=(0.1, -0.2), ncol=3
+        )
+        # create more space at the bottom 
+        # so that the legend is not cut off.
+        plt.subplots_adjust(bottom=0.2, hspace=.6, wspace=.8)
+        # create more space between two rows of subplots
         plt.tight_layout()
         plt.savefig(f'figs/paper/lesion_by_coef_{model_name}.png')
+        plt.savefig(f'figs/paper/lesion_by_coef_{model_name}.pdf')
         plt.close()
 
 
@@ -1384,7 +1382,7 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
     for model_name in model_names:
         output_layers = data.load_model_layers(model_name)
         
-        fig, axes = plt.subplots(len(ranks), len(unit_chart_types), figsize=(12, 8))
+        fig, axes = plt.subplots(len(ranks), len(unit_chart_types), figsize=(20, 8))
         for rank_i, rank in enumerate(ranks):
             for unit_chart_type_i, unit_chart_type in enumerate(unit_chart_types):
 
@@ -1480,24 +1478,19 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
                     elif unit_chart_type == 'borderness':
                         title = 'Random Border Tuning\n(Nearest Border)'
                 
-                axes[rank_i, unit_chart_type_i].set_title(title)
+                axes[rank_i, unit_chart_type_i].set_title(title, fontsize=18)
                 axes[rank_i, unit_chart_type_i].spines.right.set_visible(False)
                 axes[rank_i, unit_chart_type_i].spines.top.set_visible(False)
         
-        axes[0, 0].text(
-            -0.2, 1.3, 'A', fontsize=14, fontweight='bold',
-            transform=axes[0, 0].transAxes, va='top', ha='left')
-        axes[1, 0].text(
-            -0.2, 1.3, 'B', fontsize=14, fontweight='bold',
-            transform=axes[1, 0].transAxes, va='top', ha='left')
-        axes[1, -1].legend(loc='upper right')
+        axes[0, -1].legend(loc='upper left', bbox_to_anchor=(1, 1))
         plt.tight_layout()
         plt.savefig(f'figs/paper/lesion_by_unit_chart_{model_name}.png')
+        plt.savefig(f'figs/paper/lesion_by_unit_chart_{model_name}.pdf')
         plt.close()
 
 
 def unit_visualization_by_type():
-    config_version = 'env28_r24_2d_vit_b16_layer_12'
+    config_version = 'env28_r24_2d_vgg16_fc2'
     experiment = 'unit_chart'
     moving_trajectory = 'uniform'
     config = utils.load_config(config_version)
@@ -1567,27 +1560,27 @@ def unit_visualization_by_type():
     ]:
         if unit_type == 'place_cell':
             # Less directional place fields
-            # selected_n_indices = [1280, 2672, 315, 758, 3429, 3530]
+            selected_n_indices = [1280, 2672, 315, 758, 3429, 3530]
             # subplot_label = 'A'
-            selected_n_indices = [88198, 128970, 41198, 128053, 147654, 35295]
+            # selected_n_indices = [88198, 128970, 41198, 128053, 147654, 35295]
             # selected_n_indices = [637, 968, 1292, 121, 1029, 1853, 728]
         
         if unit_type == 'directional_cell':
             # Less place fields directional cells
-            # selected_n_indices = [245, 1303, 1081, 646, 4013, 1499]
+            selected_n_indices = [245, 1303, 1081, 646, 4013, 1499]
             # subplot_label = 'B'
-            selected_n_indices = [87232, 86, 86880, 4720, 104896, 142643]
+            # selected_n_indices = [87232, 86, 86880, 4720, 104896, 142643]
             # selected_n_indices = [1829, 2031, 1013, 1667, 1679, 1553]
 
         if unit_type == 'border_cell':
             # border cells
-            # selected_n_indices = [3866, 2404, 1476, 2433, 3846, 2949]
+            selected_n_indices = [3866, 2404, 1476, 2433, 3846, 2949]
             # subplot_label = 'C'
             pass
         
         if unit_type == 'place+directional_cell':
             # single field place cell with directional tuning
-            # selected_n_indices = [2631, 8, 2803, 1654, 475, 4055]
+            selected_n_indices = [2631, 8, 2803, 1654, 475, 4055]
             # subplot_label = 'D'
             pass
 
@@ -1666,18 +1659,19 @@ def unit_chart_visualization_piechart():
     moving_trajectory = 'uniform'
     envs = ['env28_r24']
     env = envs[0]
-    # model_names = ['vgg16', 'resnet50', 'vit_b16']
-    model_names = ['resnet50']
+    model_names = [
+        'vgg16', 'resnet50', 'vit_b16', 
+        'vgg16_untrained', 'resnet50_untrained', 'vit_b16_untrained'
+    ]
 
     for model_name in model_names:
         output_layers = data.load_model_layers(model_name)
 
         # each column is a layer
         # row1 is all types piechart
-        # row2 is dead v active units barplot
-        fig = plt.figure(figsize=(15, 5))
+        fig = plt.figure(figsize=(20, 5))
         gs = fig.add_gridspec(
-            nrows=2, ncols=len(output_layers), height_ratios=[5, 1]
+            nrows=1, ncols=len(output_layers)
         )
 
         for col_index, output_layer in enumerate(output_layers):
@@ -1814,6 +1808,10 @@ def unit_chart_visualization_piechart():
                 n_cells.append(n_place_border_direction_cells)
                 labels.append('P+B+D')
             
+            # And lastly, the dead units
+            n_cells.append(n_dead_units)
+            labels.append('Inactive')
+            
             # make sure plt.cm.Pastel1.colors are consistent across layers
             # for each type of cells.
             colors = []
@@ -1832,18 +1830,27 @@ def unit_chart_visualization_piechart():
                     colors.append(plt.cm.Pastel1.colors[5])
                 elif label == 'P+B+D':
                     colors.append(plt.cm.Pastel1.colors[6])
+                elif label == 'Inactive':
+                    colors.append("grey")
 
-            ax = fig.add_subplot(gs[0, col_index])
+            ax = fig.add_subplot(gs[col_index])
+
+            # Calculate percentages and exclude labels with 0 percentage
+            total_cells = sum(n_cells)
+            percentages = [round((cell / total_cells) * 100) for cell in n_cells]
+            filtered_labels = [
+                label if percentage > 0 else '' \
+                    for label, percentage in zip(labels, percentages)
+            ]
+
             ax.pie(
                 n_cells,
                 autopct=lambda p: '{:.0f}'.format(round(p)) if p >= 1 else '',
-                labels=labels,
+                labels=filtered_labels,
                 colors=colors,
                 explode=[0.1]*len(labels),
             )
 
-            ax.set_xlabel('Out of all active units (%)')
-            # ax.set_title(output_layer, fontweight='bold')
             if 'vgg16' in model_name:
                 if 'untrained' in model_name:
                     model_name_plot = 'VGG-16 (untrained)'
@@ -1886,40 +1893,19 @@ def unit_chart_visualization_piechart():
                 elif output_layer == 'layer_12':
                     output_layer_plot = 'Penultimate (layer_12)'
 
-            ax.set_title(f'{output_layer_plot}', fontweight='bold')
-            plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-
-
-            # second subplot: show proportion of dead and active units
-            # x-axis is 0 to 1, showing how much is dead and how much is active
-            # y-axis can be arbitrary height, we set to 2.
-            ax = fig.add_subplot(gs[1, col_index])
-            box_height = 2
-            width1 = n_dead_units/unit_chart_info.shape[0]*100
-            width2 = n_active_units/unit_chart_info.shape[0]*100
-
-            # Set the x-axis limit to 0-100%
-            ax.set_xlim(0, 100)
-            ax.set_yticks([])
-            
-            # Create rectangles for the partitions
-            rect1 = patches.Rectangle((0, 0), width1, box_height, linewidth=1, edgecolor='none', facecolor='black', alpha=0.7)
-            rect2 = patches.Rectangle((width1, 0), width2, box_height, linewidth=1, edgecolor='none', facecolor='green', alpha=0.7)
-
-            ax.add_patch(rect1)
-            ax.add_patch(rect2)
-            ax.set_xlabel('Inactive and active units (%)')
-
-            # set x-axis ticks only (0, width1, 100), round to 0 decimal places
-            ax.set_xticks([0, int(width1), 100], minor=False)
+            ax.set_title(f'{output_layer_plot}', fontweight='bold', fontsize=22)
 
             # remove left, top and right
             ax.spines['left'].set_visible(False)
             ax.spines['top'].set_visible(False)
             ax.spines['right'].set_visible(False)
 
-            plt.suptitle(f'{model_name_plot}', fontsize=16, fontweight='bold')
+            # make subplot space wider
+            plt.subplots_adjust(wspace=0.8)
+
+            plt.suptitle(f'{model_name_plot}', fontweight='bold', fontsize=22)
             plt.savefig(f'figs/paper/unit_chart_overlaps_{model_name}.png')
+            plt.savefig(f'figs/paper/unit_chart_overlaps_{model_name}.pdf')
 
 
 if __name__ == '__main__':
