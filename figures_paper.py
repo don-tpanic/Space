@@ -1,4 +1,7 @@
 import os
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = "3"
+
 from collections import defaultdict
 import numpy as np
 import seaborn as sns
@@ -1494,7 +1497,7 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
 
 
 def unit_visualization_by_type():
-    config_version = 'env28_r24_2d_vgg16_fc2'
+    config_version = 'env28_r24_2d_vit_b16_layer_12'
     experiment = 'unit_chart'
     moving_trajectory = 'uniform'
     config = utils.load_config(config_version)
@@ -1559,28 +1562,34 @@ def unit_visualization_by_type():
     for unit_type in [
         'place_cell',
         'directional_cell',
-        'border_cell',
-        'place+directional_cell', 
+        # 'border_cell',
+        # 'place+directional_cell', 
     ]:
         if unit_type == 'place_cell':
             # Less directional place fields
-            selected_n_indices = [1280, 2672, 315, 758, 3429, 3530]
-            subplot_label = 'A'
+            # selected_n_indices = [1280, 2672, 315, 758, 3429, 3530]
+            # subplot_label = 'A'
+            selected_n_indices = [88198, 128970, 41198, 128053, 147654, 35295]
+            # selected_n_indices = [637, 968, 1292, 121, 1029, 1853, 728]
         
         if unit_type == 'directional_cell':
             # Less place fields directional cells
-            selected_n_indices = [245, 1303, 1081, 646, 4013, 1499]
-            subplot_label = 'B'
+            # selected_n_indices = [245, 1303, 1081, 646, 4013, 1499]
+            # subplot_label = 'B'
+            selected_n_indices = [87232, 86, 86880, 4720, 104896, 142643]
+            # selected_n_indices = [1829, 2031, 1013, 1667, 1679, 1553]
 
         if unit_type == 'border_cell':
             # border cells
-            selected_n_indices = [3866, 2404, 1476, 2433, 3846, 2949]
-            subplot_label = 'C'
+            # selected_n_indices = [3866, 2404, 1476, 2433, 3846, 2949]
+            # subplot_label = 'C'
+            pass
         
         if unit_type == 'place+directional_cell':
             # single field place cell with directional tuning
-            selected_n_indices = [2631, 8, 2803, 1654, 475, 4055]
-            subplot_label = 'D'
+            # selected_n_indices = [2631, 8, 2803, 1654, 475, 4055]
+            # subplot_label = 'D'
+            pass
 
 
         fig = plt.figure(figsize=(10, 3))
@@ -1616,10 +1625,10 @@ def unit_visualization_by_type():
                     ax.set_xticks([])
                     ax.set_yticks([])
                     ax.set_title(f'Unit {unit_index}')
-                    if col_index == 0:
-                        # add subplot labels
-                        ax.text(-0.4, 1.1, subplot_label, fontsize=14, fontweight='bold',
-                        transform=ax.transAxes, va='top', ha='left')
+                    # if col_index == 0:
+                    #     # add subplot labels
+                    #     ax.text(-0.4, 1.1, fontsize=14, fontweight='bold',
+                    #     transform=ax.transAxes, va='top', ha='left')
 
                     # --- subplot2: plot polar plot for the selected units ---
                     ax = fig.add_subplot(gs[1, col_index], projection='polar')
@@ -1637,16 +1646,17 @@ def unit_visualization_by_type():
                         ax.set_thetagrids([0, 90, 180, 270], labels=['', '', '', ''])
         
         # add text on bottom middle overall as title
-        if unit_type == 'place_cell':
-            suptitle = 'Place Cells'
-        elif unit_type == 'directional_cell':
-            suptitle = 'Directional Cells'
-        elif unit_type == 'border_cell':
-            suptitle = 'Border Cells'
-        elif unit_type == 'place+directional_cell':
-            suptitle = 'Place + Directional Cells'
-        plt.text(0.5, 1.25, suptitle, ha='center', va='center', fontsize=16, transform=fig.transFigure)
-        plt.savefig(f'figs/paper/unit_visualization_by_type_{unit_type}.png')
+        # if unit_type == 'place_cell':
+        #     suptitle = 'Place Cells'
+        # elif unit_type == 'directional_cell':
+        #     suptitle = 'Directional Cells'
+        # elif unit_type == 'border_cell':
+        #     suptitle = 'Border Cells'
+        # elif unit_type == 'place+directional_cell':
+        #     suptitle = 'Place + Directional Cells'
+        # plt.text(0.5, 1.25, suptitle=suptitle, ha='center', va='center', fontsize=16, transform=fig.transFigure)
+        # plt.savefig(f'figs/paper/unit_visualization_by_type_{unit_type}.png')
+        plt.savefig(f'figs/paper/unit_visualization_by_type_{unit_type}_{config_version}.png')
         plt.close()
       
 
@@ -1913,10 +1923,11 @@ def unit_chart_visualization_piechart():
 
 
 if __name__ == '__main__':
+    os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     TF_NUM_INTRAOP_THREADS = 10
     # decoding_each_model_across_layers_and_sr()
     # decoding_all_models_one_layer_one_sr()
     # lesion_by_coef_each_model_across_layers_and_lr()
     # lesion_by_unit_chart_each_model_across_layers_and_lr()
-    # unit_visualization_by_type()
-    unit_chart_visualization_piechart()
+    unit_visualization_by_type()
+    # unit_chart_visualization_piechart()
