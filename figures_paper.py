@@ -1072,7 +1072,7 @@ def lesion_by_coef_each_model_across_layers_and_lr():
                                 color=color,
                                 marker='o',
                             )
-                axes[rank_i, error_type_i].set_xlabel('Lesion ratio')
+                axes[rank_i, error_type_i].set_xlabel('Exclusion ratio')
                 if error_type in ['loc', 'dist']:
                     axes[rank_i, error_type_i].set_ylabel('Normalized Error')
                 elif error_type == 'rot':
@@ -1452,7 +1452,7 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
                                 color=color,
                                 marker='o',
                             )
-                axes[rank_i, unit_chart_type_i].set_xlabel('Lesion ratio')
+                axes[rank_i, unit_chart_type_i].set_xlabel('Exclusion ratio')
                 if error_type in ['loc', 'dist']:
                     axes[rank_i, unit_chart_type_i].set_ylabel('Normalized Error')
                 elif error_type == 'rot':
@@ -1913,7 +1913,7 @@ if __name__ == '__main__':
     TF_NUM_INTRAOP_THREADS = 10
     # decoding_each_model_across_layers_and_sr()
     # decoding_all_models_one_layer_one_sr()
-    # lesion_by_coef_each_model_across_layers_and_lr()
-    # lesion_by_unit_chart_each_model_across_layers_and_lr()
-    unit_visualization_by_type()
+    lesion_by_coef_each_model_across_layers_and_lr()
+    lesion_by_unit_chart_each_model_across_layers_and_lr()
+    # unit_visualization_by_type()
     # unit_chart_visualization_piechart()
