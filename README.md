@@ -1,12 +1,4 @@
-# Space. (WIP)
-
-### Warning: this code base is part of an active research project which is constantly evolving and subject to refactoring.
-
-### Description
-This project delves into the realm of perception-based statistical learning to unravel the mystery of how animals can effectively self-locate and navigate in space. Drawing inspiration from the current discourse surrounding the importance of path integration in navigation skills, as well as the tenuous nature of the suggested computational mechanisms underlying space-sensitive cells like grid and place cells, this project presents evidence that even deep convolutional neural networks pre-trained on object recognition inherently encode spatial information. Hopefully this project sheds light on the potential role of perception in spatial cognition and offer insights into the mechanisms driving animal navigation.
-
-### Current state
-Mapping individual DNN units to known spatial cell types in relevant brain regions and evaluating relevance of various unit types to downstream tasks (e.g., localisation and border prediction).
+# The inevitability and superfluousness of cell types in spatial cognition
 
 ### Structure (subject to change)
 ```
@@ -22,4 +14,17 @@ Mapping individual DNN units to known spatial cell types in relevant brain regio
     ├── configs/                # Variants of experiment settings across models, layers, moving trajectories, etc.
     ├── results/                # Intermediate experiment results/diagnostics (grouped by configs)
     ├── figs/                   # Final resulsts plotted (grouped by configs)
+```
+
+### Attribution
+```
+@article {Luo2024.01.10.575026,
+	author = {Luo, Xiaoliang and Mok, Robert M. and Love, Bradley C.},
+	title = {The inevitability and superfluousness of cell types in spatial cognition},
+	year = {2024},
+	doi = {10.1101/2024.01.10.575026},
+	publisher = {Cold Spring Harbor Laboratory},
+	URL = {https://www.biorxiv.org/content/early/2024/01/12/2024.01.10.575026},
+	journal = {bioRxiv}
+}
 ```
