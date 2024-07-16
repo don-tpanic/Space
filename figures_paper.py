@@ -766,7 +766,7 @@ def decoding_all_models_one_layer_one_sr():
         axes_row2[i].plot((-d, +d), (1 - d, 1 + d), **kwargs)  # bottom-left diagonal line
 
     fig.tight_layout(rect=(0.02, 0, 1, 0.99))
-    plt.savefig(f'figs/paper/decoding_across_models.png')
+    plt.savefig(f'figs/paper/decoding_across_models.svg')
     plt.savefig(f'figs/paper/decoding_across_models.pdf')
     plt.close()
 
@@ -1484,8 +1484,8 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
         
         axes[0, -1].legend(loc='upper left', bbox_to_anchor=(1, 1))
         plt.tight_layout()
-        plt.savefig(f'figs/paper/lesion_by_unit_chart_{model_name}.png')
-        plt.savefig(f'figs/paper/lesion_by_unit_chart_{model_name}.pdf')
+        plt.savefig(f'figs/paper/lesion_by_unit_chart_{model_name}.svg')
+        # plt.savefig(f'figs/paper/lesion_by_unit_chart_{model_name}.pdf')
         plt.close()
 
 
@@ -1913,7 +1913,7 @@ if __name__ == '__main__':
     TF_NUM_INTRAOP_THREADS = 10
     # decoding_each_model_across_layers_and_sr()
     # decoding_all_models_one_layer_one_sr()
-    lesion_by_coef_each_model_across_layers_and_lr()
+    # lesion_by_coef_each_model_across_layers_and_lr()
     lesion_by_unit_chart_each_model_across_layers_and_lr()
     # unit_visualization_by_type()
     # unit_chart_visualization_piechart()
