@@ -11,6 +11,8 @@ from matplotlib import gridspec
 import data
 import utils
 import models
+import unit_metric_computers as umc
+
 
 plt.rcParams.update(
     {
@@ -1689,74 +1691,14 @@ def unit_chart_visualization_piechart():
                 unit_chart_info = np.load(
                     f'{results_path}/unit_chart.npy', allow_pickle=True)
 
-                n_dead_units = 0
-                max_num_clusters = np.max(unit_chart_info[:, 1])  # global max used for setting xaxis.
-                num_clusters = np.zeros(max_num_clusters+1)
-                cluster_sizes = []
-                cluster_peaks = []
-                grid_cell_indices = []
-                border_cell_indices = []
-                place_cells_indices = []
-                direction_cell_indices = []
-
-                for unit_index in range(unit_chart_info.shape[0]):
-                    if unit_chart_info[unit_index, 0] == 0:
-                        n_dead_units += 1
-                    else:
-                        num_clusters[int(unit_chart_info[unit_index, 1])] += 1
-                        cluster_sizes.extend(unit_chart_info[unit_index, 2])
-                        cluster_peaks.extend(unit_chart_info[unit_index, 3])
-                        if unit_chart_info[unit_index, 1] > 0:
-                            place_cells_indices.append(unit_index)
-                        if unit_chart_info[unit_index, 6] > 0.47:
-                            direction_cell_indices.append(unit_index)
-                        if unit_chart_info[unit_index, 8] > 0.37:
-                            grid_cell_indices.append(unit_index)
-                        if unit_chart_info[unit_index, 9] > 0.5:
-                            border_cell_indices.append(unit_index)
-
-                # plot
-                n_dead_units = n_dead_units
-                n_active_units = unit_chart_info.shape[0] - n_dead_units
-
-                # Collect the indices of units that are all three types
-                # (place + border + direction)
-                place_border_direction_cells_indices = \
-                    list(set(place_cells_indices) & set(border_cell_indices) & set(direction_cell_indices))
-                
-                # Collect the indices of units that are two types (inc. three types)
-                # (place + border cells)
-                # (place + direction cells)
-                # (border + direction cells)
-                place_and_border_cells_indices = \
-                    list(set(place_cells_indices) & set(border_cell_indices))
-                place_and_direction_cells_indices = \
-                    list(set(place_cells_indices) & set(direction_cell_indices))
-                border_and_direction_cells_indices = \
-                    list(set(border_cell_indices) & set(direction_cell_indices))
-                
-                # Collect the indices of units that are only two types
-                # (place  + border - direction),
-                # (place  + direction   - border),
-                # (border + direction   - place)
-                place_and_border_not_direction_cells_indices = \
-                    list(set(place_and_border_cells_indices) - set(place_border_direction_cells_indices))
-                place_and_direction_not_border_cells_indices = \
-                    list(set(place_and_direction_cells_indices) - set(place_border_direction_cells_indices))
-                border_and_direction_not_place_cells_indices = \
-                    list(set(border_and_direction_cells_indices) - set(place_border_direction_cells_indices))
-                
-                # Collect the indices of units that are exclusive 
-                # place cells, 
-                # border cells, 
-                # direction cells
-                exclusive_place_cells_indices = \
-                    list(set(place_cells_indices) - (set(place_and_border_cells_indices) | set(place_and_direction_cells_indices)))
-                exclusive_border_cells_indices = \
-                    list(set(border_cell_indices) - (set(place_and_border_cells_indices) | set(border_and_direction_cells_indices)))
-                exclusive_direction_cells_indices = \
-                    list(set(direction_cell_indices) - (set(place_and_direction_cells_indices) | set(border_and_direction_cells_indices)))
-
+                n_dead_units, place_border_direction_cells_indices, \
+                    place_and_border_not_direction_cells_indices, \
+                        place_and_direction_not_border_cells_indices, \
+                            border_and_direction_not_place_cells_indices, \
+                                exclusive_place_cells_indices, \
+                                    exclusive_border_cells_indices, \
+                                        exclusive_direction_cells_indices = \
+                                            umc._unit_chart_type_classification(unit_chart_info)
 
                 # first subplot: piechart of different cell proportions
                 n_exc_place_cells = len(exclusive_place_cells_indices)
