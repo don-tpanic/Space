@@ -1691,23 +1691,17 @@ def unit_chart_visualization_piechart():
                 unit_chart_info = np.load(
                     f'{results_path}/unit_chart.npy', allow_pickle=True)
 
-                n_dead_units, place_border_direction_cells_indices, \
-                    place_and_border_not_direction_cells_indices, \
-                        place_and_direction_not_border_cells_indices, \
-                            border_and_direction_not_place_cells_indices, \
-                                exclusive_place_cells_indices, \
-                                    exclusive_border_cells_indices, \
-                                        exclusive_direction_cells_indices = \
-                                            umc._unit_chart_type_classification(unit_chart_info)
+                # dict by type
+                unit_indices_by_types = umc._unit_chart_type_classification(unit_chart_info)
 
                 # first subplot: piechart of different cell proportions
-                n_exc_place_cells = len(exclusive_place_cells_indices)
-                n_exc_border_cells = len(exclusive_border_cells_indices)
-                n_exc_direction_cells = len(exclusive_direction_cells_indices)
-                n_place_and_border_not_direction_cells = len(place_and_border_not_direction_cells_indices)
-                n_place_and_direction_not_border_cells = len(place_and_direction_not_border_cells_indices)
-                n_border_and_direction_not_place_cells = len(border_and_direction_not_place_cells_indices)
-                n_place_border_direction_cells = len(place_border_direction_cells_indices)
+                n_exc_place_cells = len(unit_indices_by_types["exclusive_place_cells_indices"])
+                n_exc_border_cells = len(unit_indices_by_types["exclusive_border_cells_indices"])
+                n_exc_direction_cells = len(unit_indices_by_types["exclusive_direction_cells_indices"])
+                n_place_and_border_not_direction_cells = len(unit_indices_by_types["place_and_border_not_direction_cells_indices"])
+                n_place_and_direction_not_border_cells = len(unit_indices_by_types["place_and_direction_not_border_cells_indices"])
+                n_border_and_direction_not_place_cells = len(unit_indices_by_types["border_and_direction_not_place_cells_indices"])
+                n_place_border_direction_cells = len(unit_indices_by_types["place_border_direction_cells_indices"])
 
                 sum_n_cells = \
                     n_exc_place_cells + \
@@ -1752,7 +1746,7 @@ def unit_chart_visualization_piechart():
                     labels.append('P+B+D')
                 
                 # And lastly, the dead units
-                n_cells.append(n_dead_units)
+                n_cells.append(unit_indices_by_types["n_dead_units"])
                 labels.append('Inactive')
                 
                 # make sure plt.cm.Pastel1.colors are consistent across layers

@@ -294,12 +294,14 @@ def _unit_chart_type_classification(unit_chart_info):
     exclusive_direction_cells_indices = \
         list(set(direction_cell_indices) - (set(place_and_direction_cells_indices) | set(border_and_direction_cells_indices)))
     
-    return \
-        n_dead_units, place_and_border_cells_indices, \
-        place_and_border_not_direction_cells_indices, \
-        place_and_direction_not_border_cells_indices, \
-        border_and_direction_not_place_cells_indices, \
-        exclusive_place_cells_indices, \
-        exclusive_border_cells_indices, \
-        exclusive_direction_cells_indices
+    return {
+        'n_dead_units': n_dead_units,
+        'place_border_direction_cells_indices': place_border_direction_cells_indices,
+        'place_and_border_not_direction_cells_indices': place_and_border_not_direction_cells_indices,
+        'place_and_direction_not_border_cells_indices': place_and_direction_not_border_cells_indices,
+        'border_and_direction_not_place_cells_indices': border_and_direction_not_place_cells_indices,
+        'exclusive_place_cells_indices': exclusive_place_cells_indices,
+        'exclusive_border_cells_indices': exclusive_border_cells_indices,
+        'exclusive_direction_cells_indices': exclusive_direction_cells_indices,
+    }
 
