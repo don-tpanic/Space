@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt 
 
 import utils
+import unit_metric_computers as umc
 
 """
 Compare the same units between environments.
@@ -35,32 +36,44 @@ def _plot_between_envs_unit_heatmaps(config_1, config_2, experiment, moving_traj
     fpath = f'{results_path_2}/unit_chart.npy'
     unit_chart_env_2 = np.load(fpath, allow_pickle=True)
 
+    unit_indices_by_types_1 = umc._unit_chart_type_classification(unit_chart_env_1)
+    unit_indices_by_types_2 = umc._unit_chart_type_classification(unit_chart_env_2)
+    exclusive_place_cells_indices_1 = unit_indices_by_types_1['exclusive_place_cells_indices']
+    exclusive_place_cells_indices_2 = unit_indices_by_types_2['exclusive_place_cells_indices']
+    print(f"Num of exclusive place cells in env1: {len(exclusive_place_cells_indices_1)}")
+    print(f"Num of exclusive place cells in env2: {len(exclusive_place_cells_indices_2)}")
+
+    mutual_place_cells_indices = list(set(exclusive_place_cells_indices_1) & set(exclusive_place_cells_indices_2))
+    print(f"Num of mutual place cells: {len(mutual_place_cells_indices)}")
+
+    either_place_cells_indices = list(set(exclusive_place_cells_indices_1) | set(exclusive_place_cells_indices_2))
+    print(f"Num of either place cells: {len(either_place_cells_indices)}")
 
     fig = plt.figure(figsize=(15, 600))
-
-    # TEMP:
-    unit_chart_env_1 = unit_chart_env_1[:400]
-    print(unit_chart_env_1.shape)
-
-    for row_index, unit_index in enumerate(range(unit_chart_env_1.shape[0])):
-        unit_heatmap_1 = unit_chart_env_1[unit_index, 12] # flattened
-        unit_heatmap_2 = unit_chart_env_2[unit_index, 12] # flattened
+    for row_index, unit_index in enumerate(either_place_cells_indices):
+        unit_heatmap_1 = unit_chart_env_1[unit_index, 12]
+        unit_heatmap_2 = unit_chart_env_2[unit_index, 12]
         
-        if type(unit_heatmap_1) == int or type(unit_heatmap_2) == int:
-            print()
+        # left
+        ax = fig.add_subplot(len(either_place_cells_indices), 2, row_index*2+1)
+        if unit_index in exclusive_place_cells_indices_1:
+            ax.set_title("Place Cell")
+        if type(unit_heatmap_1) == int: # dead unit, do not plot
             continue
-
-        ax = fig.add_subplot(unit_chart_env_1.shape[0], 2, row_index*2+1)
         ax.imshow(unit_heatmap_1, cmap='jet', interpolation='nearest', label='0 degrees')
         ax.set_xticks([])
         ax.set_yticks([])
 
-        ax = fig.add_subplot(unit_chart_env_1.shape[0], 2, row_index*2+2)
+        # right
+        ax = fig.add_subplot(len(either_place_cells_indices), 2, row_index*2+2)
+        if unit_index in exclusive_place_cells_indices_2:
+            ax.set_title("Place Cell")
+        if type(unit_heatmap_2) == int:
+            continue
         ax.imshow(unit_heatmap_2, cmap='jet', interpolation='nearest', label='+45 degrees')
         ax.set_xticks([])
         ax.set_yticks([])
 
-    
     plt.tight_layout()
     plt.savefig("remapping.png")
         
