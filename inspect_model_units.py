@@ -1071,6 +1071,7 @@ def _single_env_produce_unit_chart(
                 10. mean_vector_length,
                 11. per_rotation_vector_length,
             ]
+        10. heatmap - flattened 2D heatmap (for analyzing remapping)
     """
     os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
@@ -1112,6 +1113,7 @@ def _single_env_produce_unit_chart(
                     'mean_vector_length',
                     'per_rotation_vector_length',
                     # ---
+                    'heatmap'
                 ]
     
     # initialize unit chart collector
@@ -1183,6 +1185,9 @@ def _single_env_produce_unit_chart(
                     )
                 unit_chart_info[unit_index, 10] = directional_score
                 unit_chart_info[unit_index, 11] = per_rotation_vector_length
+
+                # 5. heatmap
+                unit_chart_info[unit_index, 12] = heatmap
         
     results_path = utils.load_results_path(
         config=config,
@@ -1830,7 +1835,7 @@ if __name__ == '__main__':
     movement_modes = ['2d']
     sampling_rates = [0.3]
     random_seeds = [42]
-    model_names = ['resnet50_untrained']
+    model_names = ['vgg16']
     moving_trajectories = ['uniform']
     decoding_model_choices = [{'name': 'ridge_regression', 'hparams': 1.0}]
     feature_selections = ['l2']
@@ -1839,9 +1844,9 @@ if __name__ == '__main__':
         # {'filtering_order': 'top_n', 'n_units_filtering': None, 'p_units_filtering': 0.1},
         # {'filtering_order': 'random_n', 'n_units_filtering': None, 'p_units_filtering': 0.1},
         # {'filtering_order': 'mid_n', 'n_units_filtering': None, 'p_units_filtering': 0.1},
-        {'filtering_order': 'top_n', 'n_units_filtering': 400, 'p_units_filtering': None},
-        {'filtering_order': 'random_n', 'n_units_filtering': 400, 'p_units_filtering': None},
-        {'filtering_order': 'mid_n', 'n_units_filtering': 400, 'p_units_filtering': None},
+        # {'filtering_order': 'top_n', 'n_units_filtering': 400, 'p_units_filtering': None},
+        # {'filtering_order': 'random_n', 'n_units_filtering': 400, 'p_units_filtering': None},
+        # {'filtering_order': 'mid_n', 'n_units_filtering': 400, 'p_units_filtering': None},
     ]
     # ======================================== #
     ###  How to run ###
@@ -1861,8 +1866,8 @@ if __name__ == '__main__':
     # NOTE: 2b requires 2a
     # NOTE: 3, 4 less interesting than 2b which compares unit chart info againt coef.
 
-    # multi_envs_inspect_units_GPU(
-    multi_envs_inspect_units_CPU(
+    multi_envs_inspect_units_GPU(
+    # multi_envs_inspect_units_CPU(
         target_func=_single_env_produce_unit_chart,                       # set experiment='unit_chart'
         # target_func=_single_env_viz_units_ranked_by_unit_chart,           # set experiment='unit_chart'
         # target_func=_single_env_viz_unit_chart,                           # set experiment='unit_chart'
@@ -1880,7 +1885,7 @@ if __name__ == '__main__':
         random_seeds=random_seeds,
         sorted_by=sorted_by,
         filterings=filterings,
-        # cuda_id_list=[7],
+        cuda_id_list=[1],
     )
 
     # print time elapsed
