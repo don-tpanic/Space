@@ -51,7 +51,7 @@ def _plot_between_envs_unit_heatmaps(configs, experiment, moving_trajectory):
             ax.set_yticks([])
 
     plt.tight_layout()
-    plt.savefig("remapping.png")
+    plt.savefig(f"{figs_dir}/changes_in_heatmaps.png")
 
 
 def _plot_between_envs_unit_types_change(config_version_1, config_version_2, experiment, moving_trajectory):
@@ -148,7 +148,7 @@ def _plot_between_envs_unit_types_change(config_version_1, config_version_2, exp
 
 
 def main(configs, experiment, moving_trajectory):
-    # _plot_between_envs_unit_heatmaps(configs, experiment, moving_trajectory)
+    _plot_between_envs_unit_heatmaps(configs, experiment, moving_trajectory)
     _plot_between_envs_unit_types_change(configs[0], configs[2], experiment, moving_trajectory)
 
 
