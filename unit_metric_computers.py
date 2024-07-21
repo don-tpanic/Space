@@ -226,7 +226,7 @@ def _unit_chart_type_classification(unit_chart_info):
     Given a unit_chart_info, classify the units into different types,
     and return the indices of units by type or combo of types.
     """
-    n_dead_units = 0
+    dead_units_indices = []
     max_num_clusters = np.max(unit_chart_info[:, 1])  # global max used for setting xaxis.
     num_clusters = np.zeros(max_num_clusters+1)
     cluster_sizes = []
@@ -238,7 +238,7 @@ def _unit_chart_type_classification(unit_chart_info):
 
     for unit_index in range(unit_chart_info.shape[0]):
         if unit_chart_info[unit_index, 0] == 0:
-            n_dead_units += 1
+            dead_units_indices.append(unit_index)
         else:
             num_clusters[int(unit_chart_info[unit_index, 1])] += 1
             cluster_sizes.extend(unit_chart_info[unit_index, 2])
@@ -253,7 +253,7 @@ def _unit_chart_type_classification(unit_chart_info):
                 border_cell_indices.append(unit_index)
 
     # plot
-    n_dead_units = n_dead_units
+    n_dead_units = len(dead_units_indices)
     n_active_units = unit_chart_info.shape[0] - n_dead_units
 
     # Collect the indices of units that are all three types
@@ -295,7 +295,7 @@ def _unit_chart_type_classification(unit_chart_info):
         list(set(direction_cell_indices) - (set(place_and_direction_cells_indices) | set(border_and_direction_cells_indices)))
     
     return {
-        'n_dead_units': n_dead_units,
+        'dead_units_indices': dead_units_indices,
         'place_border_direction_cells_indices': place_border_direction_cells_indices,
         'place_and_border_not_direction_cells_indices': place_and_border_not_direction_cells_indices,
         'place_and_direction_not_border_cells_indices': place_and_direction_not_border_cells_indices,

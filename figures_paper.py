@@ -1746,7 +1746,7 @@ def unit_chart_visualization_piechart():
                     labels.append('P+B+D')
                 
                 # And lastly, the dead units
-                n_cells.append(unit_indices_by_types["n_dead_units"])
+                n_cells.append(len(unit_indices_by_types["dead_units_indices"]))
                 labels.append('Inactive')
                 
                 # make sure plt.cm.Pastel1.colors are consistent across layers
