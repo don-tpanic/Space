@@ -231,7 +231,6 @@ def _unit_chart_type_classification(unit_chart_info):
     num_clusters = np.zeros(max_num_clusters+1)
     cluster_sizes = []
     cluster_peaks = []
-    grid_cell_indices = []
     border_cell_indices = []
     place_cells_indices = []
     direction_cell_indices = []
@@ -244,15 +243,26 @@ def _unit_chart_type_classification(unit_chart_info):
             num_clusters[int(unit_chart_info[unit_index, 1])] += 1
             cluster_sizes.extend(unit_chart_info[unit_index, 2])
             cluster_peaks.extend(unit_chart_info[unit_index, 3])
+
             if unit_chart_info[unit_index, 1] > 0:
                 place_cells_indices.append(unit_index)
+                is_place_cell = True
+            else:
+                is_place_cell = False
+
             if unit_chart_info[unit_index, 6] > 0.47:
                 direction_cell_indices.append(unit_index)
-            if unit_chart_info[unit_index, 8] > 0.37:
-                grid_cell_indices.append(unit_index)
+                is_direction_cell = True
+            else:
+                is_direction_cell = False
+
             if unit_chart_info[unit_index, 9] > 0.5:
                 border_cell_indices.append(unit_index)
+                is_border_cell = True
             else:
+                is_border_cell = False
+
+            if not (is_place_cell or is_direction_cell or is_border_cell):
                 active_no_type_indices.append(unit_index)
 
     # plot
@@ -296,8 +306,8 @@ def _unit_chart_type_classification(unit_chart_info):
         list(set(border_cell_indices) - (set(place_and_border_cells_indices) | set(border_and_direction_cells_indices)))
     exclusive_direction_cells_indices = \
         list(set(direction_cell_indices) - (set(place_and_direction_cells_indices) | set(border_and_direction_cells_indices)))
-    
-    return {
+
+    results =  {
         'dead_units_indices': dead_units_indices,
         'place_border_direction_cells_indices': place_border_direction_cells_indices,
         'place_and_border_not_direction_cells_indices': place_and_border_not_direction_cells_indices,
@@ -309,3 +319,5 @@ def _unit_chart_type_classification(unit_chart_info):
         'active_no_type_indices': active_no_type_indices,
     }
 
+    assert unit_chart_info.shape[0] == sum([len(v) for v in results.values()])
+    return results
