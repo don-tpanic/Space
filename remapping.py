@@ -181,10 +181,18 @@ def _plot_between_envs_unit_types_change(config_version_1, config_version_2, exp
 
 def main(configs, experiment, moving_trajectory):
     # _plot_between_envs_unit_heatmaps(configs, experiment, moving_trajectory)
-    _plot_between_envs_unit_types_change(configs[0], configs[3], experiment, moving_trajectory)
+    _plot_between_envs_unit_types_change(configs[0], configs[4], experiment, moving_trajectory)
 
 
 if __name__ == '__main__':
+    envs2changes = {
+        "env28_r24_2d_vgg16_fc2": "original",
+        "env37_r24_2d_vgg16_fc2": "45 deg",
+        "env38_r24_2d_vgg16_fc2": "90 deg",
+        "env39_r24_2d_vgg16_fc2": "many items changes",
+        "env40_r24_2d_vgg16_fc2": "one item change",
+    }
+
     start_time = time.time()
     logging_level = 'info'
     if logging_level == 'info':
@@ -195,12 +203,7 @@ if __name__ == '__main__':
     # ======================================== #
     experiment = 'unit_chart'
     moving_trajectory = 'uniform'
-    configs = [
-        "env28_r24_2d_vgg16_fc2",
-        "env37_r24_2d_vgg16_fc2",
-        "env38_r24_2d_vgg16_fc2",
-        "env39_r24_2d_vgg16_fc2",
-    ]
+    configs = list(envs2changes.keys())
     figs_dir = "figs/remapping"
 
     main(configs, experiment, moving_trajectory)
