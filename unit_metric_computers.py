@@ -235,6 +235,7 @@ def _unit_chart_type_classification(unit_chart_info):
     border_cell_indices = []
     place_cells_indices = []
     direction_cell_indices = []
+    active_no_type_indices = []
 
     for unit_index in range(unit_chart_info.shape[0]):
         if unit_chart_info[unit_index, 0] == 0:
@@ -251,6 +252,8 @@ def _unit_chart_type_classification(unit_chart_info):
                 grid_cell_indices.append(unit_index)
             if unit_chart_info[unit_index, 9] > 0.5:
                 border_cell_indices.append(unit_index)
+            else:
+                active_no_type_indices.append(unit_index)
 
     # plot
     n_dead_units = len(dead_units_indices)
@@ -303,5 +306,6 @@ def _unit_chart_type_classification(unit_chart_info):
         'exclusive_place_cells_indices': exclusive_place_cells_indices,
         'exclusive_border_cells_indices': exclusive_border_cells_indices,
         'exclusive_direction_cells_indices': exclusive_direction_cells_indices,
+        'active_no_type_indices': active_no_type_indices,
     }
 
