@@ -6,13 +6,6 @@ import time
 import utils
 import unit_metric_computers as umc
 
-plt.rcParams.update(
-    {
-        'font.size': 22, 
-        'font.family': 'sans-serif',
-        'font.sans-serif': 'Arial',
-    }
-)
 
 def _plot_between_envs_unit_heatmaps(configs, experiment, moving_trajectory):
     unit_charts = []
@@ -66,6 +59,14 @@ def _plot_between_envs_unit_types_change(config_version_1, config_version_2, exp
     For two contrasting envs, compare how unit types change from env_1 to env_2.
     For each unit type in env_1, plot the percentage of units that have changed to each type in env_2.
     """
+    plt.rcParams.update(
+        {
+            'font.size': 22, 
+            'font.family': 'sans-serif',
+            'font.sans-serif': 'Arial',
+        }
+    )
+
     config_1 = utils.load_config(config_version_1)
     results_path_1 = utils.load_results_path(
         config=config_1,
@@ -180,7 +181,7 @@ def _plot_between_envs_unit_types_change(config_version_1, config_version_2, exp
 
 def main(configs, experiment, moving_trajectory):
     # _plot_between_envs_unit_heatmaps(configs, experiment, moving_trajectory)
-    _plot_between_envs_unit_types_change(configs[0], configs[1], experiment, moving_trajectory)
+    _plot_between_envs_unit_types_change(configs[0], configs[3], experiment, moving_trajectory)
 
 
 if __name__ == '__main__':
@@ -198,6 +199,7 @@ if __name__ == '__main__':
         "env28_r24_2d_vgg16_fc2",
         "env37_r24_2d_vgg16_fc2",
         "env38_r24_2d_vgg16_fc2",
+        "env39_r24_2d_vgg16_fc2",
     ]
     figs_dir = "figs/remapping"
 
