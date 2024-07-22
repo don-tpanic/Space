@@ -1,7 +1,9 @@
+import time
+import math
+
 import numpy as np
 import matplotlib.pyplot as plt
 import logging
-import time
 
 import utils
 import unit_metric_computers as umc
@@ -87,18 +89,6 @@ def _plot_between_envs_unit_types_change(config_version_1, config_version_2, exp
     unit_chart_2 = np.load(fpath_2, allow_pickle=True)
     indices_2 = umc._unit_chart_type_classification(unit_chart_2)
 
-    unit_types = {
-        'dead_units_indices': 'Inactive',
-        'place_border_direction_cells_indices': 'P+B+D',
-        'place_and_border_not_direction_cells_indices': 'P+B',
-        'place_and_direction_not_border_cells_indices': 'P+D',
-        'border_and_direction_not_place_cells_indices': 'B+D',
-        'exclusive_place_cells_indices': 'P',
-        'exclusive_border_cells_indices': 'B',
-        'exclusive_direction_cells_indices': 'D',
-        'active_no_type_indices': 'No Type'
-    }
-
     type_change_percentages = {}
     # e.g., {"Inactive": {"Inactive": 1, "P+B+D": 2, "P+B": 3, "P+D": 4, "B+D": 5, "P": 6}}
 
@@ -137,28 +127,7 @@ def _plot_between_envs_unit_types_change(config_version_1, config_version_2, exp
     for i, (unit_type, percentages) in enumerate(type_change_percentages.items()):
         ax = axes[i]
         labels = percentages.keys()
-
-        colors = []
-        for label in labels:
-            if label == 'P':
-                colors.append(plt.cm.Pastel1.colors[1])
-            elif label == 'B':
-                colors.append(plt.cm.Pastel1.colors[0])
-            elif label == 'D':
-                colors.append(plt.cm.Pastel1.colors[2])
-            elif label == 'P+B':
-                colors.append(plt.cm.Pastel1.colors[3])
-            elif label == 'P+D':
-                colors.append(plt.cm.Pastel1.colors[4])
-            elif label == 'B+D':
-                colors.append(plt.cm.Pastel1.colors[5])
-            elif label == 'P+B+D':
-                colors.append(plt.cm.Pastel1.colors[6])
-            elif label == 'No Type':
-                colors.append(plt.cm.Pastel1.colors[7])
-            elif label == 'Inactive':
-                colors.append("grey")
-
+        colors = [type2color[label] for label in labels]
         ax.pie(
             percentages.values(), 
             labels=labels, 
@@ -179,9 +148,74 @@ def _plot_between_envs_unit_types_change(config_version_1, config_version_2, exp
     plt.savefig(plot_path)
 
 
+def _plot_each_env_cell_type_proportions(configs, experiment, moving_trajectory):
+    """
+    For each given config, plot the proportion of different cell types as a pie chart.
+    """
+    plt.rcParams.update({
+        'font.size': 22, 
+        'font.family': 'sans-serif',
+        'font.sans-serif': 'Arial',
+    })
+
+    num_configs = len(configs)
+    num_cols = 5
+    num_rows = math.ceil(num_configs / num_cols)
+
+    fig, axes = plt.subplots(num_rows, num_cols, figsize=(8 * num_cols, 8 * num_rows))
+    axes = axes.flatten() if num_configs > 1 else [axes]
+
+    for i, config_version in enumerate(configs):
+        config = utils.load_config(config_version)
+        results_path = utils.load_results_path(
+            config=config,
+            experiment=experiment,
+            moving_trajectory=moving_trajectory,
+        )
+        fpath = f'{results_path}/unit_chart.npy'
+        unit_chart = np.load(fpath, allow_pickle=True)
+        indices = umc._unit_chart_type_classification(unit_chart)
+
+        type_proportions = {}
+        total_units = sum(len(indices[key]) for key in indices)
+        print(f"Total units in {config_version}: {total_units}")
+
+        for unit_type, index_list in indices.items():
+            proportion = len(index_list) / total_units * 100
+            if proportion > 0:
+                type_proportions[unit_types[unit_type]] = proportion
+
+        ax = axes[i]
+        labels = type_proportions.keys()
+        colors = [type2color[label] for label in labels]
+
+        ax.pie(
+            type_proportions.values(), 
+            labels=labels, 
+            autopct=lambda p: '{:.1f}'.format(round(p, 1)) if p > 0 else '',
+            startangle=90,
+            colors=colors,
+            explode=[0.1]*len(labels)
+        )
+
+        ax.set_title(f"{envs2changes[config_version]}")
+
+    # Remove any empty subplots
+    for j in range(i + 1, len(axes)):
+        fig.delaxes(axes[j])
+
+    plt.tight_layout()
+    plot_path = f'{figs_dir}/each_env_cell_type_proportions.png'
+    plt.savefig(plot_path)
+    plt.close()
+
+    print(f"Plot saved to {plot_path}")
+
+
 def main(configs, experiment, moving_trajectory):
     # _plot_between_envs_unit_heatmaps(configs, experiment, moving_trajectory)
-    _plot_between_envs_unit_types_change(configs[0], configs[4], experiment, moving_trajectory)
+    # _plot_between_envs_unit_types_change(configs[0], configs[4], experiment, moving_trajectory)
+    _plot_each_env_cell_type_proportions(configs, experiment, moving_trajectory)
 
 
 if __name__ == '__main__':
@@ -191,6 +225,30 @@ if __name__ == '__main__':
         "env38_r24_2d_vgg16_fc2": "90 deg",
         "env39_r24_2d_vgg16_fc2": "many items changes",
         "env40_r24_2d_vgg16_fc2": "one item change",
+    }
+
+    unit_types = {
+        'dead_units_indices': 'Inactive',
+        'place_border_direction_cells_indices': 'P+B+D',
+        'place_and_border_not_direction_cells_indices': 'P+B',
+        'place_and_direction_not_border_cells_indices': 'P+D',
+        'border_and_direction_not_place_cells_indices': 'B+D',
+        'exclusive_place_cells_indices': 'P',
+        'exclusive_border_cells_indices': 'B',
+        'exclusive_direction_cells_indices': 'D',
+        'active_no_type_indices': 'No Type'
+    }
+
+    type2color = {
+        "P": plt.cm.Pastel1.colors[1],
+        "B": plt.cm.Pastel1.colors[0],
+        "D": plt.cm.Pastel1.colors[2],
+        "P+B": plt.cm.Pastel1.colors[3],
+        "P+D": plt.cm.Pastel1.colors[4],
+        "B+D": plt.cm.Pastel1.colors[5],
+        "P+B+D": plt.cm.Pastel1.colors[6],
+        "No Type": plt.cm.Pastel1.colors[7],
+        "Inactive": "grey"
     }
 
     start_time = time.time()
