@@ -79,6 +79,15 @@ def _plot_between_envs_unit_types_change(config_version_1, config_version_2, exp
     unit_chart_1 = np.load(fpath_1, allow_pickle=True)
     indices_1 = umc._unit_chart_type_classification(unit_chart_1)
 
+    # Get original unit type percentages
+    total_cells_original = sum(len(indices_1[key]) for key in indices_1)
+    type_proportions_original = {}
+    for unit_type, index_list in indices_1.items():
+        proportion = len(index_list) / total_cells_original * 100
+        if proportion > 0:
+            type_proportions_original[unit_types[unit_type]] = proportion
+
+
     config_2 = utils.load_config(config_version_2)
     results_path_2 = utils.load_results_path(
         config=config_2,
@@ -136,7 +145,7 @@ def _plot_between_envs_unit_types_change(config_version_1, config_version_2, exp
             startangle=0,
             colors=colors
         )
-        ax.set_title(f"Original type: {unit_type}")
+        ax.set_title(f"Original: {unit_type}, %= {type_proportions_original[unit_type]:.2f}")
 
     # Remove any empty subplots
     for j in range(i + 1, len(axes)):
@@ -214,15 +223,15 @@ def _plot_each_env_cell_type_proportions(configs, experiment, moving_trajectory)
 
 def main(configs, experiment, moving_trajectory):
     # _plot_between_envs_unit_heatmaps(configs, experiment, moving_trajectory)
-    # _plot_between_envs_unit_types_change(configs[0], configs[4], experiment, moving_trajectory)
-    _plot_each_env_cell_type_proportions(configs, experiment, moving_trajectory)
+    _plot_between_envs_unit_types_change(configs[0], configs[2], experiment, moving_trajectory)
+    # _plot_each_env_cell_type_proportions(configs, experiment, moving_trajectory)
 
 
 if __name__ == '__main__':
     envs2changes = {
-        "env28_r24_2d_vgg16_fc2": "original",
+        "env28run2_r24_2d_vgg16_fc2": "original",
         "env37_r24_2d_vgg16_fc2": "45 deg",
-        "env38_r24_2d_vgg16_fc2": "90 deg",
+        "env38converted_r24_2d_vgg16_fc2": "90 deg",
         "env39_r24_2d_vgg16_fc2": "many items changes",
         "env40_r24_2d_vgg16_fc2": "one item change",
     }
