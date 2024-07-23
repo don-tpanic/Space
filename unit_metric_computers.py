@@ -318,6 +318,13 @@ def _unit_chart_type_classification(unit_chart_info):
         'exclusive_direction_cells_indices': exclusive_direction_cells_indices,
         'active_no_type_indices': active_no_type_indices,
     }
-
+    
     assert unit_chart_info.shape[0] == sum([len(v) for v in results.values()])
+
+    # Check all values are mutually exclusive
+    for key, value in results.items():
+        for key2, value2 in results.items():
+            if key != key2:
+                assert len(set(value) & set(value2)) == 0, f'{key} and {key2} have common elements'
+
     return results
