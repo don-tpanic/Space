@@ -222,16 +222,16 @@ def _plot_each_env_cell_type_proportions(configs, experiment, moving_trajectory)
 
 
 def main(configs, experiment, moving_trajectory):
-    # _plot_between_envs_unit_heatmaps(configs, experiment, moving_trajectory)
+    _plot_between_envs_unit_heatmaps(configs, experiment, moving_trajectory)
     _plot_between_envs_unit_types_change(configs[0], configs[2], experiment, moving_trajectory)
-    # _plot_each_env_cell_type_proportions(configs, experiment, moving_trajectory)
+    _plot_each_env_cell_type_proportions(configs, experiment, moving_trajectory)
 
 
 if __name__ == '__main__':
     envs2changes = {
-        "env28run2_r24_2d_vgg16_fc2": "original",
+        "env28_r24_2d_vgg16_fc2": "original",
         "env37_r24_2d_vgg16_fc2": "45 deg",
-        "env38converted_r24_2d_vgg16_fc2": "90 deg",
+        "env38_r24_2d_vgg16_fc2": "90 deg",
         "env39_r24_2d_vgg16_fc2": "many items changes",
         "env40_r24_2d_vgg16_fc2": "one item change",
     }
