@@ -30,9 +30,11 @@ def _compute_single_heatmap_fields_info(
         num_clusters, num_pixels_in_clusters, max_value_in_clusters, \
             mean_value_in_clusters, var_value_in_clusters, heatmap_thresholded
     """
-    scaler = MinMaxScaler()
-    # normalize to [0, 1]
-    heatmap_normalized = scaler.fit_transform(heatmap)  
+    # scaler = MinMaxScaler()
+    # # normalize to [0, 1]
+    # heatmap_normalized = scaler.fit_transform(heatmap)
+    heatmap_normalized = (heatmap - np.min(heatmap)) / (np.max(heatmap) - np.min(heatmap))
+    
     # convert to [0, 255]      
     heatmap_gray = (heatmap_normalized * 255).astype(np.uint8)
     # compute activity threshold as the mean of the heatmap
