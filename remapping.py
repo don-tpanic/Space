@@ -2,6 +2,7 @@ import time
 import math
 
 import numpy as np
+import seaborn as sns
 import matplotlib.pyplot as plt
 import logging
 
@@ -144,7 +145,7 @@ def _plot_between_envs_unit_types_change(configs, experiment, moving_trajectory)
                     startangle=0,
                     colors=colors
                 )
-                ax.set_title(f"Original: {unit_type}, %= {type_proportions_original[unit_type]:.2f}")
+                ax.set_title(f"Originally: {unit_type}, ({type_proportions_original[unit_type]:.1f}%)")
 
             # Remove any empty subplots
             for j in range(i + 1, len(axes)):
@@ -217,10 +218,145 @@ def _plot_each_env_cell_type_proportions(configs, experiment, moving_trajectory)
     print(f"Plot saved to {plot_path}")
 
 
+def _plot_between_envs_unit_type_P_change(configs, experiment, moving_trajectory):
+    """
+    Focus on exclusive P cells as part of the remapping analysis.
+
+    Between two envs, quantify:
+        1. How many P cells stay as P cells (cell-to-cell)
+        2. How many P cells maintain number of place fields (cell-to-cell)
+        3. Overall, change in number of place fields
+    """
+    plt.rcParams.update({'font.size': 22,})
+
+    results = []
+    for i, config_version_1 in enumerate(configs):
+        for j, config_version_2 in enumerate(configs):
+            if i >= j:
+                continue
+
+            config_1 = utils.load_config(config_version_1)
+            results_path_1 = utils.load_results_path(
+                config=config_1,
+                experiment=experiment,
+                moving_trajectory=moving_trajectory,
+            )
+            fpath_1 = f'{results_path_1}/unit_chart.npy'
+            unit_chart_1 = np.load(fpath_1, allow_pickle=True)
+            indices_1 = umc._unit_chart_type_classification(unit_chart_1)
+
+            config_2 = utils.load_config(config_version_2)
+            results_path_2 = utils.load_results_path(
+                config=config_2,
+                experiment=experiment,
+                moving_trajectory=moving_trajectory,
+            )
+            fpath_2 = f'{results_path_2}/unit_chart.npy'
+            unit_chart_2 = np.load(fpath_2, allow_pickle=True)
+            indices_2 = umc._unit_chart_type_classification(unit_chart_2)
+
+            # Exclusive P cell percentages
+            p_proportion_1 = len(indices_1['exclusive_place_cells_indices']) / sum(len(v) for v in indices_1.values()) * 100
+            p_proportion_2 = len(indices_2['exclusive_place_cells_indices']) / sum(len(v) for v in indices_2.values()) * 100
+
+            # Exclusive P cells stay as P cells
+            p_cells_1 = set(indices_1['exclusive_place_cells_indices'])
+            p_cells_2 = set(indices_2['exclusive_place_cells_indices'])
+            num_p_cells_stay_p = len(p_cells_1.intersection(p_cells_2))
+            p_cells_stay_p_proportion = num_p_cells_stay_p / len(p_cells_1) * 100 if len(p_cells_1) > 0 else 0
+
+            # Exclusive P cells maintaining number of place fields
+            num_p_cells_maintain_nfields = 0
+            num_fields_1 = []
+            num_fields_2 = []
+            for p_cell in p_cells_1.intersection(p_cells_2):
+                num_fields_1.append(unit_chart_1[p_cell, 1][0])
+                num_fields_2.append(unit_chart_2[p_cell, 1][0])
+                if np.array_equal(unit_chart_1[p_cell, 1], unit_chart_2[p_cell, 1]):
+                    num_p_cells_maintain_nfields += 1
+
+            p_cells_maintain_nfields_proportion = num_p_cells_maintain_nfields / num_p_cells_stay_p * 100 if num_p_cells_stay_p > 0 else 0
+
+            # Store the results for plotting
+            results.append({
+                'config_pair': (config_version_1, config_version_2),
+                'p_proportion_1': p_proportion_1,
+                'p_proportion_2': p_proportion_2,
+                'p_cells_stay_p_proportion': p_cells_stay_p_proportion,
+                'p_cells_maintain_nfields_proportion': p_cells_maintain_nfields_proportion,
+                'num_fields_1': num_fields_1,
+                'num_fields_2': num_fields_2,
+            })
+
+    # Plotting
+    for result in results:
+        fig, axes = plt.subplots(2, 2, figsize=(18, 10))
+        config_pair = result['config_pair']
+        labels = [envs2changes[config_pair[0]], envs2changes[config_pair[1]]]
+
+        # Plot exclusive P cell percentages
+        pie1 = axes[0, 0].pie([result['p_proportion_1'], 100-result['p_proportion_1']], 
+                    colors=['#1f77b4', '#d3d3d3'], 
+                    labels=[labels[0], ''],
+                    autopct='%1.1f%%',
+                    startangle=90,
+                    wedgeprops=dict(width=0.4),
+                    radius=0.8,
+                    center=(-0.8, 0))  # Move the first pie chart to the left
+
+        pie2 = axes[0, 0].pie([result['p_proportion_2'], 100-result['p_proportion_2']], 
+                            colors=['#ff7f0e', '#d3d3d3'], 
+                            labels=[labels[1], ''],
+                            autopct='%1.1f%%',
+                            startangle=90,
+                            wedgeprops=dict(width=0.4),
+                            radius=0.8,
+                            center=(0.8, 0))  # Move the second pie chart to the right
+
+        # Adjust the subplot layout
+        axes[0, 0].set_xlim(-1.2, 1.2)
+        axes[0, 0].set_title("Exclusive P Cell Percentages")
+
+        # Plot percentage of P cells that stay P cells
+        axes[0, 1].pie(
+            [result['p_cells_stay_p_proportion'], 100 - result['p_cells_stay_p_proportion']],
+            labels=['Stayed P', 'Changed'],
+            autopct='%1.1f%%',
+            startangle=90,
+            explode=[0.1, 0],
+            colors=['#84B7CA', '#D0C146']
+        )
+        axes[0, 1].set_title("P Cells Staying as P Cells")
+
+        # Plot percentage of P cells maintaining number of place fields
+        axes[1, 0].pie(
+            [result['p_cells_maintain_nfields_proportion'], 100 - result['p_cells_maintain_nfields_proportion']],
+            labels=['Maintained Fields', 'Changed Fields'],
+            autopct='%1.1f%%',
+            startangle=90,
+            explode=[0.1, 0],
+            colors=['#763C4B', '#FCA476']
+        )
+        axes[1, 0].set_title("P Cells Maintaining Number of Place Fields")
+
+        # Plot number of place fields
+        sns.kdeplot(result['num_fields_1'], ax=axes[1, 1], label=labels[0], color='#1f77b4')
+        sns.kdeplot(result['num_fields_2'], ax=axes[1, 1], label=labels[1], color='#ff7f0e')
+        axes[1, 1].set_title("Number of Place Fields")
+        axes[1, 1].legend()
+        axes[1, 1].spines['top'].set_visible(False)
+        axes[1, 1].spines['right'].set_visible(False)
+
+        plt.tight_layout()
+        plt.savefig(f"{figs_dir}/P_cell_change_{config_pair[0]}-{config_pair[1]}.png")
+        plt.close()
+
+
 def main(configs, experiment, moving_trajectory):
-    _plot_between_envs_unit_heatmaps(configs, experiment, moving_trajectory)
-    _plot_between_envs_unit_types_change(configs, experiment, moving_trajectory)
-    _plot_each_env_cell_type_proportions(configs, experiment, moving_trajectory)
+    # _plot_between_envs_unit_heatmaps(configs, experiment, moving_trajectory)
+    # _plot_between_envs_unit_types_change(configs, experiment, moving_trajectory)
+    # _plot_each_env_cell_type_proportions(configs, experiment, moving_trajectory)
+    _plot_between_envs_unit_type_P_change(configs, experiment, moving_trajectory)
 
 
 if __name__ == '__main__':
@@ -228,7 +364,7 @@ if __name__ == '__main__':
         "env28run2_r24_2d_vgg16_fc2": "original",
         "env37_r24_2d_vgg16_fc2": "45 deg",
         "env38_r24_2d_vgg16_fc2": "90 deg",
-        "env39_r24_2d_vgg16_fc2": "many items changes",
+        "env39_r24_2d_vgg16_fc2": "many item changes",
         "env40_r24_2d_vgg16_fc2": "one item change",
     }
 
