@@ -11,6 +11,11 @@ import unit_metric_computers as umc
 
 
 def _plot_between_envs_unit_heatmaps(configs, experiment, moving_trajectory):
+    """
+    For same units between two envs, plot the heatmaps side by side.
+
+    Right now we only consider units that are place cells in at least one of the envs.
+    """
     unit_charts = []
     unit_indices_by_types = []
     exclusive_place_cells_indices = []
@@ -160,7 +165,7 @@ def _plot_between_envs_unit_types_change(configs, experiment, moving_trajectory)
 
 def _plot_each_env_cell_type_proportions(configs, experiment, moving_trajectory):
     """
-    For each given config, plot the proportion of different cell types as a pie chart.
+    For each given env, plot the proportion of different cell types as a pie chart.
     """
     plt.rcParams.update({'font.size': 22,})
 
@@ -223,6 +228,7 @@ def _plot_between_envs_unit_type_P_change(configs, experiment, moving_trajectory
     Focus on exclusive P cells as part of the remapping analysis.
 
     Between two envs, quantify:
+        0. The percentage of exclusive P cells in each env
         1. How many P cells stay as P cells (cell-to-cell)
         2. How many P cells maintain number of place fields (cell-to-cell)
         3. Overall, change in number of place fields
@@ -357,11 +363,11 @@ def _plot_between_envs_unit_type_P_rotation(configs, experiment, moving_trajecto
     Focus on exclusive P cells as part of the remapping analysis.
 
     Between two envs, quantify:
-        For those P cells maintain the same properties (i.e. num of fields),
-        extract their mean angle wrt center of the area, compute the abs difference in angle,
-        and plot the distribution of the differences.
+        1. For those P cells maintain the same properties (i.e. num of fields),
+            extract their mean angle wrt center of the area, compute the abs difference in angle,
+            and plot the distribution of the differences.
 
-        For each pair of envs, for the same cell, we also plot the heatmaps.
+        2. For each pair of envs, for the same cell, we also plot the heatmaps.
     """
     plt.rcParams.update({'font.size': 22,})
 
