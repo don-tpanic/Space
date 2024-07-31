@@ -352,11 +352,115 @@ def _plot_between_envs_unit_type_P_change(configs, experiment, moving_trajectory
         plt.close()
 
 
+def _plot_between_envs_unit_type_P_rotation(configs, experiment, moving_trajectory):
+    """
+    Focus on exclusive P cells as part of the remapping analysis.
+
+    Between two envs, quantify:
+        For those P cells maintain the same properties (i.e. num of fields),
+        extract their mean angle wrt center of the area, compute the abs difference in angle,
+        and plot the distribution of the differences.
+
+        For each pair of envs, for the same cell, we also plot the heatmaps.
+    """
+    plt.rcParams.update({'font.size': 22,})
+
+    angles_before_and_after = {}  
+    for i, config_version_1 in enumerate(configs):
+        for j, config_version_2 in enumerate(configs):
+            if i >= j:
+                continue
+            angles_before_and_after[(config_version_1, config_version_2)] = {
+                "angles": [],
+                "heatmaps_1": [],
+                "heatmaps_2": []
+            }
+
+            config_1 = utils.load_config(config_version_1)
+            results_path_1 = utils.load_results_path(
+                config=config_1,
+                experiment=experiment,
+                moving_trajectory=moving_trajectory,
+            )
+            fpath_1 = f'{results_path_1}/unit_chart.npy'
+            unit_chart_1 = np.load(fpath_1, allow_pickle=True)
+            indices_1 = umc._unit_chart_type_classification(unit_chart_1)
+
+            config_2 = utils.load_config(config_version_2)
+            results_path_2 = utils.load_results_path(
+                config=config_2,
+                experiment=experiment,
+                moving_trajectory=moving_trajectory,
+            )
+            fpath_2 = f'{results_path_2}/unit_chart.npy'
+            unit_chart_2 = np.load(fpath_2, allow_pickle=True)
+            indices_2 = umc._unit_chart_type_classification(unit_chart_2)
+
+            # Check corresponding p cells in each env, and only compute diff in angle
+            # if both have the same number of fields
+            p_cells_1 = set(indices_1['exclusive_place_cells_indices'])
+            p_cells_2 = set(indices_2['exclusive_place_cells_indices'])
+
+            for p_cell in p_cells_1.intersection(p_cells_2):
+                if np.array_equal(unit_chart_1[p_cell, 1], unit_chart_2[p_cell, 1]):
+                    angle_1 = unit_chart_1[p_cell, 13]
+                    angle_2 = unit_chart_2[p_cell, 13]
+                    angle_abs_diff = np.abs(angle_2 - angle_1)
+                    # Always use the smaller angle
+                    angle_abs_diff = min(angle_abs_diff, 360 - angle_abs_diff)
+
+                    # Collect angle differences
+                    angles_before_and_after[(config_version_1, config_version_2)]["angles"].append(angle_abs_diff)
+
+                    # Collect heatmaps for visualization
+                    angles_before_and_after[(config_version_1, config_version_2)]["heatmaps_1"].append(unit_chart_1[p_cell, 12])
+                    angles_before_and_after[(config_version_1, config_version_2)]["heatmaps_2"].append(unit_chart_2[p_cell, 12])
+
+    # Plotting angle differences distribution
+    for config_pair, values in angles_before_and_after.items():
+        num_p_cells = len(values["angles"])
+        print(f"[Check] Num of P cells in {config_pair[0]}-{config_pair[1]}: {num_p_cells}")
+        fig, ax = plt.subplots(1, 1, figsize=(10, 6))
+        labels = [envs2changes[config_pair[0]], envs2changes[config_pair[1]]]
+
+        sns.kdeplot(values['angles'], ax=ax, label=labels[0], color='#1f77b4')
+        ax.set_title("Angle Difference Between P Cells")
+        ax.set_xlabel("Angle Difference (degrees)")
+        ax.set_ylabel("Density")
+        ax.legend()
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+
+        plt.tight_layout()
+        plt.savefig(f"{figs_dir}/P_cell_rotation_angle_diff_{config_pair[0]}-{config_pair[1]}.png")
+        plt.close()
+
+        fig, axes = plt.subplots(num_p_cells, 2, figsize=(10, num_p_cells))
+        for i in range(num_p_cells):
+            ax1 = axes[i, 0]
+            ax2 = axes[i, 1]
+
+            ax1.imshow(values['heatmaps_1'][i], cmap='jet', interpolation='nearest')
+            ax1.set_title(labels[0])
+            ax1.set_xticks([])
+            ax1.set_yticks([])
+
+            ax2.imshow(values['heatmaps_2'][i], cmap='jet', interpolation='nearest')
+            ax2.set_title(f"{labels[1]}: diff={values['angles'][i]:.1f} deg")
+            ax2.set_xticks([])
+            ax2.set_yticks([])
+        
+        plt.tight_layout()
+        plt.savefig(f"{figs_dir}/P_cell_rotation_heatmap_diff_{config_pair[0]}-{config_pair[1]}.png")
+        plt.close()
+
+
 def main(configs, experiment, moving_trajectory):
     # _plot_between_envs_unit_heatmaps(configs, experiment, moving_trajectory)
     # _plot_between_envs_unit_types_change(configs, experiment, moving_trajectory)
     # _plot_each_env_cell_type_proportions(configs, experiment, moving_trajectory)
-    _plot_between_envs_unit_type_P_change(configs, experiment, moving_trajectory)
+    # _plot_between_envs_unit_type_P_change(configs, experiment, moving_trajectory)
+    _plot_between_envs_unit_type_P_rotation(configs, experiment, moving_trajectory)
 
 
 if __name__ == '__main__':
