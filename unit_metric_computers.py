@@ -76,26 +76,29 @@ def _compute_single_heatmap_fields_info(
 
     # Get the max/mean/var value in heatmap based on each cluster
     max_value_in_clusters = []
+    max_value_indices_in_clusters = []
     mean_value_in_clusters = []
     var_value_in_clusters = []
     for label in np.unique(filtered_labels):
         if label != 0:
-            max_value_in_clusters.append(
-                np.around(
-                    np.max(heatmap[filtered_labels == label]), 1
-                )
-            )
+            max_value = np.max(heatmap[filtered_labels == label])
+            max_value_in_clusters.append(np.around(max_value, 1))
+            max_value_index_x = np.where(heatmap == max_value)[0][0]
+            max_value_index_y = np.where(heatmap == max_value)[1][0]
+            max_value_indices_in_clusters.append((max_value_index_x, max_value_index_y))
+
             mean_value_in_clusters.append(
                 np.around(
                     np.mean(heatmap[filtered_labels == label]), 1
                 )
             )
+            
             var_value_in_clusters.append(
                 np.around(
                     np.var(heatmap[filtered_labels == label]), 1
                 )
             )
-            
+
     # Add 0 to `num_pixels_in_clusters` and `max_value_in_clusters`
     # in case `num_clusters` is 0. This is helpful when we want to
     # plot fields info against coef, as no matter if there is a cluster
@@ -105,10 +108,12 @@ def _compute_single_heatmap_fields_info(
         max_value_in_clusters = np.array([0])
         mean_value_in_clusters = np.array([0])
         var_value_in_clusters = np.array([0])
+        max_value_indices_in_clusters = np.array([(0, 0)])
     else:
         max_value_in_clusters = np.array(max_value_in_clusters)
         mean_value_in_clusters = np.array(mean_value_in_clusters)
         var_value_in_clusters = np.array(var_value_in_clusters)
+        max_value_indices_in_clusters = np.array(max_value_indices_in_clusters)
 
     colors = np.arange(100, dtype=int).tolist()
     for label in np.unique(filtered_labels):
@@ -122,9 +127,21 @@ def _compute_single_heatmap_fields_info(
             # draw contours
             cv2.drawContours(heatmap_thresholded, contours, -1, colors[label-1], 1)
 
-    return num_clusters, num_pixels_in_clusters, max_value_in_clusters, \
-        mean_value_in_clusters, var_value_in_clusters, heatmap_thresholded
+    # Compute the mean angle of the fields
+    # wrt center of heatmap, which has coords
+    angles = [] 
+    center_y, center_x = np.array(heatmap.shape) // 2
+    for max_index in max_value_indices_in_clusters:
+        x, y = max_index
+        dx = x - center_x
+        dy = y - center_y 
+        angle = np.degrees(np.arctan2(dy, dx))
+        angles.append(angle)
+    mean_angle = np.mean(angles)
 
+    return num_clusters, num_pixels_in_clusters, max_value_in_clusters, \
+        mean_value_in_clusters, var_value_in_clusters, heatmap_thresholded, mean_angle
+        
 
 def _compute_single_heatmap_grid_scores(activation_map, smooth=False):
     # mask parameters
