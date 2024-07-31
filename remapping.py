@@ -412,8 +412,6 @@ def _plot_between_envs_unit_type_P_rotation(configs, experiment, moving_trajecto
                     angle_1 = unit_chart_1[p_cell, 13]
                     angle_2 = unit_chart_2[p_cell, 13]
                     angle_abs_diff = np.abs(angle_2 - angle_1)
-                    # Always use the smaller angle
-                    angle_abs_diff = min(angle_abs_diff, 360 - angle_abs_diff)
 
                     # Collect angle differences
                     angles_before_and_after[(config_version_1, config_version_2)]["angles"].append(angle_abs_diff)
@@ -429,11 +427,11 @@ def _plot_between_envs_unit_type_P_rotation(configs, experiment, moving_trajecto
         fig, ax = plt.subplots(1, 1, figsize=(10, 6))
         labels = [envs2changes[config_pair[0]], envs2changes[config_pair[1]]]
 
-        sns.kdeplot(values['angles'], ax=ax, label=labels[0], color='#1f77b4')
+        sns.kdeplot(values['angles'], ax=ax, color='#1f77b4')
+        ax.hist(values['angles'], bins=20, density=True, alpha=0.5, color='#1f77b4')
         ax.set_title("Angle Difference Between P Cells")
         ax.set_xlabel("Angle Difference (degrees)")
         ax.set_ylabel("Density")
-        ax.legend()
         ax.spines['top'].set_visible(False)
         ax.spines['right'].set_visible(False)
 
