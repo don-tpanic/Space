@@ -1072,6 +1072,7 @@ def _single_env_produce_unit_chart(
                 11. per_rotation_vector_length,
             ]
         10. heatmap - flattened 2D heatmap (for analyzing remapping)
+        11. mean_cluster_angle (for analyzing remapping)
     """
     os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
@@ -1113,7 +1114,9 @@ def _single_env_produce_unit_chart(
                     'mean_vector_length',
                     'per_rotation_vector_length',
                     # ---
-                    'heatmap'
+                    'heatmap',
+                    # --- 
+                    'mean_cluster_angle'
                 ]
     
     # initialize unit chart collector
@@ -1154,7 +1157,7 @@ def _single_env_produce_unit_chart(
                 # 1. fields info
                 num_clusters, num_pixels_in_clusters, max_value_in_clusters, \
                     mean_value_in_clusters, var_value_in_clusters, \
-                        bounds_heatmap = \
+                        bounds_heatmap, mean_cluster_angle = \
                             umc._compute_single_heatmap_fields_info(
                                 heatmap=heatmap,
                                 pixel_min_threshold=10,
@@ -1188,6 +1191,9 @@ def _single_env_produce_unit_chart(
 
                 # 5. heatmap
                 unit_chart_info[unit_index, 12] = heatmap
+
+                # 6. mean_cluster_angle
+                unit_chart_info[unit_index, 13] = mean_cluster_angle
         
     results_path = utils.load_results_path(
         config=config,
@@ -1831,7 +1837,7 @@ if __name__ == '__main__':
     CPU_NUM_PROCESSES = 5     
     experiment = 'unit_chart'
     reference_experiment = None
-    envs = ['env28_r24']
+    envs = ['env28run2_r24', 'env37_r24', 'env38_r24', 'env39_r24', 'env40_r24']
     movement_modes = ['2d']
     sampling_rates = [0.3]
     random_seeds = [42]
@@ -1885,7 +1891,7 @@ if __name__ == '__main__':
         random_seeds=random_seeds,
         sorted_by=sorted_by,
         filterings=filterings,
-        cuda_id_list=[1],
+        cuda_id_list=[0, 1, 2, 3, 4, 5],
     )
 
     # print time elapsed
