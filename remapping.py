@@ -435,18 +435,18 @@ def _plot_between_envs_unit_type_P_rotation(configs, experiment, moving_trajecto
         plt.savefig(f"{figs_dir}/P_cell_rotation_angle_diff_{config_pair[0]}-{config_pair[1]}.png")
         plt.close()
 
-        fig, axes = plt.subplots(num_p_cells, 2, figsize=(10, num_p_cells))
+        fig, axes = plt.subplots(num_p_cells, 2, figsize=(10, 2*num_p_cells))
         for i in range(num_p_cells):
             ax1 = axes[i, 0]
             ax2 = axes[i, 1]
 
             ax1.imshow(values['heatmaps_1'][i], cmap='jet', interpolation='nearest')
-            ax1.set_title(labels[0])
+            ax1.set_title(labels[0], fontsize=10)
             ax1.set_xticks([])
             ax1.set_yticks([])
 
             ax2.imshow(values['heatmaps_2'][i], cmap='jet', interpolation='nearest')
-            ax2.set_title(f"{labels[1]}: diff={values['angles'][i]:.1f} deg")
+            ax2.set_title(f"{labels[1]}: diff={values['angles'][i]:.1f} deg", fontsize=10)
             ax2.set_xticks([])
             ax2.set_yticks([])
         
