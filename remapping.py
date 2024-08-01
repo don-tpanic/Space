@@ -69,9 +69,9 @@ def _plot_between_envs_unit_types_change(configs, experiment, moving_trajectory)
     """
     plt.rcParams.update({'font.size': 22,})
 
-    for config_version_1 in configs:
-        for config_version_2 in configs:
-            if config_version_1 == config_version_2:
+    for config_i, config_version_1 in enumerate(configs):
+        for config_j, config_version_2 in enumerate(configs):
+            if config_i >= config_j:
                 continue
 
             config_1 = utils.load_config(config_version_1)
@@ -129,7 +129,7 @@ def _plot_between_envs_unit_types_change(configs, experiment, moving_trajectory)
             # Determine the number of rows and columns
             import math
             num_subplots = len(type_change_percentages)
-            num_cols = 4  # fixed for nice visualization
+            num_cols = 3  # fixed for nice visualization
             num_rows = math.ceil(num_subplots / num_cols)
 
             fig, axes = plt.subplots(num_rows, num_cols, figsize=(30, 6 * num_rows))
@@ -145,12 +145,13 @@ def _plot_between_envs_unit_types_change(configs, experiment, moving_trajectory)
                 ax.pie(
                     percentages.values(), 
                     labels=labels, 
-                    autopct=lambda p: '{:.1f}'.format(round(p, 1)) if p > 0 else '',
+                    autopct=lambda p: '{:.1f}'.format(round(p, 1)) if p > 0. else '',
                     explode=[0.1]*len(labels),
                     startangle=0,
                     colors=colors
                 )
-                ax.set_title(f"Originally: {unit_type}, ({type_proportions_original[unit_type]:.1f}%)")
+                ax.set_title(f"Originally: {unit_type}, ({type_proportions_original[unit_type]:.2f}%)", 
+                            fontsize=22, fontweight='bold')
 
             # Remove any empty subplots
             for j in range(i + 1, len(axes)):
@@ -158,7 +159,8 @@ def _plot_between_envs_unit_types_change(configs, experiment, moving_trajectory)
 
             # Save the plot
             plt.tight_layout()
-            plot_path = f'{figs_dir}/unit_type_change_plot_{config_version_1}-{config_version_2}.png'
+            plot_path = f'{figs_dir}/unit_type_change_plot_{config_version_1}-{config_version_2}.pdf'
+            print(f"Plot saved to {plot_path}")
             plt.savefig(plot_path)
             plt.close()
 
@@ -170,7 +172,7 @@ def _plot_each_env_cell_type_proportions(configs, experiment, moving_trajectory)
     plt.rcParams.update({'font.size': 22,})
 
     num_configs = len(configs)
-    num_cols = 5
+    num_cols = num_configs
     num_rows = math.ceil(num_configs / num_cols)
 
     fig, axes = plt.subplots(num_rows, num_cols, figsize=(8 * num_cols, 8 * num_rows))
@@ -209,14 +211,14 @@ def _plot_each_env_cell_type_proportions(configs, experiment, moving_trajectory)
             explode=[0.1]*len(labels)
         )
 
-        ax.set_title(f"{envs2changes[config_version]}")
+        ax.set_title(f"{envs2changes[config_version]}", fontsize=22, fontweight='bold')
 
     # Remove any empty subplots
     for j in range(i + 1, len(axes)):
         fig.delaxes(axes[j])
 
     plt.tight_layout()
-    plot_path = f'{figs_dir}/each_env_cell_type_proportions.png'
+    plot_path = f'{figs_dir}/each_env_cell_type_proportions.pdf'
     plt.savefig(plot_path)
     plt.close()
 
@@ -354,7 +356,7 @@ def _plot_between_envs_unit_type_P_change(configs, experiment, moving_trajectory
         axes[1, 1].spines['right'].set_visible(False)
 
         plt.tight_layout()
-        plt.savefig(f"{figs_dir}/P_cell_change_{config_pair[0]}-{config_pair[1]}.png")
+        plt.savefig(f"{figs_dir}/P_cell_change_{config_pair[0]}-{config_pair[1]}.pdf")
         plt.close()
 
 
@@ -455,7 +457,7 @@ def _plot_between_envs_unit_type_P_rotation(configs, experiment, moving_trajecto
             ax2.set_yticks([])
         
         plt.tight_layout()
-        plt.savefig(f"{figs_dir}/P_cell_rotation_heatmap_diff_{config_pair[0]}-{config_pair[1]}.png")
+        plt.savefig(f"{figs_dir}/P_cell_rotation_heatmap_diff_{config_pair[0]}-{config_pair[1]}.pdf")
         plt.close()
 
 
@@ -559,7 +561,105 @@ def _plot_between_envs_unit_type_PD_rotation(configs, experiment, moving_traject
             ax2.set_yticks([])
         
         plt.tight_layout()
-        plt.savefig(f"{figs_dir}/PD_cell_rotation_heatmap_diff_{config_pair[0]}-{config_pair[1]}.png")
+        plt.savefig(f"{figs_dir}/PD_cell_rotation_heatmap_diff_{config_pair[0]}-{config_pair[1]}.pdf")
+        plt.close()
+
+
+def _plot_between_envs_any_type_with_n_fields_rotation(configs, experiment, moving_trajectory, n_fields=None):
+    """
+    Focus on any cell type (with n fields) as part of the remapping analysis.
+
+    Between two envs, quantify:
+        1. For those cells maintain the same properties (i.e. has n fields),
+            extract their mean angle wrt center of the area, compute the abs difference in angle,
+            and plot the distribution of the differences.
+
+        2. For each pair of envs, for the same cell, we also plot the heatmaps.
+
+    
+    Args:
+        n_fields: 1 or `None` (for any number of fields)
+    """
+    plt.rcParams.update({'font.size': 22,})
+
+    angles_before_and_after = {}  
+    for i, config_version_1 in enumerate(configs):
+        for j, config_version_2 in enumerate(configs):
+            if i >= j:
+                continue
+            angles_before_and_after[(config_version_1, config_version_2)] = {
+                "angles": [],
+                "heatmaps_1": [],
+                "heatmaps_2": []
+            }
+
+            config_1 = utils.load_config(config_version_1)
+            results_path_1 = utils.load_results_path(
+                config=config_1,
+                experiment=experiment,
+                moving_trajectory=moving_trajectory,
+            )
+            fpath_1 = f'{results_path_1}/unit_chart.npy'
+            unit_chart_1 = np.load(fpath_1, allow_pickle=True)
+
+            config_2 = utils.load_config(config_version_2)
+            results_path_2 = utils.load_results_path(
+                config=config_2,
+                experiment=experiment,
+                moving_trajectory=moving_trajectory,
+            )
+            fpath_2 = f'{results_path_2}/unit_chart.npy'
+            unit_chart_2 = np.load(fpath_2, allow_pickle=True)
+
+            # Go thru all units and check if they have a single field
+            for unit_index in range(unit_chart_1.shape[0]):
+                # Make sure the unit is not dead in both envs
+                if unit_chart_1[unit_index, 0][0] == 1 and unit_chart_2[unit_index, 0][0] == 1:
+
+                    # For active unit, check if it has `n fields` in both envs
+                    if n_fields is None:
+                        # Have same number of fields including all non-zero fields
+                        if unit_chart_1[unit_index, 1][0] == unit_chart_2[unit_index, 1][0] and \
+                            unit_chart_1[unit_index, 1][0] > 0 and unit_chart_2[unit_index, 1][0] > 0:
+                            angle_1 = unit_chart_1[unit_index, 13]
+                            angle_2 = unit_chart_2[unit_index, 13]
+                            angle_abs_diff = np.abs(angle_2 - angle_1)
+                            # Collect angle differences
+                            angles_before_and_after[(config_version_1, config_version_2)]["angles"].append(angle_abs_diff)
+
+                    else:
+                        # Have exactly `n_fields`
+                        if unit_chart_1[unit_index, 1][0] == n_fields and unit_chart_2[unit_index, 1][0] == n_fields:
+                            angle_1 = unit_chart_1[unit_index, 13]
+                            angle_2 = unit_chart_2[unit_index, 13]
+                            angle_abs_diff = np.abs(angle_2 - angle_1)
+                            # Collect angle differences
+                            angles_before_and_after[(config_version_1, config_version_2)]["angles"].append(angle_abs_diff)
+
+    # Plotting angle differences distribution
+    for config_pair, values in angles_before_and_after.items():
+        num_cells = len(values["angles"])
+        print(f"[Check] Num of cells with {n_fields} fields in {config_pair[0]}-{config_pair[1]}: {num_cells}")
+        fig, ax = plt.subplots(1, 1, figsize=(10, 6))
+        labels = [envs2changes[config_pair[0]], envs2changes[config_pair[1]]]
+
+        sns.kdeplot(values['angles'], ax=ax, color='#1f77b4')
+        ax.hist(values['angles'], bins=20, density=True, alpha=0.5, color='#1f77b4')
+        # ax.set_title("Angle Difference Between Cells with Single Field")
+        if n_fields is None:
+            ax.set_title("Angle Difference Between Cells with Any Number of Fields", fontsize=18)
+        else:
+            ax.set_title(f"Angle Difference Between Cells with {n_fields} Field(s)", fontsize=18)
+        ax.set_xlabel("Angle Difference (degrees)")
+        ax.set_ylabel("Density")
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+
+        plt.tight_layout()
+        if n_fields is None:
+            plt.savefig(f"{figs_dir}/any_cell_with_any_fields_rotation_angle_diff_{config_pair[0]}-{config_pair[1]}.pdf")
+        else:
+            plt.savefig(f"{figs_dir}/any_cell_with_{n_fields}_fields_rotation_angle_diff_{config_pair[0]}-{config_pair[1]}.pdf")
         plt.close()
 
 
@@ -569,7 +669,9 @@ def main(configs, experiment, moving_trajectory):
     # _plot_each_env_cell_type_proportions(configs, experiment, moving_trajectory)
     # _plot_between_envs_unit_type_P_change(configs, experiment, moving_trajectory)
     # _plot_between_envs_unit_type_P_rotation(configs, experiment, moving_trajectory)
-    _plot_between_envs_unit_type_PD_rotation(configs, experiment, moving_trajectory)
+    # _plot_between_envs_unit_type_PD_rotation(configs, experiment, moving_trajectory)
+    _plot_between_envs_any_type_with_n_fields_rotation(configs, experiment, moving_trajectory, n_fields=1)
+    _plot_between_envs_any_type_with_n_fields_rotation(configs, experiment, moving_trajectory, n_fields=None)
 
 
 if __name__ == '__main__':
