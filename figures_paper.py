@@ -1786,7 +1786,7 @@ def unit_chart_visualization_piechart():
                     labels=filtered_labels,
                     colors=colors,
                     explode=[0.1]*len(labels),
-                    textprops={'fontsize': 10},
+                    textprops={'fontsize': 14},
                 )
 
                 if 'vgg16' in model_name:
