@@ -13,14 +13,7 @@ import utils
 import models
 import unit_metric_computers as umc
 
-
-plt.rcParams.update(
-    {
-        'font.size': 22, 
-        'font.family': 'sans-serif',
-        'font.sans-serif': 'Arial',
-    }
-)
+plt.rcParams.update({'font.size': 22, })
 
 output_layers_2_levels = {
     "vgg16": {
@@ -1656,14 +1649,13 @@ def unit_visualization_by_type():
       
 
 def unit_chart_visualization_piechart():
-    import matplotlib.patches as patches
     experiment = 'unit_chart'
     moving_trajectory = 'uniform'
     movement_mode = '2d'
-    envs = ['env37_r24']
+    envs = ['env28_r24']
     model_names = [
         'vgg16', 
-        # 'resnet50', 'vit_b16', 'vgg16_untrained', 'resnet50_untrained', 'vit_b16_untrained'
+        'resnet50', 'vit_b16', 'vgg16_untrained', 'resnet50_untrained', 'vit_b16_untrained'
     ]
 
     for env in envs:
@@ -1672,7 +1664,7 @@ def unit_chart_visualization_piechart():
 
             # each column is a layer
             # row1 is all types piechart
-            fig = plt.figure(figsize=(20, 5))
+            fig = plt.figure(figsize=(24, 5))
             gs = fig.add_gridspec(
                 nrows=1, ncols=len(output_layers)
             )
@@ -1702,6 +1694,7 @@ def unit_chart_visualization_piechart():
                 n_place_and_direction_not_border_cells = len(unit_indices_by_types["place_and_direction_not_border_cells_indices"])
                 n_border_and_direction_not_place_cells = len(unit_indices_by_types["border_and_direction_not_place_cells_indices"])
                 n_place_border_direction_cells = len(unit_indices_by_types["place_border_direction_cells_indices"])
+                n_active_no_type_cells = len(unit_indices_by_types["active_no_type_indices"])
 
                 sum_n_cells = \
                     n_exc_place_cells + \
@@ -1710,7 +1703,8 @@ def unit_chart_visualization_piechart():
                     n_place_and_border_not_direction_cells + \
                     n_place_and_direction_not_border_cells + \
                     n_border_and_direction_not_place_cells + \
-                    n_place_border_direction_cells
+                    n_place_border_direction_cells + \
+                    n_active_no_type_cells
 
                 labels = []
                 n_cells = []
@@ -1745,6 +1739,10 @@ def unit_chart_visualization_piechart():
                     n_cells.append(n_place_border_direction_cells)
                     labels.append('P+B+D')
                 
+                if n_active_no_type_cells/sum_n_cells >= 0.01:
+                    n_cells.append(n_active_no_type_cells)
+                    labels.append('Active (no type)')
+                
                 # And lastly, the dead units
                 n_cells.append(len(unit_indices_by_types["dead_units_indices"]))
                 labels.append('Inactive')
@@ -1769,6 +1767,8 @@ def unit_chart_visualization_piechart():
                         colors.append(plt.cm.Pastel1.colors[6])
                     elif label == 'Inactive':
                         colors.append("grey")
+                    elif label == 'Active (no type)':
+                        colors.append(plt.cm.Pastel1.colors[7])
 
                 ax = fig.add_subplot(gs[col_index])
 
@@ -1786,6 +1786,7 @@ def unit_chart_visualization_piechart():
                     labels=filtered_labels,
                     colors=colors,
                     explode=[0.1]*len(labels),
+                    textprops={'fontsize': 10},
                 )
 
                 if 'vgg16' in model_name:
