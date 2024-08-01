@@ -218,7 +218,7 @@ def _plot_each_env_cell_type_proportions(configs, experiment, moving_trajectory)
         fig.delaxes(axes[j])
 
     plt.tight_layout()
-    plot_path = f'{figs_dir}/each_env_cell_type_proportions.pdf'
+    plot_path = f'{figs_dir}/each_env_cell_type_proportions_{model}_{layer}.pdf'
     plt.savefig(plot_path)
     plt.close()
 
@@ -665,22 +665,25 @@ def _plot_between_envs_any_type_with_n_fields_rotation(configs, experiment, movi
 
 def main(configs, experiment, moving_trajectory):
     # _plot_between_envs_unit_heatmaps(configs, experiment, moving_trajectory)
-    # _plot_between_envs_unit_types_change(configs, experiment, moving_trajectory)
-    # _plot_each_env_cell_type_proportions(configs, experiment, moving_trajectory)
+    _plot_between_envs_unit_types_change(configs, experiment, moving_trajectory)
+    _plot_each_env_cell_type_proportions(configs, experiment, moving_trajectory)
     # _plot_between_envs_unit_type_P_change(configs, experiment, moving_trajectory)
     # _plot_between_envs_unit_type_P_rotation(configs, experiment, moving_trajectory)
     # _plot_between_envs_unit_type_PD_rotation(configs, experiment, moving_trajectory)
-    _plot_between_envs_any_type_with_n_fields_rotation(configs, experiment, moving_trajectory, n_fields=1)
-    _plot_between_envs_any_type_with_n_fields_rotation(configs, experiment, moving_trajectory, n_fields=None)
+    _plot_between_envs_any_type_with_n_fields_rotation(configs[:2], experiment, moving_trajectory, n_fields=1)
+    _plot_between_envs_any_type_with_n_fields_rotation(configs[:2], experiment, moving_trajectory, n_fields=None)
 
 
 if __name__ == '__main__':
+
+    model = 'vgg16'
+    layer = 'block4_pool'
+
     envs2changes = {
-        "env28run2_r24_2d_vgg16_fc2": "original",
-        "env37_r24_2d_vgg16_fc2": "45 deg",
-        # "env38_r24_2d_vgg16_fc2": "90 deg",
-        # "env39_r24_2d_vgg16_fc2": "many item changes",
-        # "env40_r24_2d_vgg16_fc2": "one item change",
+        f"env28run2_r24_2d_{model}_{layer}": "original",
+        f"env37_r24_2d_{model}_{layer}": "45 deg",
+        f"env39_r24_2d_{model}_{layer}": "many item changes",
+        f"env40_r24_2d_{model}_{layer}": "one item change",
     }
 
     unit_types = {

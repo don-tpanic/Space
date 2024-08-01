@@ -1837,7 +1837,7 @@ if __name__ == '__main__':
     CPU_NUM_PROCESSES = 5     
     experiment = 'unit_chart'
     reference_experiment = None
-    envs = ['env28run2_r24', 'env37_r24', 'env38_r24', 'env39_r24', 'env40_r24']
+    envs = ['env28run2_r24', 'env37_r24', 'env39_r24', 'env40_r24']
     movement_modes = ['2d']
     sampling_rates = [0.3]
     random_seeds = [42]
@@ -1891,7 +1891,7 @@ if __name__ == '__main__':
         random_seeds=random_seeds,
         sorted_by=sorted_by,
         filterings=filterings,
-        cuda_id_list=[0, 1, 2, 3, 4, 5],
+        cuda_id_list=[0, 1, 2, 3, 4, 5, 6, 7],
     )
 
     # print time elapsed
