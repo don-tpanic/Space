@@ -1,0 +1,11 @@
+config_version: env28run2_r24_2d_vgg16_block5_pool
+unity_env: env28run2_r24
+model_name: vgg16
+output_layer: block5_pool
+movement_mode: 2d
+n_rotations: 24
+env_x_min: -4
+env_x_max: 4
+env_y_min: -4
+env_y_max: 4
+multiplier: 2
