@@ -1071,8 +1071,8 @@ def _single_env_produce_unit_chart(
                 10. mean_vector_length,
                 11. per_rotation_vector_length,
             ]
-        10. heatmap - flattened 2D heatmap (for analyzing remapping)
-        11. mean_cluster_angle (for analyzing remapping)
+        12. heatmap - flattened 2D heatmap (for analyzing remapping)
+        13. mean_cluster_angle (for analyzing remapping)
     """
     os.environ["TF_NUM_INTRAOP_THREADS"] = f"{TF_NUM_INTRAOP_THREADS}"
     os.environ["TF_NUM_INTEROP_THREADS"] = "1"
