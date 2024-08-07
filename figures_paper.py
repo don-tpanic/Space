@@ -11,14 +11,9 @@ from matplotlib import gridspec
 import data
 import utils
 import models
+import unit_metric_computers as umc
 
-plt.rcParams.update(
-    {
-        'font.size': 22, 
-        'font.family': 'sans-serif',
-        'font.sans-serif': 'Arial',
-    }
-)
+plt.rcParams.update({'font.size': 22, })
 
 output_layers_2_levels = {
     "vgg16": {
@@ -1654,258 +1649,201 @@ def unit_visualization_by_type():
       
 
 def unit_chart_visualization_piechart():
-    import matplotlib.patches as patches
     experiment = 'unit_chart'
     moving_trajectory = 'uniform'
+    movement_mode = '2d'
     envs = ['env28_r24']
-    env = envs[0]
     model_names = [
-        'vgg16', 'resnet50', 'vit_b16', 
-        'vgg16_untrained', 'resnet50_untrained', 'vit_b16_untrained'
+        'vgg16', 
+        'resnet50', 'vit_b16', 'vgg16_untrained', 'resnet50_untrained', 'vit_b16_untrained'
     ]
 
-    for model_name in model_names:
-        output_layers = data.load_model_layers(model_name)
+    for env in envs:
+        for model_name in model_names:
+            output_layers = data.load_model_layers(model_name)
 
-        # each column is a layer
-        # row1 is all types piechart
-        fig = plt.figure(figsize=(20, 5))
-        gs = fig.add_gridspec(
-            nrows=1, ncols=len(output_layers)
-        )
-
-        for col_index, output_layer in enumerate(output_layers):
-            config_version = f'env28_r24_2d_{model_name}_{output_layer}'
-            print(f'Plotting {config_version}')
-            config = utils.load_config(config_version)
-            
-            # load unit chart info
-            results_path = utils.load_results_path(
-                config=config,
-                experiment=experiment,
-                moving_trajectory=moving_trajectory,
-            )
-            unit_chart_info = np.load(
-                f'{results_path}/unit_chart.npy', allow_pickle=True)
-
-            n_dead_units = 0
-            max_num_clusters = np.max(unit_chart_info[:, 1])  # global max used for setting xaxis.
-            num_clusters = np.zeros(max_num_clusters+1)
-            cluster_sizes = []
-            cluster_peaks = []
-            grid_cell_indices = []
-            border_cell_indices = []
-            place_cells_indices = []
-            direction_cell_indices = []
-
-            for unit_index in range(unit_chart_info.shape[0]):
-                if unit_chart_info[unit_index, 0] == 0:
-                    n_dead_units += 1
-                else:
-                    num_clusters[int(unit_chart_info[unit_index, 1])] += 1
-                    cluster_sizes.extend(unit_chart_info[unit_index, 2])
-                    cluster_peaks.extend(unit_chart_info[unit_index, 3])
-                    if unit_chart_info[unit_index, 1] > 0:
-                        place_cells_indices.append(unit_index)
-                    if unit_chart_info[unit_index, 6] > 0.47:
-                        direction_cell_indices.append(unit_index)
-                    if unit_chart_info[unit_index, 8] > 0.37:
-                        grid_cell_indices.append(unit_index)
-                    if unit_chart_info[unit_index, 9] > 0.5:
-                        border_cell_indices.append(unit_index)
-
-            # plot
-            n_dead_units = n_dead_units
-            n_active_units = unit_chart_info.shape[0] - n_dead_units
-
-            # Collect the indices of units that are all three types
-            # (place + border + direction)
-            place_border_direction_cells_indices = \
-                list(set(place_cells_indices) & set(border_cell_indices) & set(direction_cell_indices))
-            
-            # Collect the indices of units that are two types (inc. three types)
-            # (place + border cells)
-            # (place + direction cells)
-            # (border + direction cells)
-            place_and_border_cells_indices = \
-                list(set(place_cells_indices) & set(border_cell_indices))
-            place_and_direction_cells_indices = \
-                list(set(place_cells_indices) & set(direction_cell_indices))
-            border_and_direction_cells_indices = \
-                list(set(border_cell_indices) & set(direction_cell_indices))
-            
-            # Collect the indices of units that are only two types
-            # (place  + border - direction),
-            # (place  + direction   - border),
-            # (border + direction   - place)
-            place_and_border_not_direction_cells_indices = \
-                list(set(place_and_border_cells_indices) - set(place_border_direction_cells_indices))
-            place_and_direction_not_border_cells_indices = \
-                list(set(place_and_direction_cells_indices) - set(place_border_direction_cells_indices))
-            border_and_direction_not_place_cells_indices = \
-                list(set(border_and_direction_cells_indices) - set(place_border_direction_cells_indices))
-            
-            # Collect the indices of units that are exclusive 
-            # place cells, 
-            # border cells, 
-            # direction cells
-            exclusive_place_cells_indices = \
-                list(set(place_cells_indices) - (set(place_and_border_cells_indices) | set(place_and_direction_cells_indices)))
-            exclusive_border_cells_indices = \
-                list(set(border_cell_indices) - (set(place_and_border_cells_indices) | set(border_and_direction_cells_indices)))
-            exclusive_direction_cells_indices = \
-                list(set(direction_cell_indices) - (set(place_and_direction_cells_indices) | set(border_and_direction_cells_indices)))
-
-
-            # first subplot: piechart of different cell proportions
-            n_exc_place_cells = len(exclusive_place_cells_indices)
-            n_exc_border_cells = len(exclusive_border_cells_indices)
-            n_exc_direction_cells = len(exclusive_direction_cells_indices)
-            n_place_and_border_not_direction_cells = len(place_and_border_not_direction_cells_indices)
-            n_place_and_direction_not_border_cells = len(place_and_direction_not_border_cells_indices)
-            n_border_and_direction_not_place_cells = len(border_and_direction_not_place_cells_indices)
-            n_place_border_direction_cells = len(place_border_direction_cells_indices)
-
-            sum_n_cells = \
-                n_exc_place_cells + \
-                n_exc_border_cells + \
-                n_exc_direction_cells + \
-                n_place_and_border_not_direction_cells + \
-                n_place_and_direction_not_border_cells + \
-                n_border_and_direction_not_place_cells + \
-                n_place_border_direction_cells
-
-            labels = []
-            n_cells = []
-
-            # collect the number of cells for each type
-            # only if n of cells > 0 and collect the labels
-            if n_exc_place_cells/sum_n_cells >= 0.01:
-                n_cells.append(n_exc_place_cells)
-                labels.append('P')
-
-            if n_exc_border_cells/sum_n_cells >= 0.01:
-                n_cells.append(n_exc_border_cells)
-                labels.append('B')
-
-            if n_exc_direction_cells/sum_n_cells >= 0.01:
-                n_cells.append(n_exc_direction_cells)
-                labels.append('D')
-
-            if n_place_and_border_not_direction_cells/sum_n_cells >= 0.01:
-                n_cells.append(n_place_and_border_not_direction_cells)
-                labels.append('P+B')
-
-            if n_place_and_direction_not_border_cells/sum_n_cells >= 0.01:
-                n_cells.append(n_place_and_direction_not_border_cells)
-                labels.append('P+D')
-
-            if n_border_and_direction_not_place_cells/sum_n_cells >= 0.01:
-                n_cells.append(n_border_and_direction_not_place_cells)
-                labels.append('B+D')
-
-            if n_place_border_direction_cells/sum_n_cells >= 0.01:
-                n_cells.append(n_place_border_direction_cells)
-                labels.append('P+B+D')
-            
-            # And lastly, the dead units
-            n_cells.append(n_dead_units)
-            labels.append('Inactive')
-            
-            # make sure plt.cm.Pastel1.colors are consistent across layers
-            # for each type of cells.
-            colors = []
-            for label in labels:
-                if label == 'P':
-                    colors.append(plt.cm.Pastel1.colors[1])
-                elif label == 'B':
-                    colors.append(plt.cm.Pastel1.colors[0])
-                elif label == 'D':
-                    colors.append(plt.cm.Pastel1.colors[2])
-                elif label == 'P+B':
-                    colors.append(plt.cm.Pastel1.colors[3])
-                elif label == 'P+D':
-                    colors.append(plt.cm.Pastel1.colors[4])
-                elif label == 'B+D':
-                    colors.append(plt.cm.Pastel1.colors[5])
-                elif label == 'P+B+D':
-                    colors.append(plt.cm.Pastel1.colors[6])
-                elif label == 'Inactive':
-                    colors.append("grey")
-
-            ax = fig.add_subplot(gs[col_index])
-
-            # Calculate percentages and exclude labels with 0 percentage
-            total_cells = sum(n_cells)
-            percentages = [round((cell / total_cells) * 100) for cell in n_cells]
-            filtered_labels = [
-                label if percentage > 0 else '' \
-                    for label, percentage in zip(labels, percentages)
-            ]
-
-            ax.pie(
-                n_cells,
-                autopct=lambda p: '{:.0f}'.format(round(p)) if p >= 1 else '',
-                labels=filtered_labels,
-                colors=colors,
-                explode=[0.1]*len(labels),
+            # each column is a layer
+            # row1 is all types piechart
+            fig = plt.figure(figsize=(24, 5))
+            gs = fig.add_gridspec(
+                nrows=1, ncols=len(output_layers)
             )
 
-            if 'vgg16' in model_name:
-                if 'untrained' in model_name:
-                    model_name_plot = 'VGG-16 (untrained)'
-                else:
-                    model_name_plot = 'VGG-16'
-                if output_layer == 'block2_pool':
-                    output_layer_plot = 'Early (block2_pool)'
-                elif output_layer == 'block4_pool':
-                    output_layer_plot = 'Mid (block4_pool)'
-                elif output_layer == 'block5_pool':
-                    output_layer_plot = 'Late (block5_pool)'
-                elif output_layer == 'fc2':
-                    output_layer_plot = 'Penultimate (fc2)'
+            for col_index, output_layer in enumerate(output_layers):
+                config_version = f'{env}_{movement_mode}_{model_name}_{output_layer}'
+                print(f'Plotting {config_version}')
+                config = utils.load_config(config_version)
+                
+                # load unit chart info
+                results_path = utils.load_results_path(
+                    config=config,
+                    experiment=experiment,
+                    moving_trajectory=moving_trajectory,
+                )
+                unit_chart_info = np.load(
+                    f'{results_path}/unit_chart.npy', allow_pickle=True)
 
-            elif 'resnet50' in model_name:
-                if 'untrained' in model_name:
-                    model_name_plot = 'ResNet-50 (untrained)'
-                else:
-                    model_name_plot = 'ResNet-50'
-                if output_layer == 'conv2_block3_out':
-                    output_layer_plot = 'Early (conv2_block3_out)'
-                elif output_layer == 'conv4_block6_out':
-                    output_layer_plot = 'Mid (conv4_block6_out)'
-                elif output_layer == 'conv5_block2_out':
-                    output_layer_plot = 'Late (conv5_block2_out)'
-                elif output_layer == 'avg_pool':
-                    output_layer_plot = 'Penultimate (avg_pool)'
+                # dict by type
+                unit_indices_by_types = umc._unit_chart_type_classification(unit_chart_info)
 
-            elif 'vit_b16' in model_name:
-                if 'untrained' in model_name:
-                    model_name_plot = 'ViT-B/16 (untrained)'
-                else:
-                    model_name_plot = 'ViT-B/16'
-                if output_layer == 'layer_3':
-                    output_layer_plot = 'Early (layer_3)'
-                elif output_layer == 'layer_6':
-                    output_layer_plot = 'Mid (layer_6)'
-                elif output_layer == 'layer_9':
-                    output_layer_plot = 'Late (layer_9)'
-                elif output_layer == 'layer_12':
-                    output_layer_plot = 'Penultimate (layer_12)'
+                # first subplot: piechart of different cell proportions
+                n_exc_place_cells = len(unit_indices_by_types["exclusive_place_cells_indices"])
+                n_exc_border_cells = len(unit_indices_by_types["exclusive_border_cells_indices"])
+                n_exc_direction_cells = len(unit_indices_by_types["exclusive_direction_cells_indices"])
+                n_place_and_border_not_direction_cells = len(unit_indices_by_types["place_and_border_not_direction_cells_indices"])
+                n_place_and_direction_not_border_cells = len(unit_indices_by_types["place_and_direction_not_border_cells_indices"])
+                n_border_and_direction_not_place_cells = len(unit_indices_by_types["border_and_direction_not_place_cells_indices"])
+                n_place_border_direction_cells = len(unit_indices_by_types["place_border_direction_cells_indices"])
+                n_active_no_type_cells = len(unit_indices_by_types["active_no_type_indices"])
 
-            ax.set_title(f'{output_layer_plot}', fontweight='bold', fontsize=22)
+                sum_n_cells = \
+                    n_exc_place_cells + \
+                    n_exc_border_cells + \
+                    n_exc_direction_cells + \
+                    n_place_and_border_not_direction_cells + \
+                    n_place_and_direction_not_border_cells + \
+                    n_border_and_direction_not_place_cells + \
+                    n_place_border_direction_cells + \
+                    n_active_no_type_cells
 
-            # remove left, top and right
-            ax.spines['left'].set_visible(False)
-            ax.spines['top'].set_visible(False)
-            ax.spines['right'].set_visible(False)
+                labels = []
+                n_cells = []
 
-            # make subplot space wider
-            plt.subplots_adjust(wspace=0.8)
+                # collect the number of cells for each type
+                # only if n of cells > 0 and collect the labels
+                if n_exc_place_cells/sum_n_cells >= 0.01:
+                    n_cells.append(n_exc_place_cells)
+                    labels.append('P')
 
-            plt.suptitle(f'{model_name_plot}', fontweight='bold', fontsize=22)
-            plt.savefig(f'figs/paper/unit_chart_overlaps_{model_name}.png')
-            plt.savefig(f'figs/paper/unit_chart_overlaps_{model_name}.pdf')
+                if n_exc_border_cells/sum_n_cells >= 0.01:
+                    n_cells.append(n_exc_border_cells)
+                    labels.append('B')
+
+                if n_exc_direction_cells/sum_n_cells >= 0.01:
+                    n_cells.append(n_exc_direction_cells)
+                    labels.append('D')
+
+                if n_place_and_border_not_direction_cells/sum_n_cells >= 0.01:
+                    n_cells.append(n_place_and_border_not_direction_cells)
+                    labels.append('P+B')
+
+                if n_place_and_direction_not_border_cells/sum_n_cells >= 0.01:
+                    n_cells.append(n_place_and_direction_not_border_cells)
+                    labels.append('P+D')
+
+                if n_border_and_direction_not_place_cells/sum_n_cells >= 0.01:
+                    n_cells.append(n_border_and_direction_not_place_cells)
+                    labels.append('B+D')
+
+                if n_place_border_direction_cells/sum_n_cells >= 0.01:
+                    n_cells.append(n_place_border_direction_cells)
+                    labels.append('P+B+D')
+                
+                if n_active_no_type_cells/sum_n_cells >= 0.01:
+                    n_cells.append(n_active_no_type_cells)
+                    labels.append('Active (no type)')
+                
+                # And lastly, the dead units
+                n_cells.append(len(unit_indices_by_types["dead_units_indices"]))
+                labels.append('Inactive')
+                
+                # make sure plt.cm.Pastel1.colors are consistent across layers
+                # for each type of cells.
+                colors = []
+                for label in labels:
+                    if label == 'P':
+                        colors.append(plt.cm.Pastel1.colors[1])
+                    elif label == 'B':
+                        colors.append(plt.cm.Pastel1.colors[0])
+                    elif label == 'D':
+                        colors.append(plt.cm.Pastel1.colors[2])
+                    elif label == 'P+B':
+                        colors.append(plt.cm.Pastel1.colors[3])
+                    elif label == 'P+D':
+                        colors.append(plt.cm.Pastel1.colors[4])
+                    elif label == 'B+D':
+                        colors.append(plt.cm.Pastel1.colors[5])
+                    elif label == 'P+B+D':
+                        colors.append(plt.cm.Pastel1.colors[6])
+                    elif label == 'Inactive':
+                        colors.append("grey")
+                    elif label == 'Active (no type)':
+                        colors.append(plt.cm.Pastel1.colors[7])
+
+                ax = fig.add_subplot(gs[col_index])
+
+                # Calculate percentages and exclude labels with 0 percentage
+                total_cells = sum(n_cells)
+                percentages = [round((cell / total_cells) * 100) for cell in n_cells]
+                filtered_labels = [
+                    label if percentage > 0 else '' \
+                        for label, percentage in zip(labels, percentages)
+                ]
+
+                ax.pie(
+                    n_cells,
+                    autopct=lambda p: '{:.0f}'.format(round(p)) if p >= 1 else '',
+                    labels=filtered_labels,
+                    colors=colors,
+                    explode=[0.1]*len(labels),
+                    textprops={'fontsize': 14},
+                )
+
+                if 'vgg16' in model_name:
+                    if 'untrained' in model_name:
+                        model_name_plot = 'VGG-16 (untrained)'
+                    else:
+                        model_name_plot = 'VGG-16'
+                    if output_layer == 'block2_pool':
+                        output_layer_plot = 'Early (block2_pool)'
+                    elif output_layer == 'block4_pool':
+                        output_layer_plot = 'Mid (block4_pool)'
+                    elif output_layer == 'block5_pool':
+                        output_layer_plot = 'Late (block5_pool)'
+                    elif output_layer == 'fc2':
+                        output_layer_plot = 'Penultimate (fc2)'
+
+                elif 'resnet50' in model_name:
+                    if 'untrained' in model_name:
+                        model_name_plot = 'ResNet-50 (untrained)'
+                    else:
+                        model_name_plot = 'ResNet-50'
+                    if output_layer == 'conv2_block3_out':
+                        output_layer_plot = 'Early (conv2_block3_out)'
+                    elif output_layer == 'conv4_block6_out':
+                        output_layer_plot = 'Mid (conv4_block6_out)'
+                    elif output_layer == 'conv5_block2_out':
+                        output_layer_plot = 'Late (conv5_block2_out)'
+                    elif output_layer == 'avg_pool':
+                        output_layer_plot = 'Penultimate (avg_pool)'
+
+                elif 'vit_b16' in model_name:
+                    if 'untrained' in model_name:
+                        model_name_plot = 'ViT-B/16 (untrained)'
+                    else:
+                        model_name_plot = 'ViT-B/16'
+                    if output_layer == 'layer_3':
+                        output_layer_plot = 'Early (layer_3)'
+                    elif output_layer == 'layer_6':
+                        output_layer_plot = 'Mid (layer_6)'
+                    elif output_layer == 'layer_9':
+                        output_layer_plot = 'Late (layer_9)'
+                    elif output_layer == 'layer_12':
+                        output_layer_plot = 'Penultimate (layer_12)'
+
+                ax.set_title(f'{output_layer_plot}', fontweight='bold', fontsize=22)
+
+                # remove left, top and right
+                ax.spines['left'].set_visible(False)
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
+
+                # make subplot space wider
+                plt.subplots_adjust(wspace=0.8)
+
+                plt.suptitle(f'{model_name_plot}', fontweight='bold', fontsize=22)
+                plt.savefig(f'figs/paper/unit_chart_overlaps_{model_name}_{env}.png')
+                plt.savefig(f'figs/paper/unit_chart_overlaps_{model_name}_{env}.pdf')
 
 
 if __name__ == '__main__':
@@ -1914,6 +1852,6 @@ if __name__ == '__main__':
     # decoding_each_model_across_layers_and_sr()
     # decoding_all_models_one_layer_one_sr()
     # lesion_by_coef_each_model_across_layers_and_lr()
-    lesion_by_unit_chart_each_model_across_layers_and_lr()
+    # lesion_by_unit_chart_each_model_across_layers_and_lr()
     # unit_visualization_by_type()
-    # unit_chart_visualization_piechart()
+    unit_chart_visualization_piechart()

@@ -269,9 +269,9 @@ def load_model_layers(model_name):
             ],
         'vgg16':
             [   
-                'block2_pool',
-                'block4_pool',
-                'block5_pool',
+                # 'block2_pool',
+                # 'block4_pool',
+                # 'block5_pool',
                 'fc2',
             ],
         'vgg16_untrained':
@@ -313,40 +313,65 @@ def load_model_layers(model_name):
     return models_and_layers[model_name]
     
 
+# def load_envs_dict(model_name, envs):
+#     model_layers = load_model_layers(model_name)
+#     # gradient cmap in warm colors in a list
+#     # cmaps = sns.color_palette("Reds", len(model_layers)).as_hex()[::-1]
+#     cmaps = ['#FFDCA2', '#FF9799', '#C63264', '#4E0362']
+#     if len(envs) == 1:
+#         prefix = f'{envs[0]}'
+#     else:
+#         raise NotImplementedError
+#         # TODO: 
+#         # 1. env28 is not flexible.
+#         # 2. cannot work with across different envs (e.g. decorations.)
+
+#     envs_dict = {}
+#     for output_layer in model_layers:
+#         envs_dict[
+#             f'{prefix}_2d_{model_name}_{output_layer}'
+#         ] = {
+#             'name': f'{prefix}',
+#             'n_walls': 4,
+#             'output_layer': output_layer,
+#             'color': cmaps.pop(0),
+#         }
+#     return envs_dict
+
+
 def load_envs_dict(model_name, envs):
     model_layers = load_model_layers(model_name)
-    # gradient cmap in warm colors in a list
-    # cmaps = sns.color_palette("Reds", len(model_layers)).as_hex()[::-1]
-    cmaps = ['#FFDCA2', '#FF9799', '#C63264', '#4E0362']
-    if len(envs) == 1:
-        prefix = f'{envs[0]}'
-    else:
-        raise NotImplementedError
-        # TODO: 
-        # 1. env28 is not flexible.
-        # 2. cannot work with across different envs (e.g. decorations.)
-
     envs_dict = {}
-    for output_layer in model_layers:
-        envs_dict[
-            f'{prefix}_2d_{model_name}_{output_layer}'
-        ] = {
-            'name': f'{prefix}',
-            'n_walls': 4,
-            'output_layer': output_layer,
-            'color': cmaps.pop(0),
-        }
+    for prefix in envs:
+        cmaps = ['#FFDCA2', '#FF9799', '#C63264', '#4E0362']
+        for output_layer in model_layers:
+            envs_dict[
+                f'{prefix}_2d_{model_name}_{output_layer}'
+            ] = {
+                'name': f'{prefix}',
+                'n_walls': 4,
+                'output_layer': output_layer,
+                'color': cmaps.pop(0),
+            }
     return envs_dict
+
 
 
 if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-    targets_true = load_decoding_targets_border_distance(
-        movement_mode='2d',
-        env_x_min=-4,
-        env_x_max=4,
-        env_y_min=-4,
-        env_y_max=4,
-        multiplier=2,
-        n_rotations=24
+    # targets_true = load_decoding_targets_border_distance(
+    #     movement_mode='2d',
+    #     env_x_min=-4,
+    #     env_x_max=4,
+    #     env_y_min=-4,
+    #     env_y_max=4,
+    #     multiplier=2,
+    #     n_rotations=24
+    # )
+
+    print(
+        load_envs_dict(
+            model_name='vgg16',
+            envs = ['env28_r24', 'env37_r24']
+        )
     )

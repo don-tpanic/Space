@@ -30,9 +30,11 @@ def _compute_single_heatmap_fields_info(
         num_clusters, num_pixels_in_clusters, max_value_in_clusters, \
             mean_value_in_clusters, var_value_in_clusters, heatmap_thresholded
     """
-    scaler = MinMaxScaler()
-    # normalize to [0, 1]
-    heatmap_normalized = scaler.fit_transform(heatmap)  
+    # scaler = MinMaxScaler()
+    # # normalize to [0, 1]
+    # heatmap_normalized = scaler.fit_transform(heatmap)
+    heatmap_normalized = (heatmap - np.min(heatmap)) / (np.max(heatmap) - np.min(heatmap))
+    
     # convert to [0, 255]      
     heatmap_gray = (heatmap_normalized * 255).astype(np.uint8)
     # compute activity threshold as the mean of the heatmap
@@ -74,26 +76,29 @@ def _compute_single_heatmap_fields_info(
 
     # Get the max/mean/var value in heatmap based on each cluster
     max_value_in_clusters = []
+    max_value_indices_in_clusters = []
     mean_value_in_clusters = []
     var_value_in_clusters = []
     for label in np.unique(filtered_labels):
         if label != 0:
-            max_value_in_clusters.append(
-                np.around(
-                    np.max(heatmap[filtered_labels == label]), 1
-                )
-            )
+            max_value = np.max(heatmap[filtered_labels == label])
+            max_value_in_clusters.append(np.around(max_value, 1))
+            max_value_index_x = np.where(heatmap == max_value)[0][0]
+            max_value_index_y = np.where(heatmap == max_value)[1][0]
+            max_value_indices_in_clusters.append((max_value_index_x, max_value_index_y))
+
             mean_value_in_clusters.append(
                 np.around(
                     np.mean(heatmap[filtered_labels == label]), 1
                 )
             )
+            
             var_value_in_clusters.append(
                 np.around(
                     np.var(heatmap[filtered_labels == label]), 1
                 )
             )
-            
+
     # Add 0 to `num_pixels_in_clusters` and `max_value_in_clusters`
     # in case `num_clusters` is 0. This is helpful when we want to
     # plot fields info against coef, as no matter if there is a cluster
@@ -103,10 +108,12 @@ def _compute_single_heatmap_fields_info(
         max_value_in_clusters = np.array([0])
         mean_value_in_clusters = np.array([0])
         var_value_in_clusters = np.array([0])
+        max_value_indices_in_clusters = np.array([(0, 0)])
     else:
         max_value_in_clusters = np.array(max_value_in_clusters)
         mean_value_in_clusters = np.array(mean_value_in_clusters)
         var_value_in_clusters = np.array(var_value_in_clusters)
+        max_value_indices_in_clusters = np.array(max_value_indices_in_clusters)
 
     colors = np.arange(100, dtype=int).tolist()
     for label in np.unique(filtered_labels):
@@ -120,9 +127,21 @@ def _compute_single_heatmap_fields_info(
             # draw contours
             cv2.drawContours(heatmap_thresholded, contours, -1, colors[label-1], 1)
 
-    return num_clusters, num_pixels_in_clusters, max_value_in_clusters, \
-        mean_value_in_clusters, var_value_in_clusters, heatmap_thresholded
+    # Compute the mean angle of the fields
+    # wrt center of heatmap, which has coords
+    angles = [] 
+    center_y, center_x = np.array(heatmap.shape) // 2
+    for max_index in max_value_indices_in_clusters:
+        x, y = max_index
+        dx = x - center_x
+        dy = y - center_y 
+        angle = np.degrees(np.arctan2(dy, dx))
+        angles.append(angle)
+    mean_angle = np.mean(angles)
 
+    return num_clusters, num_pixels_in_clusters, max_value_in_clusters, \
+        mean_value_in_clusters, var_value_in_clusters, heatmap_thresholded, mean_angle
+        
 
 def _compute_single_heatmap_grid_scores(activation_map, smooth=False):
     # mask parameters
@@ -220,3 +239,111 @@ def _compute_single_heatmap_directional_scores(activation_maps):
     logging.info(f'[Check] mean_vector_length: {mean_vector_length}')
     return mean_vector_length, per_rotation_vector_length
 
+
+def _unit_chart_type_classification(unit_chart_info):
+    """
+    Given a unit_chart_info, classify the units into different types,
+    and return the indices of units by type or combo of types.
+    """
+    dead_units_indices = []
+    max_num_clusters = np.max(unit_chart_info[:, 1])  # global max used for setting xaxis.
+    num_clusters = np.zeros(max_num_clusters+1)
+    cluster_sizes = []
+    cluster_peaks = []
+    border_cell_indices = []
+    place_cells_indices = []
+    direction_cell_indices = []
+    active_no_type_indices = []
+
+    for unit_index in range(unit_chart_info.shape[0]):
+        if unit_chart_info[unit_index, 0] == 0:
+            dead_units_indices.append(unit_index)
+        else:
+            num_clusters[int(unit_chart_info[unit_index, 1])] += 1
+            cluster_sizes.extend(unit_chart_info[unit_index, 2])
+            cluster_peaks.extend(unit_chart_info[unit_index, 3])
+
+            if unit_chart_info[unit_index, 1] > 0:
+                place_cells_indices.append(unit_index)
+                is_place_cell = True
+            else:
+                is_place_cell = False
+
+            if unit_chart_info[unit_index, 6] > 0.47:
+                direction_cell_indices.append(unit_index)
+                is_direction_cell = True
+            else:
+                is_direction_cell = False
+
+            if unit_chart_info[unit_index, 9] > 0.5:
+                border_cell_indices.append(unit_index)
+                is_border_cell = True
+            else:
+                is_border_cell = False
+
+            if not (is_place_cell or is_direction_cell or is_border_cell):
+                active_no_type_indices.append(unit_index)
+
+    # plot
+    n_dead_units = len(dead_units_indices)
+    n_active_units = unit_chart_info.shape[0] - n_dead_units
+
+    # Collect the indices of units that are all three types
+    # (place + border + direction)
+    place_border_direction_cells_indices = \
+        list(set(place_cells_indices) & set(border_cell_indices) & set(direction_cell_indices))
+    
+    # Collect the indices of units that are two types (inc. three types)
+    # (place + border cells)
+    # (place + direction cells)
+    # (border + direction cells)
+    place_and_border_cells_indices = \
+        list(set(place_cells_indices) & set(border_cell_indices))
+    place_and_direction_cells_indices = \
+        list(set(place_cells_indices) & set(direction_cell_indices))
+    border_and_direction_cells_indices = \
+        list(set(border_cell_indices) & set(direction_cell_indices))
+    
+    # Collect the indices of units that are only two types
+    # (place  + border - direction),
+    # (place  + direction   - border),
+    # (border + direction   - place)
+    place_and_border_not_direction_cells_indices = \
+        list(set(place_and_border_cells_indices) - set(place_border_direction_cells_indices))
+    place_and_direction_not_border_cells_indices = \
+        list(set(place_and_direction_cells_indices) - set(place_border_direction_cells_indices))
+    border_and_direction_not_place_cells_indices = \
+        list(set(border_and_direction_cells_indices) - set(place_border_direction_cells_indices))
+    
+    # Collect the indices of units that are exclusive 
+    # place cells, 
+    # border cells, 
+    # direction cells
+    exclusive_place_cells_indices = \
+        list(set(place_cells_indices) - (set(place_and_border_cells_indices) | set(place_and_direction_cells_indices)))
+    exclusive_border_cells_indices = \
+        list(set(border_cell_indices) - (set(place_and_border_cells_indices) | set(border_and_direction_cells_indices)))
+    exclusive_direction_cells_indices = \
+        list(set(direction_cell_indices) - (set(place_and_direction_cells_indices) | set(border_and_direction_cells_indices)))
+
+    results =  {
+        'dead_units_indices': dead_units_indices,
+        'place_border_direction_cells_indices': place_border_direction_cells_indices,
+        'place_and_border_not_direction_cells_indices': place_and_border_not_direction_cells_indices,
+        'place_and_direction_not_border_cells_indices': place_and_direction_not_border_cells_indices,
+        'border_and_direction_not_place_cells_indices': border_and_direction_not_place_cells_indices,
+        'exclusive_place_cells_indices': exclusive_place_cells_indices,
+        'exclusive_border_cells_indices': exclusive_border_cells_indices,
+        'exclusive_direction_cells_indices': exclusive_direction_cells_indices,
+        'active_no_type_indices': active_no_type_indices,
+    }
+    
+    assert unit_chart_info.shape[0] == sum([len(v) for v in results.values()])
+
+    # Check all values are mutually exclusive
+    for key, value in results.items():
+        for key2, value2 in results.items():
+            if key != key2:
+                assert len(set(value) & set(value2)) == 0, f'{key} and {key2} have common elements'
+
+    return results
