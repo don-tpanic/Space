@@ -269,7 +269,7 @@ def _unit_chart_type_classification(unit_chart_info):
             else:
                 is_place_cell = False
 
-            if unit_chart_info[unit_index, 6] > 0.47:
+            if unit_chart_info[unit_index, 10] > 0.47:
                 direction_cell_indices.append(unit_index)
                 is_direction_cell = True
             else:
