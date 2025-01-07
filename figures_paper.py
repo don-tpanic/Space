@@ -253,10 +253,10 @@ def decoding_each_model_across_layers_and_sr():
 
         if normalize_error is True:
             plt.savefig(f'figs/paper/decoding_{model_name}.png')
-            plt.savefig(f'figs/paper/decoding_{model_name}.pdf')
+            plt.savefig(f'figs/paper/decoding_{model_name}.svg')
         elif normalize_error is False:
             plt.savefig(f'figs/paper/decoding_{model_name}_unnorm.png')
-            plt.savefig(f'figs/paper/decoding_{model_name}_unnorm.pdf')
+            plt.savefig(f'figs/paper/decoding_{model_name}_unnorm.svg')
         else:
             raise ValueError(f"Unknown value for normalize_error: {normalize_error}")
         plt.close()
@@ -1140,10 +1140,10 @@ def lesion_by_coef_each_model_across_layers_and_lr():
         plt.tight_layout()
         if normalize_error is True:
             plt.savefig(f'figs/paper/lesion_by_coef_{model_name}.png')
-            plt.savefig(f'figs/paper/lesion_by_coef_{model_name}.pdf')
+            plt.savefig(f'figs/paper/lesion_by_coef_{model_name}.svg')
         elif normalize_error is False:
             plt.savefig(f'figs/paper/lesion_by_coef_{model_name}_unnorm.png')
-            plt.savefig(f'figs/paper/lesion_by_coef_{model_name}_unnorm.pdf')
+            plt.savefig(f'figs/paper/lesion_by_coef_{model_name}_unnorm.svg')
         else:
             raise ValueError(f"Unknown value for normalize_error: {normalize_error}")
         plt.close()
@@ -1538,10 +1538,10 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
         plt.tight_layout()
         if normalize_error is True:
             plt.savefig(f'figs/paper/lesion_by_unit_chart_{model_name}.png')
-            plt.savefig(f'figs/paper/lesion_by_unit_chart_{model_name}.pdf')
+            plt.savefig(f'figs/paper/lesion_by_unit_chart_{model_name}.svg')
         elif normalize_error is False:
             plt.savefig(f'figs/paper/lesion_by_unit_chart_{model_name}_unnorm.png')
-            plt.savefig(f'figs/paper/lesion_by_unit_chart_{model_name}_unnorm.pdf')
+            plt.savefig(f'figs/paper/lesion_by_unit_chart_{model_name}_unnorm.svg')
         else:
             raise ValueError(f"Unknown value for normalize_error: {normalize_error}")
         plt.close()
