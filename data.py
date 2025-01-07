@@ -269,9 +269,9 @@ def load_model_layers(model_name):
             ],
         'vgg16':
             [   
-                # 'block2_pool',
-                # 'block4_pool',
-                # 'block5_pool',
+                'block2_pool',
+                'block4_pool',
+                'block5_pool',
                 'fc2',
             ],
         'vgg16_untrained':

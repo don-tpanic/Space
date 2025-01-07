@@ -76,6 +76,8 @@ def _convert_mse_to_physical_unit(mse, error_type, normalized=True):
     If `normalized=True`, we further normalize the error by dividing it by the
     maximum possible error, which is 2 for location and distance error, and 180
     for rotation error.
+
+    `normalized` can be set by `normalize_error` in the global scope.
     """
     coordinate_system_to_unity_scale = 2 / 10
     if error_type == 'loc' or error_type == 'dist':
@@ -86,8 +88,10 @@ def _convert_mse_to_physical_unit(mse, error_type, normalized=True):
     elif error_type == 'rot':
         if normalized:
             return np.sqrt(mse) * 360/24 / 180
-
         return np.sqrt(mse) * 360/24
+
+    else:
+        raise ValueError(f"Unknown error type: {error_type}")
 
 
 def decoding_each_model_across_layers_and_sr():
@@ -96,9 +100,12 @@ def decoding_each_model_across_layers_and_sr():
     movement_mode = '2d'
     sampling_rates = [0.1, 0.2, 0.3, 0.4, 0.5]
     random_seeds = [42]
-    model_names = ['vgg16', 'vgg16_untrained', 
+    model_names = [
+        'vgg16', 
+        'vgg16_untrained', 
         'resnet50', 'resnet50_untrained',
-        'vit_b16', 'vit_b16_untrained']
+        'vit_b16', 'vit_b16_untrained'
+    ]
     moving_trajectory = 'uniform'
     decoding_model_choice = {'name': 'ridge_regression', 'hparams': 1.0}
     decoding_model_name = decoding_model_choice['name']
@@ -169,8 +176,8 @@ def decoding_each_model_across_layers_and_sr():
                             results_collector[error_type][output_layer][metric])[:, 1]
                         
                         # TEMP
-                        ci_low = _convert_mse_to_physical_unit(ci_low, error_type)
-                        ci_high = _convert_mse_to_physical_unit(ci_high, error_type)
+                        ci_low = _convert_mse_to_physical_unit(ci_low, error_type, normalized=normalize_error)
+                        ci_high = _convert_mse_to_physical_unit(ci_high, error_type, normalized=normalize_error)
 
                         axes[i].fill_between(
                             sampling_rates,
@@ -208,10 +215,11 @@ def decoding_each_model_across_layers_and_sr():
                         axes[i].plot(
                             sampling_rates,
                             # results_collector[error_type][output_layer][metric],
-                            # TEMP    
+                            # TEMP
                             _convert_mse_to_physical_unit(
                                 np.array(results_collector[error_type][output_layer][metric]),
-                                error_type
+                                error_type,
+                                normalized=normalize_error,
                             ),
                             label=label,
                             color=color,
@@ -220,16 +228,21 @@ def decoding_each_model_across_layers_and_sr():
             axes[i].set_xlabel('Sampling rate')
             axes[i].set_xticks(sampling_rates)
             axes[i].set_xticklabels(sampling_rates)
+            if normalize_error is True:
+                ax_label = 'Normalized Error'
+            elif normalize_error is False:
+                ax_label = 'Error (physical)'
+            else:
+                raise ValueError(f"Unknown value for normalize_error: {normalize_error}")
             if error_type == 'loc':  
                 title = 'Location Decoding'
-                axes[i].set_ylabel("Normalized Error")
+                axes[i].set_ylabel(ax_label)
             elif error_type == 'rot': 
                 title = 'Direction Decoding'
-                # axes[i].set_ylabel('Degree')
-                axes[i].set_ylabel("Normalized Error")
+                axes[i].set_ylabel(ax_label)
             elif error_type == 'dist': 
                 title = 'Nearest Border Decoding'
-                axes [i].set_ylabel("Normalized Error")
+                axes [i].set_ylabel(ax_label)
             axes[i].set_title(title)
             axes[i].spines.right.set_visible(False)
             axes[i].spines.top.set_visible(False)
@@ -238,8 +251,14 @@ def decoding_each_model_across_layers_and_sr():
         plt.legend(fontsize=22, loc='upper left', bbox_to_anchor=(1, 1))
         plt.tight_layout()
 
-        plt.savefig(f'figs/paper/decoding_{model_name}.png')
-        plt.savefig(f'figs/paper/decoding_{model_name}.pdf')
+        if normalize_error is True:
+            plt.savefig(f'figs/paper/decoding_{model_name}.png')
+            plt.savefig(f'figs/paper/decoding_{model_name}.pdf')
+        elif normalize_error is False:
+            plt.savefig(f'figs/paper/decoding_{model_name}_unnorm.png')
+            plt.savefig(f'figs/paper/decoding_{model_name}_unnorm.pdf')
+        else:
+            raise ValueError(f"Unknown value for normalize_error: {normalize_error}")
         plt.close()
 
 
@@ -323,8 +342,8 @@ def TEMP__decoding_each_model_across_layers_and_sr_V2():
                             results_collector[error_type][output_layer][metric])[:, 1]
                         
                         # TEMP
-                        ci_low = _convert_mse_to_physical_unit(ci_low, error_type)
-                        ci_high = _convert_mse_to_physical_unit(ci_high, error_type)
+                        ci_low = _convert_mse_to_physical_unit(ci_low, error_type, normalized=normalize_error)
+                        ci_high = _convert_mse_to_physical_unit(ci_high, error_type, normalized=normalize_error)
 
                         axes_row2[i].fill_between(
                             sampling_rates,
@@ -367,7 +386,8 @@ def TEMP__decoding_each_model_across_layers_and_sr_V2():
                             # TEMP
                             _convert_mse_to_physical_unit(
                                 np.array(results_collector[error_type][output_layer][metric]),
-                                error_type
+                                error_type,
+                                normalized=normalize_error,
                             ),
                             label=label,
                             color=color,
@@ -564,9 +584,12 @@ def decoding_all_models_one_layer_one_sr():
     movement_mode = '2d'
     sampling_rates = [0.3]
     random_seeds = [42]
-    model_names = ['vgg16', 'vgg16_untrained', 
+    model_names = [
+        'vgg16', 
+        'vgg16_untrained', 
         'resnet50', 'resnet50_untrained',
-        'vit_b16', 'vit_b16_untrained']
+        'vit_b16', 'vit_b16_untrained'
+    ]
     moving_trajectory = 'uniform'
     decoding_model_choice = {'name': 'ridge_regression', 'hparams': 1.0}
     decoding_model_name = decoding_model_choice['name']
@@ -650,9 +673,9 @@ def decoding_all_models_one_layer_one_sr():
                 results_collector[error_type][model_name][output_layer]['ci'])[:, 1]
             
             # TEMP
-            mse = _convert_mse_to_physical_unit(mse, error_type)
-            ci_low = _convert_mse_to_physical_unit(ci_low, error_type)
-            ci_high = _convert_mse_to_physical_unit(ci_high, error_type)
+            mse = _convert_mse_to_physical_unit(mse, error_type, normalized=normalize_error)
+            ci_low = _convert_mse_to_physical_unit(ci_low, error_type, normalized=normalize_error)
+            ci_high = _convert_mse_to_physical_unit(ci_high, error_type, normalized=normalize_error)
 
             if 'untrained' in model_name:
                 edgecolor = fillcolor
@@ -678,7 +701,8 @@ def decoding_all_models_one_layer_one_sr():
         
         # TEMP
         baseline_predict_mid_mse = _convert_mse_to_physical_unit(
-            baseline_predict_mid_mse, error_type)
+            baseline_predict_mid_mse, error_type, normalized=normalize_error
+        )
         
         axes_row1[i].plot(
             range(len(model_names)),
@@ -692,7 +716,8 @@ def decoding_all_models_one_layer_one_sr():
 
         # TEMP
         baseline_predict_random_mse = _convert_mse_to_physical_unit(
-            baseline_predict_random_mse, error_type)
+            baseline_predict_random_mse, error_type, normalized=normalize_error
+        )
 
         axes_row1[i].plot(
             range(len(model_names)),
@@ -715,17 +740,23 @@ def decoding_all_models_one_layer_one_sr():
             max_of_two_baseline+1
         )
 
+        if normalize_error is True:
+            ax_label = 'Normalized Error'
+        elif normalize_error is False:
+            ax_label = 'Error (physical)'
+        else:
+            raise ValueError(f"Unknown value for normalize_error: {normalize_error}")
+
         if error_type == 'loc':  
             title = 'Location Decoding'
-            axes_row2[i].set_ylabel(' '*14+'Normalized Error')
+            axes_row2[i].set_ylabel(' '*14+ax_label)
             axes_row1[i].set_ylim(0.2, 1.05)
         elif error_type == 'rot': 
             title = 'Direction Decoding'
-            axes_row2[i].set_ylabel(' '*14+'Normalized Error')
-            axes_row1[i].set_ylim(0.2, 1.05)
+            axes_row2[i].set_ylabel(' '*14+ax_label, labelpad=10)
         elif error_type == 'dist': 
             title = 'Nearest Border Decoding'
-            axes_row2[i].set_ylabel(' '*14+'Normalized Error')
+            axes_row2[i].set_ylabel(' '*14+ax_label)
             axes_row1[i].set_ylim(0.2, 1.05)
         
         axes_row1[i].set_title(title)
@@ -761,8 +792,14 @@ def decoding_all_models_one_layer_one_sr():
         axes_row2[i].plot((-d, +d), (1 - d, 1 + d), **kwargs)  # bottom-left diagonal line
 
     fig.tight_layout(rect=(0.02, 0, 1, 0.99))
-    plt.savefig(f'figs/paper/decoding_across_models.svg')
-    plt.savefig(f'figs/paper/decoding_across_models.pdf')
+    if normalize_error is True:
+        plt.savefig(f'figs/paper/decoding_across_models.svg')
+        plt.savefig(f'figs/paper/decoding_across_models.pdf')
+    elif normalize_error is False:
+        plt.savefig(f'figs/paper/decoding_across_models_unnorm.svg')
+        plt.savefig(f'figs/paper/decoding_across_models_unnorm.pdf')
+    else:
+        raise ValueError(f"Unknown value for normalize_error: {normalize_error}")
     plt.close()
 
 
@@ -1017,8 +1054,8 @@ def lesion_by_coef_each_model_across_layers_and_lr():
                                 results_collector[model_name][rank][error_type][output_layer]['ci'])[:, 1]
 
                             # TEMP
-                            ci_low = _convert_mse_to_physical_unit(ci_low, error_type)
-                            ci_high = _convert_mse_to_physical_unit(ci_high, error_type)
+                            ci_low = _convert_mse_to_physical_unit(ci_low, error_type, normalized=normalize_error)
+                            ci_high = _convert_mse_to_physical_unit(ci_high, error_type, normalized=normalize_error)
                             
                             axes[rank_i, error_type_i].fill_between(
                                 lesion_ratios,
@@ -1061,17 +1098,24 @@ def lesion_by_coef_each_model_across_layers_and_lr():
                                     np.array(
                                         results_collector[model_name][rank][error_type][output_layer][metric]
                                     ), 
-                                    error_type
+                                    error_type,
+                                    normalized=normalize_error,
                                 ),
                                 label=label,
                                 color=color,
                                 marker='o',
                             )
                 axes[rank_i, error_type_i].set_xlabel('Exclusion ratio')
+                if normalize_error is True:
+                    ax_label = 'Normalized Error'
+                elif normalize_error is False:
+                    ax_label = 'Error (physical)'
+                else:
+                    raise ValueError(f"Unknown value for normalize_error: {normalize_error}")
                 if error_type in ['loc', 'dist']:
-                    axes[rank_i, error_type_i].set_ylabel('Normalized Error')
+                    axes[rank_i, error_type_i].set_ylabel(ax_label)
                 elif error_type == 'rot':
-                    axes[rank_i, error_type_i].set_ylabel('Normalized Error')
+                    axes[rank_i, error_type_i].set_ylabel(ax_label, labelpad=10)
                 axes[rank_i, error_type_i].set_xticks(lesion_ratios)
                 axes[rank_i, error_type_i].set_xticklabels(lesion_ratios)
                 if rank == 'top':
@@ -1094,8 +1138,14 @@ def lesion_by_coef_each_model_across_layers_and_lr():
         plt.subplots_adjust(bottom=0.2, hspace=.6, wspace=.8)
         # create more space between two rows of subplots
         plt.tight_layout()
-        plt.savefig(f'figs/paper/lesion_by_coef_{model_name}.png')
-        plt.savefig(f'figs/paper/lesion_by_coef_{model_name}.pdf')
+        if normalize_error is True:
+            plt.savefig(f'figs/paper/lesion_by_coef_{model_name}.png')
+            plt.savefig(f'figs/paper/lesion_by_coef_{model_name}.pdf')
+        elif normalize_error is False:
+            plt.savefig(f'figs/paper/lesion_by_coef_{model_name}_unnorm.png')
+            plt.savefig(f'figs/paper/lesion_by_coef_{model_name}_unnorm.pdf')
+        else:
+            raise ValueError(f"Unknown value for normalize_error: {normalize_error}")
         plt.close()
 
 
@@ -1397,8 +1447,8 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
                                 results_collector[model_name][rank][unit_chart_type][output_layer]['ci'])[:, 1]
                             
                             # TEMP
-                            ci_low = _convert_mse_to_physical_unit(ci_low, error_type)
-                            ci_high = _convert_mse_to_physical_unit(ci_high, error_type)
+                            ci_low = _convert_mse_to_physical_unit(ci_low, error_type, normalized=normalize_error)
+                            ci_high = _convert_mse_to_physical_unit(ci_high, error_type, normalized=normalize_error)
                             
                             axes[rank_i, unit_chart_type_i].fill_between(
                                 lesion_ratios,
@@ -1441,17 +1491,24 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
                                     np.array(
                                         results_collector[model_name][rank][unit_chart_type][output_layer][metric]
                                     ), 
-                                    error_type
+                                    error_type,
+                                    normalized=normalize_error,
                                 ),
                                 label=label,
                                 color=color,
                                 marker='o',
                             )
                 axes[rank_i, unit_chart_type_i].set_xlabel('Exclusion ratio')
+                if normalize_error is True:
+                    ax_label = 'Normalized Error'
+                elif normalize_error is False:
+                    ax_label = 'Error (physical)'
+                else:
+                    raise ValueError(f"Unknown value for normalize_error: {normalize_error}")
                 if error_type in ['loc', 'dist']:
-                    axes[rank_i, unit_chart_type_i].set_ylabel('Normalized Error')
+                    axes[rank_i, unit_chart_type_i].set_ylabel(ax_label)
                 elif error_type == 'rot':
-                    axes[rank_i, unit_chart_type_i].set_ylabel('Normalized Error')
+                    axes[rank_i, unit_chart_type_i].set_ylabel(ax_label, labelpad=10)
                 axes[rank_i, unit_chart_type_i].set_xticks(lesion_ratios)
                 axes[rank_i, unit_chart_type_i].set_xticklabels(lesion_ratios)
                 if rank == 'top':
@@ -1479,8 +1536,14 @@ def lesion_by_unit_chart_each_model_across_layers_and_lr():
         
         axes[0, -1].legend(loc='upper left', bbox_to_anchor=(1, 1))
         plt.tight_layout()
-        plt.savefig(f'figs/paper/lesion_by_unit_chart_{model_name}.svg')
-        # plt.savefig(f'figs/paper/lesion_by_unit_chart_{model_name}.pdf')
+        if normalize_error is True:
+            plt.savefig(f'figs/paper/lesion_by_unit_chart_{model_name}.png')
+            plt.savefig(f'figs/paper/lesion_by_unit_chart_{model_name}.pdf')
+        elif normalize_error is False:
+            plt.savefig(f'figs/paper/lesion_by_unit_chart_{model_name}_unnorm.png')
+            plt.savefig(f'figs/paper/lesion_by_unit_chart_{model_name}_unnorm.pdf')
+        else:
+            raise ValueError(f"Unknown value for normalize_error: {normalize_error}")
         plt.close()
 
 
@@ -1849,9 +1912,10 @@ def unit_chart_visualization_piechart():
 if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     TF_NUM_INTRAOP_THREADS = 10
-    # decoding_each_model_across_layers_and_sr()
-    # decoding_all_models_one_layer_one_sr()
-    # lesion_by_coef_each_model_across_layers_and_lr()
-    # lesion_by_unit_chart_each_model_across_layers_and_lr()
+    normalize_error = False
+    decoding_each_model_across_layers_and_sr()
+    decoding_all_models_one_layer_one_sr()
+    lesion_by_coef_each_model_across_layers_and_lr()
+    lesion_by_unit_chart_each_model_across_layers_and_lr()
     # unit_visualization_by_type()
-    unit_chart_visualization_piechart()
+    # unit_chart_visualization_piechart()
