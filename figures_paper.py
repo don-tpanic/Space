@@ -54,6 +54,15 @@ output_layers_2_levels = {
     },
 }
 
+model_names_2_pretty_names = {
+    "vgg16": "VGG-16",
+    "vgg16_untrained": "VGG-16 (untrained)",
+    "resnet50": "ResNet-50",
+    "resnet50_untrained": "ResNet-50 (untrained)",
+    "vit_b16": "ViT-B/16",
+    "vit_b16_untrained": "ViT-B/16 (untrained)",
+}
+
 
 def _convert_mse_to_physical_unit(mse, error_type, normalized=True):
     """
@@ -1909,13 +1918,180 @@ def unit_chart_visualization_piechart():
                 plt.savefig(f'figs/paper/unit_chart_overlaps_{model_name}_{env}.pdf')
 
 
+def unit_chart_against_coef_for_all_units():
+    """
+    Show relationship of units between their unit chart info and decoder coef values.
+    This complements the lesion analysis by more directly and comprehensively showing
+    how they may differ (we know they should given lesion results).
+
+    Implementation:
+        For each model's each layer, load the corresponding unit chart info
+        (from `unit_chart.npy`) and coef info (from `res.npy`).
+
+        Then, scatter plot the unit chart info against coef info for all units. 
+        - Unit chart info for each subplot should include each unit's 
+            `maxvalueinclusters`, `numclusters`, `directioness`, `borderness`.
+        - coef info should include each unit's coef value.
+
+        Specifically,
+        - `unit_chart_info` \in (n_units, unit_chart_dims)
+            where `maxvalueinclusters` is column 3, `numclusters` is column 1,
+            `directioness` is column 10, `borderness` is column 9.
+        - `coef` \in (3, n_units) if `experiment=loc_n_rot` 
+            or \in (1, n_units) if `experiment=border_dist`
+
+            if `experiment=loc_n_rot`, coef is [coef_x, coef_y, coef_rot],
+            when plotting, we do coef = np.abs(coef) and coef_loc = np.mean(coef[:2, :], axis=0)
+            to be consistent with `lesion.py`
+
+            if `experiment=border_dist`, coef is [coef_dist]
+
+    Figure layout:
+        - Each figure is a model's layer at a sampling rate and random seed.
+        - Each row is a unit_chart_dim, each column is this unit chart type vs. coef * 3 (loc, rot, dist).
+    """
+    env = "env28_r24"
+    movement_mode = '2d'
+    sampling_rates = [0.3]
+    random_seeds = [42]
+    model_names = [
+        'vgg16', 
+        'resnet50',
+        'vit_b16',
+        'vgg16_untrained',
+        'resnet50_untrained',
+        'vit_b16_untrained',
+    ]
+    moving_trajectory = 'uniform'
+    decoding_model_choice = {'name': 'ridge_regression', 'hparams': 1.0}
+    feature_selection = 'l2'
+    unit_chart_dims = {
+        'maxvalueinclusters': 3,
+        'numclusters': 1,
+        'directioness': 10,
+        'borderness': 9,
+    }
+
+    for sampling_rate in sampling_rates:
+        for random_seed in random_seeds:
+            for model_name in model_names:
+                output_layers = data.load_model_layers(model_name)
+                                
+                for output_layer in output_layers:
+                    config_version = f'{env}_{movement_mode}_{model_name}_{output_layer}'
+                    config = utils.load_config(config_version)
+
+                    # load coef for `loc_n_rot`
+                    results_path = utils.load_results_path(
+                        config=config,
+                        experiment="loc_n_rot",
+                        feature_selection=feature_selection,
+                        decoding_model_choice=decoding_model_choice,
+                        sampling_rate=sampling_rate,
+                        moving_trajectory=moving_trajectory,
+                        random_seed=random_seed,
+                    )
+                    # \in (3, n_units)
+                    coef_loc_n_rot = np.load(f'{results_path}/res.npy', allow_pickle=True).item()['coef']
+                    print(f"coef_loc_n_rot.shape: {coef_loc_n_rot.shape}")
+                    # average over x and y and separate coef_loc and coef_rot
+                    coef_loc_n_rot = np.abs(coef_loc_n_rot)
+                    coef_loc = np.mean(coef_loc_n_rot[:2, :], axis=0)  # (n_units,)
+                    coef_rot = coef_loc_n_rot[2, :]    # (n_units,)
+
+                    # load coef for `border_dist`
+                    results_path = utils.load_results_path(
+                        config=config,
+                        experiment="border_dist",
+                        feature_selection=feature_selection,
+                        decoding_model_choice=decoding_model_choice,
+                        sampling_rate=sampling_rate,
+                        moving_trajectory=moving_trajectory,
+                        random_seed=random_seed,
+                    )
+                    # \in (1, n_units)
+                    coef_dist = np.load(f'{results_path}/res.npy', allow_pickle=True).item()['coef']
+                    coef_dist = np.abs(coef_dist)
+                    print(f"coef_dist.shape: {coef_dist.shape}")
+
+                    # load unit chart info
+                    results_path = utils.load_results_path(
+                        config=config,
+                        experiment="unit_chart",
+                        moving_trajectory=moving_trajectory,
+                    )
+                    # \in (n_units, unit_chart_dims)
+                    unit_chart_info = np.load(
+                        f'{results_path}/unit_chart.npy', allow_pickle=True)
+                    print(f"unit_chart_info.shape: {unit_chart_info.shape}")
+
+                    fig, axes = plt.subplots(len(unit_chart_dims), 3, figsize=(15, 5 * len(unit_chart_dims)))
+                    for row_i, (unit_chart_dim, unit_chart_dim_index) in enumerate(unit_chart_dims.items()):
+                        unit_chart_dim_info = unit_chart_info[:, unit_chart_dim_index]
+
+                        print(f"unit_chart_dim: {unit_chart_dim}")
+                        print(unit_chart_dim_info)
+
+                        if unit_chart_dim == 'maxvalueinclusters':
+                            # due to multiple fields, need global max per unit
+                            unit_chart_dim_info = [np.max(per_unit_fields) for per_unit_fields in unit_chart_dim_info]
+                            xlabel = "Place Field Activity"
+                        elif unit_chart_dim == 'numclusters':
+                            unit_chart_dim_info = [np.max(per_unit_fields) for per_unit_fields in unit_chart_dim_info]
+                            xlabel = "Place Field Quantity"
+                        elif unit_chart_dim == 'directioness':
+                            xlabel = "Directional Tuning"
+                        elif unit_chart_dim == 'borderness':
+                            xlabel = "Border Tuning"
+                        else:
+                            raise ValueError(f"Unknown unit_chart_dim: {unit_chart_dim}")
+                        
+                        for col_i, ax in enumerate(axes[row_i]):
+                            print(f"row_i: {row_i}, col_i: {col_i}")
+                            if col_i == 0:
+                                coef = coef_loc
+                                ylabel = 'coef. (location)'
+                            elif col_i == 1:
+                                coef = coef_rot
+                                ylabel = 'coef. (rotation)'
+                            else:
+                                coef = coef_dist[0, :]
+                                ylabel = 'coef. (border dist.)'
+
+                            ax.scatter(
+                                unit_chart_dim_info,
+                                coef,
+                                alpha=0.2,
+                                edgecolors='b',
+                                color='blue',
+                            )
+                            ax.set_xlabel(xlabel)
+                            ax.set_ylabel(ylabel)
+                            ax.spines['right'].set_visible(False)
+                            ax.spines['top'].set_visible(False)
+
+                    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+                    plt.suptitle(
+                        f"{model_names_2_pretty_names[model_name]} - "
+                        f"{output_layers_2_levels[model_name][output_layer]}", 
+                        fontsize=18
+                    )
+                    plt.savefig(
+                        f'figs/paper/unit_chart_against_coef_{model_name}_{output_layer}'
+                        f'_sr{sampling_rate}_seed{random_seed}.pdf'
+                    )
+                    plt.close()
+                        
+
 if __name__ == '__main__':
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     TF_NUM_INTRAOP_THREADS = 10
     normalize_error = False
-    decoding_each_model_across_layers_and_sr()
-    decoding_all_models_one_layer_one_sr()
-    lesion_by_coef_each_model_across_layers_and_lr()
-    lesion_by_unit_chart_each_model_across_layers_and_lr()
+    # decoding_each_model_across_layers_and_sr()
+    # decoding_all_models_one_layer_one_sr()
+    # lesion_by_coef_each_model_across_layers_and_lr()
+    # lesion_by_unit_chart_each_model_across_layers_and_lr()
     # unit_visualization_by_type()
     # unit_chart_visualization_piechart()
+
+    unit_chart_against_coef_for_all_units()
