@@ -2078,7 +2078,7 @@ def unit_chart_against_coef_for_all_units():
                     )
                     plt.savefig(
                         f'figs/paper/unit_chart_against_coef_{model_name}_{output_layer}'
-                        f'_sr{sampling_rate}_seed{random_seed}.pdf'
+                        f'_sr{sampling_rate}_seed{random_seed}.png'
                     )
                     plt.close()
                         
